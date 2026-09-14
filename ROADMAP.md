@@ -505,8 +505,13 @@ file, so today a pack is copy-paste. The shape to hold to: a prompt (or a
 judgment signature and the run snapshot; `freeze --bundle` carries it.
 Association with a persona stays a field with an enum drawn from the
 pack (declared AI outputs, ADR-033), and the routing that follows is
-`group/deliver` per branch. A pipeline item with its own short ADR, after
-M28.
+`group/deliver` per branch. **Folded into ADR-057 (2026-09-13):**
+`template: {file: <path>}` on any participant step, the loaded source in
+the signature and the run snapshot, the bundle carrying the file. What
+that packet declined and leaves here: a `variables:` value from a file (a
+constant merge value is a `text/compose` field instead), `{{ variables.*
+}}` inside a `text/*` template, filters beyond ADR-057's list, and a
+template file including another — none until a pack needs composition.
 
 ## A `via:` relation hop on a group source
 

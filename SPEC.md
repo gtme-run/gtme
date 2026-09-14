@@ -128,7 +128,9 @@ transport, the `listen` verb, a REPL, and MCP as a control-plane doorway.
   yaml.v3`. Any additional dependency MUST be recorded as a Decision in
   DECISIONS.md before use (per §12; see the existing dependency-addition
   entries for the ones already justified: the Anthropic SDK, `x/term`,
-  `x/net/publicsuffix`).
+  `x/net/publicsuffix`, and `github.com/osteele/liquid` — the `template:`
+  dialect, ADR-057, with its transitive `osteele/tuesday` and
+  `gopkg.in/yaml.v2`).
 - **Ledger:** SQLite, single file, default `~/.gtme/ledger.db`, overridable
   via `GTME_LEDGER` env var. MUST run in WAL mode.
 - **Wire format:** NDJSON (newline-delimited JSON) on stdin/stdout.
@@ -916,8 +918,9 @@ step MAY declare `of: <field>` — the value it is about (required on a
 review); the planner MUST validate it exactly as one more `uses:` entry,
 the runtime includes its current value in the record's input hash
 (ADR-039) and its `field_values.id` in the provenance of everything the
-step writes (`field_values.referent`, §3). A `human/*` step's `render:`
-fields are validated the same way. A `human/*` or `agent/*` step may sit
+step writes (`field_values.referent`, §3). A `human/*` step's `render.fields`,
+and every per-record `template:` reference (ADR-057), are validated the
+same way. A `human/*` or `agent/*` step may sit
 at any position; when a deliver step follows one, `gtme plan` prints one
 note — under cron this pipeline waits for a person — and names the
 pattern (§8: review into a group, send from the group).
@@ -1072,8 +1075,9 @@ At execution time, per step, per record:
   adapter call, no cost).
 - **Judgment cache (AI roles; ADR-039):** before dispatching a record to
   an AI step the runner MUST compute the step's *judgment signature* — a
-  hash over the adapter id, the model identifier, the operator prompt,
-  the output shape (declared or default provides) and the `uses:` list —
+  hash over the adapter id, the model identifier, the `template:` source
+  after loading plus the `config.*` values it references (ADR-057), the
+  output shape (declared or default provides) and the `uses:` list —
   and the record's *input hash* — a hash, as canonical sorted JSON, over
   the fields the judgment reads: the `uses:` fields when declared, else
   the projection minus the step's own provides and minus every field
@@ -1088,6 +1092,13 @@ At execution time, per step, per record:
   the clock itself needs); `respend: true` or
   `cache: 0d` disables it. A deferred step (ADR-038) cache-checks before
   it submits.
+- **Template scope (ADR-057):** the planner MUST parse every participant
+  step's `template:` (§9) and reject a parse error, an unknown tag or
+  filter (the dialect is §10 item 10), a `record.*` reference on an
+  `ai/*` step, a `record.*` reference on a `text/*`/`human/*`/`agent/*`
+  step naming a field outside `uses:` and `of:`, and a `config.*`
+  reference naming a key absent from the step's `with:`. A `{file:}` that
+  does not resolve relative to the pipeline file is a plan error.
 - **Projection:** the runner MUST build `fields` strictly from `needs`
   properties (or from `uses`, for AI steps that declare it).
 - **Filter verdicts** MUST be stored in `run_records.verdicts`; records with
@@ -1323,7 +1334,8 @@ gtme, which never prompts. Neither opens an adapter session.
 
 **At a terminal the run asks.** With `prompt: tty` (the default) and a
 TTY, a `human/*` step walks its records inside `gtme run`: the rendered
-record (`render:`, §9; default the `uses:` fields or the `of:` value),
+record (`template:` or `render.fields`, §9; default the `uses:` fields
+or the `of:` value),
 then the declared outputs as a menu or a field to fill — a filter takes
 pass/fail and a reason, a compose the declared fields, a review the
 declared labels — validated on the spot; Ctrl-C leaves the rest pending.
@@ -1610,7 +1622,8 @@ end-to-end with zero network calls.
 
 `gtme freeze --bundle DIR` produces a **campaign bundle**: a directory (or
 tarball) containing the pipeline YAML, every referenced binding at its
-exact version, AI prompt files, saved queries, the relevant registry
+exact version, every `template: {file:}` (ADR-057; bare `gtme freeze`
+inlines them instead), saved queries, the relevant registry
 slice, and a manifest — bundle format version, content hashes, source run
 id — per `spec/bundle-manifest.json`. (Bare `gtme freeze` keeps its
 existing job: the reconstructed `pipeline.yaml` on stdout.) Guarantees:
@@ -1647,7 +1660,7 @@ steps:
     use: ai/filter
     uses: [first_name, title, company_name]   # ADR-004; masked fields only — free (ADR-043)
     with:
-      prompt: >
+      template: >                            # ADR-057: string or {file: path}
         Keep only contacts likely to own outbound tooling decisions.
       batch_size: 25
 
@@ -1665,9 +1678,16 @@ steps:
     use: ai/compose
     uses: [recent_posts, role_history]
     with:
-      prompt: >
+      template: >
         Write first_line and ps_line using recent_posts and role_history.
       batch_size: 25
+
+  - id: subject             # ADR-057: a template renders a field, no model
+    use: text/compose
+    uses: [first_name, company_name]
+    provides: [subject]
+    with:
+      template: "{{ record.first_name | default: 'there' }}, a note for {{ record.company_name }}"
 
   - id: send              # ADR-031: a deliver adapter is an ordinary step
     use: instantly/add-to-campaign
@@ -1676,6 +1696,7 @@ steps:
     variables:            # ADR-018/019: egress mapping, and the step's dynamic needs
       first_line: first_line
       ps_line: ps_line
+      subject: subject
     idempotency: email
 ```
 
@@ -1697,16 +1718,21 @@ pipeline's terminus group takes that type. `use: sql/traverse` (§10a) is
 the runner-owned form: `with: {entity_type: <type>, query: <SQL>}`, the
 query yielding `identity_id` and `parent_id`. `uses:` (ADR-004) is a list of field names, valid only on steps whose
 adapter role is `filter`/`compose`/`review` (the participant roles,
-ADR-048: `ai/*`, `human/*`, `agent/*`); the planner validates it exactly
-as `needs.required` (§7). `provides:` (ADR-033) is likewise valid only on
+ADR-048: `ai/*`, `human/*`, `agent/*`, and `text/*`, ADR-057); the
+planner validates it exactly as `needs.required` (§7). `provides:` (ADR-033) is likewise valid only on
 those roles: the step's declared output fields, a list of names or a map
 of name → `{type, enum, canonical}` (§7); the planner rejects it
 elsewhere. `of: <field>` (ADR-048) is valid on compose and review steps
 and required on a review — the value the step is about, validated as
-`uses:`, recorded as the referent of everything the step writes. A
-`human/*` step MAY carry `render: {fields: [..], template: ".."}` and
-`prompt: tty | never` (default `tty`) in `with:` (§8, ADR-049); an
-`agent/*` step never prompts. `engine:` is not a key (ADR-050): its
+`uses:`, recorded as the referent of everything the step writes. Every
+participant step MAY carry `template:` in `with:` (ADR-057): a string or
+`{file: <path>}`, the path relative to the pipeline file, in the bounded
+Liquid dialect of §10 item 10; `config.*` names the step's own `with:`
+keys, `record.*` is valid only on per-record steps (`text/*`, `human/*`,
+`agent/*`) and only for `uses:`/`of:` fields (§7); `with.prompt` on an
+`ai/*` step is a plan error naming `template:`. A `human/*` step MAY
+carry `render: {fields: [..]}` and `prompt: tty | never` (default `tty`)
+in `with:` (§8, ADR-049); an `agent/*` step never prompts. `engine:` is not a key (ADR-050): its
 presence is a plan error. Deliver adapters are ordinary
 `steps:` entries (ADR-031): a pipeline MAY carry zero, one, or many, at
 any position — steps execute strictly in order, so a deliver step sends
@@ -1749,7 +1775,7 @@ steps:
     use: ai/filter
     exclude: [q3-qualified, q3-rejected]   # judgment memory: judge once per scope
     uses: [full_name, title]
-    with: { prompt: ... }
+    with: { template: ... }
 
 group: q3-qualified         # terminus: records completing the run are added
 
@@ -1888,7 +1914,8 @@ contract, pure YAML.
    delimiter and labelled in-band as subject-supplied data, the delimiter
    neutralised inside the body *before* wrapping (encode → neutralise →
    wrap) — default on, `fence: false` in config opts out; the operator
-   prompt precedes the records as a stated default, with the
+   prompt (the step's `template:` rendered over `config.*`, ADR-057)
+   precedes the records as a stated default, with the
    shared/payload split exposed so the order is A/B-able and a cache
    breakpoint can sit between them. AI steps hold no tools. The manifest is
    entity-agnostic (`"entity_type": "*"`, §6): the step's entity type is
@@ -1904,7 +1931,8 @@ contract, pure YAML.
    entity-agnosticism as item 3.
 3b. **`human/filter`, `human/compose`, `human/review`** and their
    **`agent/*`** aliases (ADR-049) — runner-owned; no protocol session, no
-   credentials, no cost of their own. Config: `render:` and `prompt:` (§9);
+   credentials, no cost of their own. Config: `template:` or
+   `render.fields`, and `prompt: tty | never` (§9, ADR-057);
    the declared outputs are the menu. Behaviour in §8 ("People and agents
    answer"). `agent/*` never prompts and records provenance under
    `agent/`.
@@ -1958,6 +1986,24 @@ built; ADR-055 defers it to ROADMAP.md. The event recipe is in §8.)
    zero-key path prints the top-up receipt — `cached`, `avoided` — on a
    persisting ledger (`examples/cache.yaml`), which `--simulate` cannot
    (ADR-028).
+10. **`text/compose`** (compose, entity-agnostic; ADR-057; queued as M30)
+   — runner-owned, the sibling of `human/compose`: no subprocess, no
+   session, no credential, no cost. Renders `template:` once per record
+   over `config.*` and `record.*` (the `uses:` and `of:` fields) and
+   writes the result as the one field `provides:` declares — `provides:`
+   is required and MUST name exactly one field; a render that is empty
+   after trimming writes nothing and the record continues. Emits RECORDs
+   only, never a VERDICT: a template shapes text and gates nothing. Runs
+   identically armed and under `--simulate`; never a simulation gap. A
+   field it writes counts as externally fetched for item 3's fence when
+   any field it `uses:` does. **The dialect**, shared by every
+   `template:` (ADR-057): Liquid objects `{{ … }}`; tags `if` / `elsif` /
+   `else` / `unless` / `case` / `when`, `for` (with `limit`, `offset`,
+   `reversed`), `comment`, `raw`; filters `default`, `truncate`,
+   `truncatewords`, `size`, `first`, `last`, `join`, `upcase`,
+   `downcase`, `capitalize`, `strip`, `date`. Nothing else — no
+   `assign`/`capture`/`increment`, no `include`/`render` — and an unknown
+   tag or filter is a plan error (§7).
 
 For Apollo/Harvest/Instantly: implement against their current public docs
 (fetch docs at build time via web access if available; otherwise implement
@@ -2070,9 +2116,10 @@ outputs are distinguishable in provenance, and COST attributes spend per
 model. A `human/*` or `agent/*` step (ADR-049) takes the same form with
 the participant in the model's place — `human/review @ trevor#<sig>`,
 `agent/filter @ claude-code#<sig>` — the signature over the step
-declaration alone (adapter id, `render:`, the declared outputs, `uses:`,
-`of:`), never the name: the cache is checked at dispatch, before anyone
-has answered. The `done` step event for an AI judgment carries `signature` and
+declaration alone (adapter id, `template:`/`render.fields`, the declared
+outputs, `uses:`, `of:`), never the name: the cache is checked at
+dispatch, before anyone has answered. A `text/compose` step (ADR-057)
+has nothing in the engine's place: `text/compose @ #<sig>`. The `done` step event for an AI judgment carries `signature` and
 `input` in its detail (§3) — the cache entry the runner reads back.
 
 ### `http/enrich` — generic fetch enricher (ADR-024; built in M11)
@@ -2489,6 +2536,39 @@ decided contract, not shipped behavior.
   shows `cached 3`, `avoided $0.0300`, no adapter call, and `0` out on
   the deliver step; a binding installed under `demo/anything` is refused
   by name.
+- **M30 — `template:` and `text/compose` (ADR-057; §2, §7, §8, §9, §10
+  items 3, 3b, 5, 10, §10a). Queued.** One loader (`string | {file:}`),
+  the bounded Liquid dialect behind `github.com/osteele/liquid`'s basic
+  engine with exactly the listed tags and filters registered, the
+  plan-time scope check, the signature over the loaded source plus
+  referenced config, `text/compose` as a runner-owned compose adapter,
+  transitive fencing, bare `freeze` inlining and `freeze --bundle`
+  packing template files. The rename `prompt:` → `template:` on `ai/*`
+  steps across `spec/schemas/pipeline.schema.json`, the AI adapter
+  config, the manifests, README, ADAPTERS.md, VALIDATION.md, the
+  examples, the bundles and the plugin skill. Acceptance, offline: an
+  `ai/filter` carrying `template: {file: judge.md}` plans, and the same
+  bytes inline yield the same signature; editing the file re-judges;
+  `{{ record.x }}` in that file fails plan naming the rule; `with.prompt`
+  on an `ai/*` step fails plan naming `template:`; a `text/compose` over
+  `uses: [first_name, recent_posts]` with `{% for p in
+  record.recent_posts limit:1 %}` and `| default:` renders the expected
+  field for three fixture records, writes nothing for the one that
+  renders empty, runs identically under `--simulate`, and a second run
+  reports `cached 3`; a template naming a field outside `uses:` fails
+  plan; `{% include %}` and an unlisted filter fail plan; `freeze
+  --bundle` packs the file by hash and the bundle simulates on a clean
+  ledger; bare `freeze` prints the template inline.
+- **M31 — one dialect (ADR-057). Queued after M30.** The binding request
+  templates (§10a), `human/*` `render:`, and the ADR-046 cost template
+  move to the M30 parser: the `{{a|b}}` fallback becomes `{{ a |
+  default: b }}` in the five built-in bindings, the typed-leaf rule (a
+  leaf that is exactly one placeholder substitutes the typed value) is
+  preserved, and the in-house substitution engine is deleted.
+  Acceptance, offline: every built-in binding's conformance fixtures
+  produce byte-identical requests before and after; a binding still
+  using the bare `|` fallback fails `adapters verify` naming the
+  rewrite.
 - **M28 — types and traverse (ADR-054; §3, §4, §4a, §5, §6, §7, §8, §9,
   §10a, §13). Built 2026-09-05 (changelog v0.43).** A type is a file: `spec/fields/*.json` gain
   `kind`, `identity` and per-field `reference`, §4 derivation reads the
@@ -2835,6 +2915,20 @@ no reconstruction required from raw table scans.
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.47 — 2026-09-13 (ADR-057 reconciliation: `template:` and `text/compose`; build queued as M30, M31)
+**Added:** §7 the template-scope check and the signature over the loaded
+source plus referenced config; §9 `template:` (string | `{file:}`) on
+every participant step, `with.prompt` retired as an `ai/*` text key; §10
+item 10, `text/compose` and the bounded Liquid dialect; §10a `text/compose
+@ #<sig>`; §11 M30 and M31; §2 `github.com/osteele/liquid`. **Changed:**
+§8 bundle wording (template files travel; bare `freeze` inlines) and the
+participants' surface; §9 the example (`template:`, a `text/compose`
+step) and the `uses:` roles; §10 items 3 and 3b say `template:`; §10a the
+participant signature names `template:`/`render.fields`. **Not
+changed:** nothing built — M30 and M31 are queued;
+`spec/schemas/pipeline.schema.json`, the manifests, examples and bundles
+ride the build.
 
 ### v0.46 — 2026-09-06 (ADR-056, `demo/enrich`; built as M29)
 **Added:** §10 item 9, `demo/enrich` — a built-in, priced, keyless,
