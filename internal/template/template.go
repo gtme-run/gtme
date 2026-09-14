@@ -20,6 +20,8 @@ import (
 	"sync"
 
 	"github.com/osteele/liquid"
+	"github.com/osteele/liquid/expressions"
+	"github.com/osteele/liquid/filters"
 	"github.com/osteele/liquid/render"
 )
 
@@ -35,6 +37,11 @@ const (
 	Batch Scope = iota
 	// Record renders once per record over config.* and record.*.
 	Record
+	// Binding is a request template leaf (SPEC §10a, M31): objects only —
+	// no block tags in a URL — over record.*, config.*, variables.* and
+	// session, none of them declared-list checked (the binding's needs
+	// and config_schema are its own contract).
+	Binding
 )
 
 // Tags is the closed tag set (SPEC §10 item 10). Clause tags (else, elsif,
@@ -110,6 +117,9 @@ type Checked struct {
 // template in one pass.
 func Check(source string, scope Scope, uses []string, of string, config map[string]any) (Checked, []string) {
 	var out Checked
+	if msg := retiredAlternatives(source); msg != "" {
+		return out, []string{msg}
+	}
 	tpl, err := eng().ParseString(source)
 	if err != nil {
 		return out, []string{"template: " + cleanErr(err)}
@@ -140,6 +150,30 @@ func Render(source string, config map[string]any, record map[string]any) (string
 	}
 	return out, nil
 }
+
+var (
+	exprOnce sync.Once
+	exprCfg  expressions.Config
+)
+
+// Eval evaluates one object expression — the inside of `{{ }}` — to a typed
+// value over vars, the way a binding's single-placeholder leaf substitutes
+// the typed value (SPEC §10a). The standard filters are registered; the
+// allowlist is Check's job, at verify time.
+func Eval(expr string, vars map[string]any) (any, error) {
+	exprOnce.Do(func() {
+		exprCfg = expressions.NewConfig()
+		filters.AddStandardFilters(&exprCfg)
+	})
+	v, err := expressions.EvaluateString(strings.TrimSpace(expr), expressions.NewContext(vars, exprCfg))
+	if err != nil {
+		return nil, fmt.Errorf("template: %s", cleanErr(err))
+	}
+	return v, nil
+}
+
+// Nest is nest, for callers that bind their own record.
+func Nest(fields map[string]any) map[string]any { return nest(fields) }
 
 // Config is the config.* a template sees: the step's own with:, minus the
 // template itself (SPEC §9).
@@ -220,8 +254,16 @@ func (s *scanner) walk(n render.Node, loops []string) {
 			s.walk(c, loops)
 		}
 	case *render.BlockNode:
+		if s.scope == Binding {
+			s.problem(fmt.Sprintf("template: {%% %s %%} — a request template is an object ({{ … }}), not a block (SPEC §10a)", t.Name))
+			return
+		}
 		s.block(t, loops)
 	case *render.TagNode:
+		if s.scope == Binding {
+			s.problem(fmt.Sprintf("template: {%% %s %%} — a request template is an object ({{ … }}), not a block (SPEC §10a)", t.Name))
+			return
+		}
 		if !Tags[t.Name] {
 			s.problem(fmt.Sprintf("template: {%% %s %%} is not in the dialect — the tags are if/elsif/else/unless/case/when, for, comment, raw (SPEC §10 item 10, ADR-057)", t.Name))
 			return
@@ -298,6 +340,12 @@ func (s *scanner) expr(src string, loops []string) {
 			if filterNext {
 				filterNext = false
 				name := chain[0]
+				if roots[name] {
+					// The retired `{{a|b}}` alternatives (M31): a variable in
+					// filter position is the old fallback, not a filter.
+					s.problem(fmt.Sprintf("template: `{{ a | %s }}` — alternatives are Liquid's default filter now: write `{{ a | default: %s }}` (ADR-057, M31)", strings.Join(chain, "."), strings.Join(chain, ".")))
+					continue
+				}
 				if !Filters[name] {
 					s.problem(fmt.Sprintf("template: filter %q is not in the dialect — the filters are %s (SPEC §10 item 10, ADR-057)", name, strings.Join(sortedKeys(Filters), ", ")))
 				}
@@ -315,6 +363,9 @@ func (s *scanner) expr(src string, loops []string) {
 	}
 }
 
+// roots are the binding namespaces (SPEC §10a).
+var roots = map[string]bool{"record": true, "config": true, "variables": true, "session": true}
+
 func (s *scanner) ref(chain []string, loops []string) {
 	root := chain[0]
 	if keywords[root] {
@@ -326,6 +377,12 @@ func (s *scanner) ref(chain []string, loops []string) {
 		}
 	}
 	path := strings.Join(chain[1:], ".")
+	if s.scope == Binding {
+		if !roots[root] {
+			s.problem(fmt.Sprintf("template: %q is not a variable here — a request template reads record.<field>, config.<key>, variables.<name> or session (SPEC §10a)", strings.Join(chain, ".")))
+		}
+		return
+	}
 	switch root {
 	case "config":
 		if path == "" {
@@ -427,6 +484,29 @@ func skipSpaces(src string, i int) int {
 		i++
 	}
 	return i
+}
+
+var (
+	objectRE      = regexp.MustCompile(`\{\{-?([^{}]*)-?\}\}`)
+	alternativeRE = regexp.MustCompile(`\|\s*(record|config|variables|session)(\.|\s*\||\s*$)`)
+)
+
+// retiredAlternatives spots the pre-M31 `{{a|b}}` fallback — a namespace
+// in filter position, which the parser would only call a syntax error —
+// and names the `| default:` rewrite (ADR-057, M31).
+func retiredAlternatives(source string) string {
+	for _, m := range objectRE.FindAllStringSubmatch(source, -1) {
+		expr := strings.TrimSpace(m[1])
+		if !alternativeRE.MatchString(expr) {
+			continue
+		}
+		parts := strings.Split(expr, "|")
+		for i := range parts {
+			parts[i] = strings.TrimSpace(parts[i])
+		}
+		return fmt.Sprintf("template: `{{ %s }}` — alternatives are Liquid's default filter now (ADR-057, M31): write `{{ %s }}`", expr, strings.Join(parts, " | default: "))
+	}
+	return ""
 }
 
 var errPrefix = regexp.MustCompile(`^Liquid error: `)

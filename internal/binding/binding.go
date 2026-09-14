@@ -15,6 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/gtme-run/gtme/internal/adapters"
+	"github.com/gtme-run/gtme/internal/template"
 	"github.com/gtme-run/gtme/spec"
 )
 
@@ -297,6 +298,63 @@ func (b *Binding) check() error {
 	}
 	if b.Pagination != nil && b.Pagination.Strategy == "cursor" && b.Pagination.CursorPath == "" {
 		return fmt.Errorf("binding: %s: cursor pagination needs cursor_path", b.ID)
+	}
+	if err := b.checkTemplates(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// checkTemplates applies the one dialect (ADR-057, M31) to every request
+// template leaf — url, query, headers, body, page_size, the cost rate: a
+// Liquid object over record/config/variables/session, the filter allowlist,
+// no block tags, and the retired `{{a|b}}` alternatives refused naming the
+// `| default:` rewrite. Runs at Parse, so `adapters verify` and every load
+// see it.
+func (b *Binding) checkTemplates() error {
+	var leaves []struct{ where, text string }
+	add := func(where, text string) {
+		if strings.Contains(text, "{{") || strings.Contains(text, "{%") {
+			leaves = append(leaves, struct{ where, text string }{where, text})
+		}
+	}
+	add("request.url", b.Request.URL)
+	for k, v := range b.Request.Query {
+		add("request.query."+k, v)
+	}
+	for k, v := range b.Request.Headers {
+		add("request.headers."+k, v)
+	}
+	var walk func(where string, v any)
+	walk = func(where string, v any) {
+		switch t := v.(type) {
+		case string:
+			add(where, t)
+		case map[string]any:
+			for k, item := range t {
+				walk(where+"."+k, item)
+			}
+		case []any:
+			for i, item := range t {
+				walk(fmt.Sprintf("%s[%d]", where, i), item)
+			}
+		}
+	}
+	walk("request.body", b.Request.Body)
+	if b.Pagination != nil {
+		if t, ok := b.Pagination.PageSize.(string); ok {
+			add("pagination.page_size", t)
+		}
+	}
+	if b.Cost != nil {
+		if t, ok := b.Cost.Template(); ok {
+			add("cost.amount_usd", t)
+		}
+	}
+	for _, leaf := range leaves {
+		if _, problems := template.Check(leaf.text, template.Binding, nil, "", nil); len(problems) > 0 {
+			return fmt.Errorf("binding: %s: %s: %s", b.ID, leaf.where, problems[0])
+		}
 	}
 	return nil
 }

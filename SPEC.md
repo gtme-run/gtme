@@ -2559,7 +2559,7 @@ decided contract, not shipped behavior.
   plan; `{% include %}` and an unlisted filter fail plan; `freeze
   --bundle` packs the file by hash and the bundle simulates on a clean
   ledger; bare `freeze` prints the template inline.
-- **M31 — one dialect (ADR-057). Queued after M30.** The binding request
+- **M31 — one dialect (ADR-057). Built 2026-09-13 (changelog v0.49).** The binding request
   templates (§10a), `human/*` `render:`, and the ADR-046 cost template
   move to the M30 parser: the `{{a|b}}` fallback becomes `{{ a |
   default: b }}` in the five built-in bindings, the typed-leaf rule (a
@@ -2915,6 +2915,24 @@ no reconstruction required from raw table scans.
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.49 — 2026-09-13 (M31 build: one dialect, built)
+**Changed:** §11 M31 marked built; no normative text changed — v0.47's
+contract is shipped behaviour, covered by M31's acceptance. Behavioural
+notes from the build: a binding leaf is a Liquid *object* in the shared
+dialect (`{{ … }}` with the filter allowlist) and never a block, so
+`{% if %}` in a request template fails verify as much as an unlisted
+filter does; the typed-leaf and omitempty rules are unchanged (a leaf
+that is exactly one placeholder substitutes the typed value, a leaf any
+of whose placeholders is empty is omitted); the retired `{{a|b}}`
+alternatives are caught before the parser (which would only say "syntax
+error") and refused naming the `| default:` rewrite, at `Parse`, so
+`adapters verify`, `adapters add` and every load see it; the five
+built-in bindings' conformance fixtures produce byte-identical requests
+(the harvest URL was the one rewrite); `render.template` was already
+refused in M30, so this milestone's `render:` half was the parser move;
+`cost.amount_usd` evaluates through the same object evaluator.
+`spec/binding-schema.json`'s templating description follows.
 
 ### v0.48 — 2026-09-13 (M30 build: `template:` and `text/compose`, built)
 **Changed:** §11 M30 marked built; §10 item 10 marked built; no normative

@@ -2745,6 +2745,41 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-13 — M31 internals: the binding tier on the one dialect (ADR-057)
+
+**Question:** How does the binding engine keep its typed-leaf, omitempty
+and `$variables` splice rules on a Liquid parser, and where is the retired
+`{{a|b}}` fallback caught?
+**Choice:** (1) `internal/template` gains a `Binding` scope for `Check`
+(record/config/variables/session allowed without a declared list; block
+tags refused — a request template is an object) and an `Eval` that
+evaluates one object expression to a typed value with the standard
+filters registered (the allowlist is `Check`'s job at verify, as for
+`Render`). (2) `binding.tmplContext` keeps its API — `resolveValue`,
+`resolveString`, `renderString`, `resolveBody`, the splice — and swaps
+`lookup` for `template.Eval` over the four namespaces, the record nested
+as well as flat; the in-house `lookupOne`/alternatives resolver is
+deleted. The placeholder regex stays only to find `{{ }}` spans, which
+is what preserves the rules: one span alone → typed; any empty span →
+the leaf is omitted. `collectVariableRefs` finds `variables.<name>` by a
+word regex inside each span, so `| default: variables.x` still excludes
+`x` from the splice. (3) `Binding.check` walks url, query, headers, body,
+`page_size` and `cost.amount_usd` through `Check`, so `Parse` — hence
+`adapters verify`, `adapters add` and every load — refuses the first
+problem naming the leaf. (4) The bare fallback is a namespace in filter
+position, which the parser calls a syntax error; `retiredAlternatives`
+matches it before parsing and prints the rewrite with every alternative
+turned into `| default:`. (5) Harvest is the one built-in rewrite;
+`spec/binding-schema.json`'s description drops "no expression language
+may ever grow in here" for the dialect sentence — the boundedness moved
+from "substitution only" to "the closed dialect, objects only".
+**Why:** `make check` green; the binding unit tests cover typed leaves,
+omission, chained `default`, namespaced fields and the splice; the
+verify e2e proves a stale binding fails naming leaf and rewrite; the
+existing conformance, twin and bundle tests prove the built-ins' requests
+are byte-identical.
+**Spec impact:** None beyond v0.47 (marked built as v0.49).
+
 ### 2026-09-13 — M30 internals: `template:` and `text/compose` (ADR-057)
 
 **Question:** Where does a template file get read, how does the closed

@@ -322,3 +322,19 @@ steps:
 		t.Fatalf("tampered template: exit = %d\nstderr:\n%s", res.code, res.stderr)
 	}
 }
+
+// M31 (SPEC §11, ADR-057): the binding tier on the same parser. A binding
+// still written with the bare `|` alternatives fails verify naming the
+// `| default:` rewrite; one written in the dialect verifies.
+func TestAdaptersVerifyRefusesTheRetiredAlternatives(t *testing.T) {
+	h := newHarness(t)
+	old := strings.Replace(ratedLookupBinding, `email: "{{record.email}}"`, `email: "{{record.email|record.work_email}}"`, 1)
+	old = strings.Replace(old, "id: rated/lookup", "id: stale/lookup", 1)
+	h.writeBindingYAML("stale/lookup", old)
+	res := h.run("adapters", "verify", "stale/lookup")
+	if res.code != 2 {
+		t.Fatalf("verify exit = %d, want 2\nstderr:\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "request.query.email", "the refusal names the leaf")
+	contains(t, res.stderr, "default: record.work_email", "the refusal names the rewrite")
+}

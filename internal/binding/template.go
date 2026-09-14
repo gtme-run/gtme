@@ -5,11 +5,17 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/gtme-run/gtme/internal/template"
 )
 
 // tmplContext is everything a template may draw from (SPEC §10a): step config,
 // the record's projected canonical fields, the resolved deliver variables, and
-// the session id. Nothing else — no expressions, no computation.
+// the session id. Since M31 (ADR-057) a leaf is a Liquid object in the one
+// dialect every `{{ }}` in gtme shares — `{{ record.linkedin_url | default:
+// record.linkedin_internal_url }}` — evaluated by internal/template; the
+// engine keeps the typed-leaf and omitempty rules, and verify keeps the
+// filter allowlist and refuses the retired `{{a|b}}` alternatives.
 type tmplContext struct {
 	Config    map[string]any
 	Record    map[string]any
@@ -18,6 +24,28 @@ type tmplContext struct {
 }
 
 var placeholderRE = regexp.MustCompile(`\{\{([^{}]+)\}\}`)
+
+// vars binds the four namespaces for evaluation; a namespaced record field
+// reads nested as well as flat (internal/template.Nest).
+func (c tmplContext) vars() map[string]any {
+	vars := map[string]any{"session": c.Session}
+	if c.Config != nil {
+		vars["config"] = c.Config
+	} else {
+		vars["config"] = map[string]any{}
+	}
+	if c.Record != nil {
+		vars["record"] = template.Nest(c.Record)
+	} else {
+		vars["record"] = map[string]any{}
+	}
+	variables := map[string]any{}
+	for k, v := range c.Variables {
+		variables[k] = v
+	}
+	vars["variables"] = variables
+	return vars
+}
 
 // resolveValue resolves one template leaf. A leaf that is exactly one
 // placeholder substitutes the typed value; otherwise placeholders interpolate
@@ -84,38 +112,15 @@ func (c tmplContext) resolveString(s string) (any, bool) {
 	return out, true
 }
 
-// lookup resolves a placeholder expression: 'scope.name' with '|'-separated
-// alternatives, first non-empty wins.
+// lookup evaluates one placeholder expression to a typed value; an
+// expression that fails to evaluate (verify already checked the dialect,
+// so this is a runtime filter error) resolves empty, which omits the leaf.
 func (c tmplContext) lookup(expr string) any {
-	for _, alt := range strings.Split(expr, "|") {
-		if v := c.lookupOne(strings.TrimSpace(alt)); !isEmpty(v) {
-			return v
-		}
+	v, err := template.Eval(expr, c.vars())
+	if err != nil {
+		return nil
 	}
-	return nil
-}
-
-func (c tmplContext) lookupOne(ref string) any {
-	scope, rest, found := strings.Cut(ref, ".")
-	switch scope {
-	case "session":
-		return c.Session
-	case "config":
-		if found {
-			return c.Config[rest]
-		}
-	case "record":
-		if found {
-			return c.Record[rest]
-		}
-	case "variables":
-		if found {
-			if v, ok := c.Variables[rest]; ok {
-				return v
-			}
-		}
-	}
-	return nil
+	return v
 }
 
 // resolveString1 renders a template to a plain string (URL, query params).
@@ -188,17 +193,17 @@ func (c tmplContext) resolveWithSplice(v any, consumed map[string]bool) (any, bo
 	return out, true
 }
 
-// collectVariableRefs finds every 'variables.<name>' placeholder in a body
+var variableRefRE = regexp.MustCompile(`\bvariables\.([A-Za-z0-9_\-]+)`)
+
+// collectVariableRefs finds every 'variables.<name>' reference in a body
 // template, so the '$variables' splice excludes individually-routed variables
 // (the declarative form of first-class-field routing).
 func collectVariableRefs(v any, into map[string]bool) {
 	switch t := v.(type) {
 	case string:
 		for _, m := range placeholderRE.FindAllStringSubmatch(t, -1) {
-			for _, alt := range strings.Split(m[1], "|") {
-				if name, ok := strings.CutPrefix(strings.TrimSpace(alt), "variables."); ok {
-					into[name] = true
-				}
+			for _, ref := range variableRefRE.FindAllStringSubmatch(m[1], -1) {
+				into[ref[1]] = true
 			}
 		}
 	case map[string]any:

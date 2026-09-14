@@ -81,8 +81,8 @@ config_schema:                # what `with:` accepts, validated at plan time
     base_url: { type: string, default: "https://jsonplaceholder.typicode.com" }
 
 request:                      # templated from config + (for enrich/deliver)
-  method: GET                 # the record's own fields: {{record.email}} etc.
-  url: "{{config.base_url}}/users"
+  method: GET                 # the record's own fields: {{record.email}} etc.;
+  url: "{{config.base_url}}/users"   # the one dialect (ADR-057): {{ a | default: b }} is the fallback
 
 extract:                      # response → canonical records
   records: "."                # dotted path to the record array
