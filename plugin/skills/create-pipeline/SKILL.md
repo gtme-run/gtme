@@ -70,7 +70,30 @@ Rules of thumb the plan will not tell you:
   payload); a `text/compose`, `human/*` or `agent/*` template also reads
   `record.<field>` for its `uses:` fields. Render the deterministic half
   of personalisation with `text/compose` (one field, no model, no cost)
-  and spend the model on judgment.
+  and spend the model on judgment. The shape, with the dialect's three
+  moves — a conditional, a capped loop, a default:
+
+  ```yaml
+    - id: note
+      use: text/compose
+      uses: [first_name, welcome.segment, welcome.hooks]   # welcome.* came from an earlier step's provides:
+      provides: [note]
+      with:
+        product: gtme                                     # any with: key the template reads is config.<key>
+        template: |
+          {%- if record.welcome.segment == "engineer" -%}
+          {{ record.first_name | default: "Hi there" }} — {{ config.product }} has a CLI.
+          {%- else -%}
+          {{ record.first_name | default: "Hi there" }}, see{% for h in record.welcome.hooks limit:2 %} {{ h }}{% endfor %}.
+          {%- endif -%}
+  ```
+
+  Tags: `if`/`elsif`/`else`/`unless`/`case`, `for` with `limit`. Filters:
+  `default`, `truncate`, `size`, `first`, `last`, `join`, `upcase`,
+  `downcase`, `capitalize`, `strip`, `date`. Nothing else; plan names
+  anything outside the dialect or outside `uses:`. `template: {file:
+  persona.md}` loads the text from beside the pipeline — the full example
+  is `persona-file-and-text-compose` in `gtme help --agent`.
 - A model step needs `ANTHROPIC_API_KEY` armed even though plan lists it
   as optional. Say which keys the human will set, by name only.
 

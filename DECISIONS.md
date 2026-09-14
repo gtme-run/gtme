@@ -2745,6 +2745,25 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-14 — `help --agent` examples carry their template files
+
+**Question:** How does an agent-help example show `template: {file: …}`
+when the e2e plans every example from the YAML alone?
+**Choice:** `agentExample` gains `files` (path → contents, omitted when
+empty): the sidecars an example references beside its pipeline. The
+e2e writes them before planning; an agent reading the document can do
+the same. Additive to the help JSON, so nothing that reads it breaks.
+The fifth example, `persona-file-and-text-compose`, is the ADR-057
+surface end to end — a persona file over `config.*` feeding `ai/compose`,
+a per-record file with a conditional, a capped loop and `| default:`
+rendered by `text/compose`, a deliver reading the result. The
+participants note now says a text step runs for real under
+`--simulate`; the create-pipeline skill shows the shape.
+**Why:** the help had the rules (one note, per-adapter descriptions) and
+no worked example of the dialect; an agent writing its first conditional
+had a tag list to infer from.
+**Spec impact:** None (§8's help surface is additive).
+
 ### 2026-09-13 — M31 internals: the binding tier on the one dialect (ADR-057)
 
 **Question:** How does the binding engine keep its typed-leaf, omitempty
