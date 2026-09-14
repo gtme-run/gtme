@@ -77,61 +77,68 @@ func (r *runner) runTextStep(ctx context.Context, st *planner.Step, work []*item
 // textFetched applies ADR-035's fence transitively (ADR-057): a field a
 // text/* step wrote counts as externally fetched when any field that step
 // read does. The writing step is found in this plan by the signature its
-// provenance carries; a field written by a text step of another pipeline
-// cannot be traced and counts as fetched — the safe reading. Iterates to a
-// fixed point, since a text step may read another's output.
-func (r *runner) textFetched(fetched []string, rec ledger.Record) []string {
-	set := map[string]bool{}
+// provenance carries; what it read is projected from the ledger — the
+// judging step's own projection holds only its uses:, never the page the
+// text step read — and judged the same way, so a text step reading another
+// text step's output is followed too (to a bounded depth). A text value
+// whose step is not in this plan cannot be traced and counts as fetched —
+// the safe reading.
+func (r *runner) textFetched(ctx context.Context, identityID string, fetched []string, rec ledger.Record) ([]string, error) {
+	out := append([]string(nil), fetched...)
+	seen := map[string]bool{}
 	for _, f := range fetched {
-		set[f] = true
+		seen[f] = true
 	}
-	type textValue struct {
-		name string
-		sig  string
-	}
-	var candidates []textValue
 	for name, v := range rec.Values {
-		if set[name] {
+		if seen[name] || !strings.HasPrefix(strings.TrimSpace(v.Source), "text/") {
 			continue
 		}
-		src := strings.TrimSpace(v.Source)
-		if !strings.HasPrefix(src, "text/") {
-			continue
+		tainted, err := r.textValueFetched(ctx, identityID, v, 0)
+		if err != nil {
+			return nil, err
 		}
-		_, sig, _ := strings.Cut(src, "#")
-		candidates = append(candidates, textValue{name: name, sig: sig})
-	}
-	if len(candidates) == 0 {
-		return fetched
-	}
-	for changed := true; changed; {
-		changed = false
-		for _, c := range candidates {
-			if set[c.name] {
-				continue
-			}
-			st := r.textStepBySignature(c.sig)
-			if st == nil {
-				set[c.name] = true
-				changed = true
-				continue
-			}
-			for _, read := range append(append([]string(nil), st.Uses...), st.Of) {
-				if read != "" && set[read] {
-					set[c.name] = true
-					changed = true
-					break
-				}
-			}
+		if tainted {
+			out = append(out, name)
 		}
 	}
-	out := make([]string, 0, len(set))
-	for _, c := range candidates {
-		if set[c.name] {
-			out = append(out, c.name)
+	return out, nil
+}
+
+// maxTextDepth bounds the chain of text steps the taint is followed through.
+const maxTextDepth = 8
+
+// textValueFetched reports whether a text/* value was rendered from any
+// externally fetched input.
+func (r *runner) textValueFetched(ctx context.Context, identityID string, v ledger.Value, depth int) (bool, error) {
+	_, sig, _ := strings.Cut(strings.TrimSpace(v.Source), "#")
+	st := r.textStepBySignature(sig)
+	if st == nil || depth >= maxTextDepth {
+		return true, nil
+	}
+	reads := append([]string(nil), st.Uses...)
+	if st.Of != "" {
+		reads = append(reads, st.Of)
+	}
+	if len(reads) == 0 {
+		return false, nil
+	}
+	inputs, err := r.l.Project(ctx, identityID, ledger.Projection{Fields: reads})
+	if err != nil {
+		return false, err
+	}
+	for _, in := range inputs.Values {
+		src := strings.TrimSpace(in.Source)
+		if r.fetchedSource(src) {
+			return true, nil
+		}
+		if strings.HasPrefix(src, "text/") {
+			tainted, err := r.textValueFetched(ctx, identityID, in, depth+1)
+			if err != nil || tainted {
+				return tainted, err
+			}
 		}
 	}
-	return append(fetched, out...)
+	return false, nil
 }
 
 // textStepBySignature finds this plan's text/* step with a signature.

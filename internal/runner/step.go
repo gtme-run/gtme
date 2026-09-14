@@ -372,7 +372,11 @@ func (r *runner) prepare(ctx context.Context, st *planner.Step, identityID, toke
 				it.fetched = append(it.fetched, name)
 			}
 		}
-		it.fetched = r.textFetched(it.fetched, rec)
+		tainted, err := r.textFetched(ctx, identityID, it.fetched, rec)
+		if err != nil {
+			return nil, err
+		}
+		it.fetched = tainted
 		// The referent (ADR-048): a review or edit of a value the record
 		// does not have is a failed record, not a judgment about nothing.
 		if st.Of != "" {

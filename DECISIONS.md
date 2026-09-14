@@ -2817,10 +2817,13 @@ for every participant; `prompt` and `render.template` leave it. An
 `ai/*` template renders once in `runner.New` over `config.*` and rides
 to the adapter under the same key, so the adapter's config struct just
 renamed its field. (6) Fence transitivity: `runner.textFetched` finds a
-value whose provenance starts `text/` and marks it fetched when the plan
-step with that signature `uses:` (or `of:`) a fetched field, iterating to
-a fixed point; a text value whose step is not in this plan counts as
-fetched — the safe reading. (7) `github.com/osteele/liquid` v1 is the
+value whose provenance starts `text/`, locates the plan step by the
+signature it carries, and projects that step's `uses:`/`of:` from the
+ledger to judge them — the judging step's own projection holds only its
+`uses:`, never the page the text step read, which the first cut of this
+missed and the fencing e2e caught; a text input is followed the same way
+to a bounded depth; a text value whose step is not in this plan counts
+as fetched — the safe reading. (7) `github.com/osteele/liquid` v1 is the
 dependency (ADR-057 (8)); its `tool` directive brings golangci-lint into
 go.sum and nothing into the binary.
 **Why:** `make check` green; the three e2e tests prove the §11 M30
