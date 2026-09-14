@@ -27,7 +27,7 @@ steps:
     use: ai/filter
     uses: [first_name, title, company_name]   # masked fields only — free (ADR-043)
     with:
-      prompt: >
+      template: >
         Keep only contacts likely to own outbound tooling decisions.
       batch_size: 25
 
@@ -48,7 +48,7 @@ steps:
     when: icp-filter.passed
     uses: [recent_posts, role_history]
     with:
-      prompt: >
+      template: >
         Write first_line and ps_line using recent_posts and role_history.
         first_line references something specific and recent; ps_line is one
         short, low-pressure sentence. No flattery, no exclamation marks.

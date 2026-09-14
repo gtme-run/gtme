@@ -67,7 +67,7 @@ request:
   method: GET
   url: "{{config.base_url}}/linkedin/profile"
   query:
-    url: "{{record.linkedin_url|record.linkedin_internal_url|record.linkedin_sales_nav_url}}"
+    url: "{{ record.linkedin_url | default: record.linkedin_internal_url | default: record.linkedin_sales_nav_url }}"
     main: "{{config.main_only}}"
 
 extract:

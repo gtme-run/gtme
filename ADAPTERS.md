@@ -81,8 +81,8 @@ config_schema:                # what `with:` accepts, validated at plan time
     base_url: { type: string, default: "https://jsonplaceholder.typicode.com" }
 
 request:                      # templated from config + (for enrich/deliver)
-  method: GET                 # the record's own fields: {{record.email}} etc.
-  url: "{{config.base_url}}/users"
+  method: GET                 # the record's own fields: {{record.email}} etc.;
+  url: "{{config.base_url}}/users"   # the one dialect (ADR-057): {{ a | default: b }} is the fallback
 
 extract:                      # response → canonical records
   records: "."                # dotted path to the record array
@@ -313,7 +313,11 @@ append like any adapter output, provenance `sql/transform @ <query-hash>`.
 
 Batches records into one model call (default 25/batch) and returns
 per-record verdicts with reasons — which land in the ledger, so prompt
-tuning is a SQL query over what the model actually decided. Declare the
+tuning is a SQL query over what the model actually decided. The prompt
+is `template:` (ADR-057) — a string or `{file: path}`, rendered once
+over `config.*` (the step's own `with:` keys, so a persona lives in a
+file and a pipeline names it); records never enter the text, they arrive
+as the fenced payload, so `record.*` there is a plan error. Declare the
 fields the prompt reads with `uses:`; they're plan-checked. The engine
 is the Anthropic Messages API (ADR-050: there is no `engine:` key — an
 `agent/*` step is how an agent answers instead), model overridable per
@@ -330,7 +334,7 @@ A filter MAY also declare output fields with a step-level `provides:`
       state: {enum: [now, later]}
       rationale: {}
     with:
-      prompt: Decide when to work each contact, and why.
+      template: Decide when to work each contact, and why.
 ```
 
 The required output shape in the prompt is generated from that schema;
@@ -418,6 +422,42 @@ validated against the schema with one retry on malformed output. `uses:`
 declares what the prompt may reference — including fields `http/enrich`
 fetched, which is how compose gets grounded in a prospect's actual
 website.
+
+### `text/compose`
+
+The template renderer (ADR-057): a compose with no model and no one
+behind it. `template:` is rendered once per record over `record.*` (the
+`uses:`/`of:` fields; a namespaced field reads as `record.ns.name`) and
+`config.*` (the step's own `with:` keys), and the result is the one field
+`provides:` declares. Deterministic, free, no credential; runs identically
+under `--simulate`; cached like any judgment (an unchanged record under an
+unchanged template is skipped); provenance `text/compose @ #<sig>`. A
+render that is empty after trimming writes nothing and the record
+continues — a later step's `needs` decide what that means.
+
+```yaml
+  - id: subject
+    use: text/compose
+    uses: [first_name, company_name, recent_posts]
+    provides: [subject]
+    with:
+      template: |
+        {{ record.first_name | default: "there" }}, a note for {{ record.company_name }}
+        {%- for post in record.recent_posts limit:1 %} — saw "{{ post | truncate: 40 }}"{% endfor %}
+```
+
+The dialect is a bounded Liquid, shared by every `template:` in gtme:
+`if`/`elsif`/`else`/`unless`/`case`/`when`, `for` (with `limit`,
+`offset`, `reversed`), `comment`, `raw`; filters `default`, `truncate`,
+`truncatewords`, `size`, `first`, `last`, `join`, `upcase`, `downcase`,
+`capitalize`, `strip`, `date`. Nothing else — no `assign`, no `include`
+— and the planner refuses an unknown tag or filter, a `record.*` field
+outside `uses:`, or a `config.*` key absent from `with:`. A template
+shapes text and gates nothing: a comparison that encodes judgment ("is
+this a large account") belongs upstream as a labelled field from a
+review, which the template then tests. `template: {file: path}` loads
+the text from a file beside the pipeline — its bytes join the judgment
+signature and travel in a bundle.
 
 ## Deliverers
 

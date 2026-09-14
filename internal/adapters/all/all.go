@@ -17,6 +17,7 @@ import (
 	_ "github.com/gtme-run/gtme/internal/adapters/harvest"
 	_ "github.com/gtme-run/gtme/internal/adapters/instantly"
 	_ "github.com/gtme-run/gtme/internal/adapters/participants"
+	_ "github.com/gtme-run/gtme/internal/adapters/textsteps"
 )
 
 func init() {

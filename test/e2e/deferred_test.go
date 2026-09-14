@@ -22,7 +22,7 @@ steps:
     uses: [title]
     exclude: [judged]
     with:
-      prompt: Keep decision makers.
+      template: Keep decision makers.
       deferred: true
 group: judged
 `
@@ -162,7 +162,7 @@ steps:
   - id: judge
     use: ai/filter
     with:
-      prompt: Judge.
+      template: Judge.
       deferred: true
   - id: send
     use: mock/deliver
@@ -186,7 +186,7 @@ steps:
   - id: judge
     use: ai/filter
     with:
-      prompt: Judge.
+      template: Judge.
       deferred: true
 `)
 	plan := h.mustRun("plan", "cc.yaml")
@@ -206,7 +206,7 @@ steps:
   - id: judge
     use: ai/filter
     with:
-      prompt: Judge.
+      template: Judge.
       engine: claude-code
 `)
 	eng := h.run("plan", "engine.yaml")

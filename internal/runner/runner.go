@@ -25,6 +25,7 @@ import (
 	"github.com/gtme-run/gtme/internal/planner"
 	"github.com/gtme-run/gtme/internal/protocol"
 	"github.com/gtme-run/gtme/internal/registry"
+	"github.com/gtme-run/gtme/internal/template"
 )
 
 // DefaultConcurrency is the per-step worker pool size (SPEC §9).
@@ -215,7 +216,10 @@ type runner struct {
 	fetchedCache map[string]bool
 	// signatures memoizes each AI step's judgment signature (ADR-039).
 	signatures map[string]string
-	now        func() time.Time
+	// rendered holds each ai/* step's template rendered over config.*
+	// (ADR-057) — the shared block its sessions open with; computed once.
+	rendered map[string]string
+	now      func() time.Time
 	// out is the downstream NDJSON stream in pipe mode, nil for `gtme run`.
 	out *protocol.Writer
 
@@ -254,10 +258,22 @@ func Execute(ctx context.Context, o Options) (*Result, error) {
 		deliverSteps: map[string]bool{},
 		fetchedCache: map[string]bool{},
 		signatures:   map[string]string{},
+		rendered:     map[string]string{},
 		now:          time.Now,
 		stats:        map[string]*StepStat{},
 	}
 	for i := range o.Plan.Steps {
+		st := &o.Plan.Steps[i]
+		// A batch step's template renders once, here, over config.* alone
+		// (ADR-057): plan checked the dialect and the scope, so what is
+		// left is a runtime filter error — surfaced before anything runs.
+		if isAIStep(st) && st.Template != "" {
+			text, err := template.Render(st.Template, template.Config(st.Config), nil)
+			if err != nil {
+				return nil, fmt.Errorf("runner: %s: %w", st.ID, err)
+			}
+			r.rendered[st.ID] = text
+		}
 		if o.Plan.Steps[i].IsDeliver {
 			r.deliverSteps[o.Plan.Steps[i].ID] = true
 		}
@@ -571,10 +587,15 @@ func (r *runner) openMessage(st *planner.Step, items []*item) protocol.Message {
 	}
 	fetched := fetchedFields(items)
 	traverseLimit := st.IsTraverse && st.Limit > 0
-	if len(st.Variables) > 0 || len(st.AIProvides) > 0 || len(fetched) > 0 || st.Of != "" || traverseLimit {
+	rendered, hasTemplate := r.rendered[st.ID]
+	if len(st.Variables) > 0 || len(st.AIProvides) > 0 || len(fetched) > 0 || st.Of != "" || traverseLimit || hasTemplate {
 		config = make(map[string]any, len(st.Config)+4)
 		for k, v := range st.Config {
 			config[k] = v
+		}
+		if hasTemplate {
+			// The adapter receives text, never a template (ADR-057).
+			config[template.Key] = rendered
 		}
 		if traverseLimit {
 			// The step-level cap on children per parent (SPEC §9, ADR-054),
@@ -1045,6 +1066,10 @@ func (r *runner) source(st *planner.Step) string {
 		// The judgment signature rides in provenance (SPEC §10a, ADR-039):
 		// two prompts' outputs stay distinguishable.
 		return st.Manifest.ID + " @ " + ai.ProvenanceModel(model, getenv) + "#" + r.judgmentSignature(st)
+	}
+	if st.IsText() {
+		// Nothing in the engine's place (SPEC §10a, ADR-057).
+		return st.Manifest.ID + " @ #" + r.judgmentSignature(st)
 	}
 	return st.Manifest.Source()
 }

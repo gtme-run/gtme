@@ -26,7 +26,7 @@ steps:
     use: ai/filter
     uses: [full_name, title, company_domain]
     with:
-      prompt: >
+      template: >
         Keep people who plausibly own outbound tooling decisions.
 
   - id: lines
@@ -34,7 +34,7 @@ steps:
     when: fit.passed
     uses: [full_name, title, company_domain]
     with:
-      prompt: >
+      template: >
         Write first_line and ps_line for a short, honest intro email.
 
   - id: out                     # a deliver step to a local CSV: universal output, and the review artifact

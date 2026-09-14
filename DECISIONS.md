@@ -2745,6 +2745,99 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-13 — M31 internals: the binding tier on the one dialect (ADR-057)
+
+**Question:** How does the binding engine keep its typed-leaf, omitempty
+and `$variables` splice rules on a Liquid parser, and where is the retired
+`{{a|b}}` fallback caught?
+**Choice:** (1) `internal/template` gains a `Binding` scope for `Check`
+(record/config/variables/session allowed without a declared list; block
+tags refused — a request template is an object) and an `Eval` that
+evaluates one object expression to a typed value with the standard
+filters registered (the allowlist is `Check`'s job at verify, as for
+`Render`). (2) `binding.tmplContext` keeps its API — `resolveValue`,
+`resolveString`, `renderString`, `resolveBody`, the splice — and swaps
+`lookup` for `template.Eval` over the four namespaces, the record nested
+as well as flat; the in-house `lookupOne`/alternatives resolver is
+deleted. The placeholder regex stays only to find `{{ }}` spans, which
+is what preserves the rules: one span alone → typed; any empty span →
+the leaf is omitted. `collectVariableRefs` finds `variables.<name>` by a
+word regex inside each span, so `| default: variables.x` still excludes
+`x` from the splice. (3) `Binding.check` walks url, query, headers, body,
+`page_size` and `cost.amount_usd` through `Check`, so `Parse` — hence
+`adapters verify`, `adapters add` and every load — refuses the first
+problem naming the leaf. (4) The bare fallback is a namespace in filter
+position, which the parser calls a syntax error; `retiredAlternatives`
+matches it before parsing and prints the rewrite with every alternative
+turned into `| default:`. (5) Harvest is the one built-in rewrite;
+`spec/binding-schema.json`'s description drops "no expression language
+may ever grow in here" for the dialect sentence — the boundedness moved
+from "substitution only" to "the closed dialect, objects only".
+**Why:** `make check` green; the binding unit tests cover typed leaves,
+omission, chained `default`, namespaced fields and the splice; the
+verify e2e proves a stale binding fails naming leaf and rewrite; the
+existing conformance, twin and bundle tests prove the built-ins' requests
+are byte-identical.
+**Spec impact:** None beyond v0.47 (marked built as v0.49).
+
+### 2026-09-13 — M30 internals: `template:` and `text/compose` (ADR-057)
+
+**Question:** Where does a template file get read, how does the closed
+adapter config schema admit the keys a template references, how is the
+dialect bounded when the library ships the whole language, and how does a
+`text/*` output inherit the fence?
+**Choice:** (1) `pipeline.Load` resolves `{file: <path>}` relative to the
+pipeline file into `With["template"]` and keeps the reference in
+`Step.TemplateFile` (`yaml:"-"`, `json:"template_file"`): the planner,
+the runner and `runs.config_json` see the source; bare `freeze` marshals
+YAML and so inlines; `freeze --bundle` reads the reference back from the
+snapshot, packs the bytes under `templates/<base>` (`<step>-<base>` on
+a same-name, different-bytes collision) and points the bundled pipeline
+at it, so a bundle run loads it from inside. (2) One package,
+`internal/template`: `Load`, `Check`, `Render`. The dialect is enforced
+by `Check` walking the parsed render tree — tag names against the closed
+set, filter names and variable chains lexed out of each expression —
+rather than by an engine with fewer tags registered, so an operator
+reads "not in the dialect" with the list, not the library's parse
+error. Render is lenient on an absent field on purpose (a per-record
+step under `on_missing: run` still dispatches; `| default:` is the
+tool), so strict mode is not used. A namespaced field is nested
+(`record.review.first_line`) as well as flat (`record["review.first_line"]`).
+(3) A `with:` key the template references is dropped from the map the
+adapter's `config_schema` validates (like `engine:` and `prompt:` are on
+the way to their plan errors); unreferenced strays are still typos. (4)
+`text/compose` is `adapters.KindText`: `IsParticipant` (the cache,
+`provides:`, `uses:`, `of:`, fencing all key on it), not `RunnerOwned`
+(nothing waits), dispatched by `runner.runTextStep` — one render per
+record, `ValidateProvides` and the registry check as for an answer,
+`advance` with `fields: 1`, or `fields: 0, empty_render: true` for an
+empty render so the receipt counts it empty. (5) The signature adds
+`template` (the loaded source) and `config` (the referenced keys' values)
+for every participant; `prompt` and `render.template` leave it. An
+`ai/*` template renders once in `runner.New` over `config.*` and rides
+to the adapter under the same key, so the adapter's config struct just
+renamed its field. (6) Fence transitivity: `runner.textFetched` finds a
+value whose provenance starts `text/`, locates the plan step by the
+signature it carries, and projects that step's `uses:`/`of:` from the
+ledger to judge them — the judging step's own projection holds only its
+`uses:`, never the page the text step read, which the first cut of this
+missed and the fencing e2e caught; a text input is followed the same way
+to a bounded depth; a text value whose step is not in this plan counts
+as fetched — the safe reading. (7) `github.com/osteele/liquid` v1 is the
+dependency (ADR-057 (8)); its `tool` directive brings golangci-lint into
+go.sum and nothing into the binary.
+**Why:** `make check` green; the three e2e tests prove the §11 M30
+clauses offline (file and inline share a signature, an edit re-judges,
+`record.*` on a batch step and `with.prompt` fail plan naming the fix,
+`text/compose` renders two of three and writes nothing for the empty
+one, is cached on the second run and identical under `--simulate`, plan
+refuses an undeclared field, `{% include %}`, an unlisted filter and two
+provided fields; a bundle packs the file, runs from inside, and a
+tampered template fails the hash). The eight pattern bundles were
+refrozen for the rename; their receipts are byte-identical but for run
+ids and the version.
+**Spec impact:** None beyond v0.47 (marked built as v0.48).
+
 ### 2026-09-07 — The Claude Code plugin: four skills in `plugin/`, tested against the binary
 
 **Question:** Launch 11 wants three or four thin skills that lean on

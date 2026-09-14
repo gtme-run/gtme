@@ -196,7 +196,7 @@ steps:
     variables:
       first_name: full_name
     with:
-      prompt: Keep everyone.
+      template: Keep everyone.
 `)
 	res := h.run("plan", "bad-variables.yaml")
 	if res.code != 2 {

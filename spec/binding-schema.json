@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://gtme.spec/binding-schema.json",
   "title": "Declarative binding",
-  "description": "A tier-1 adapter: a YAML document the runner's generic HTTP engine interprets deterministically (SPEC.md \u00a710a, ADR-022). Validate after decoding the YAML to JSON. Deliberately ~8 primitives; the moment a binding needs logic it graduates to a process adapter \u2014 no expression language may ever grow in here. Templating: '{{config.x}}', '{{record.field}}', '{{variables.name}}', '{{session}}'. A leaf that is exactly one placeholder substitutes the typed value; placeholders may list alternatives separated by '|' (first non-empty wins); leaves resolving to empty/null are omitted from the request (omitempty). In a deliver body, an object may carry the key '$variables': true \u2014 the resolved variables: mapping (minus any variable referenced individually elsewhere in the body) is spliced into that object. The engine pre-fills config defaults declared in config_schema.",
+  "description": "A tier-1 adapter: a YAML document the runner's generic HTTP engine interprets deterministically (SPEC.md §10a, ADR-022). Validate after decoding the YAML to JSON. Deliberately ~8 primitives; the moment a binding needs logic it graduates to a process adapter — no expression language may ever grow in here. Templating (ADR-057, M31): a leaf is a Liquid object in gtme's one bounded dialect over 'record.<field>', 'config.<key>', 'variables.<name>' and 'session' — objects only, no block tags, the fixed filter allowlist (SPEC.md §10 item 10; 'default' is the fallback: '{{ record.linkedin_url | default: record.linkedin_internal_url }}'). A leaf that is exactly one placeholder substitutes the typed value; leaves resolving to empty/null are omitted from the request (omitempty). The retired '{{a|b}}' alternatives fail verify naming the rewrite. In a deliver body, an object may carry the key '$variables': true — the resolved variables: mapping (minus any variable referenced individually elsewhere in the body) is spliced into that object. The engine pre-fills config defaults declared in config_schema.",
   "type": "object",
   "required": [
     "id",
@@ -34,7 +34,7 @@
     "entity_type": {
       "type": "string",
       "minLength": 1,
-      "description": "A type file's name (SPEC.md \u00a74a). For a traverse this is the OUTPUT type; 'from' is the input. A binding MAY ship the type it emits as types/<name>.json beside binding.yaml (never an embedded name)."
+      "description": "A type file's name (SPEC.md §4a). For a traverse this is the OUTPUT type; 'from' is the input. A binding MAY ship the type it emits as types/<name>.json beside binding.yaml (never an embedded name)."
     },
     "from": {
       "type": "string",
@@ -43,19 +43,30 @@
     },
     "relation": {
       "type": "object",
-      "required": ["name", "from"],
+      "required": [
+        "name",
+        "from"
+      ],
       "additionalProperties": false,
       "description": "Traverse only (ADR-054): the edge written between every emitted record and its parent, and which end it starts at (record: authored_by from the post to its author; parent: works_at from the person to the company).",
       "properties": {
-        "name": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
-        "from": {"enum": ["record", "parent"]}
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "from": {
+          "enum": [
+            "record",
+            "parent"
+          ]
+        }
       }
     },
     "needs": {
-      "description": "Same manifest surface as process adapters (SPEC.md \u00a76): a JSON Schema, 'dynamic', or the dynamic-with-floor object form."
+      "description": "Same manifest surface as process adapters (SPEC.md §6): a JSON Schema, 'dynamic', or the dynamic-with-floor object form."
     },
     "provides": {
-      "description": "Same manifest surface as process adapters (SPEC.md \u00a76)."
+      "description": "Same manifest surface as process adapters (SPEC.md §6)."
     },
     "config_schema": {
       "type": "object"
@@ -111,7 +122,7 @@
         },
         "env": {
           "type": "string",
-          "description": "Env var holding the credential (resolved per SPEC.md \u00a76 credentials rules)."
+          "description": "Env var holding the credential (resolved per SPEC.md §6 credentials rules)."
         },
         "prefix": {
           "type": "string",
@@ -126,7 +137,7 @@
         "url"
       ],
       "additionalProperties": false,
-      "description": "Templating draws only from step config, the record's canonical fields, resolved variables, and the session id \u2014 no expressions, no computation.",
+      "description": "Templating draws only from step config, the record's canonical fields, resolved variables, and the session id — no expressions, no computation.",
       "properties": {
         "method": {
           "enum": [
@@ -279,7 +290,7 @@
                   },
                   "transform": {
                     "type": "string",
-                    "description": "A registry normalization rule id (SPEC.md \u00a74a) \u2014 or 'linkedin', the engine-owned \u00a74 classify-and-route rule that stores a LinkedIn-URL-shaped value under the field matching its shape. Never arbitrary logic."
+                    "description": "A registry normalization rule id (SPEC.md §4a) — or 'linkedin', the engine-owned §4 classify-and-route rule that stores a LinkedIn-URL-shaped value under the field matching its shape. Never arbitrary logic."
                   },
                   "absent": {
                     "type": "array",
@@ -299,7 +310,7 @@
     },
     "errors": {
       "type": "object",
-      "description": "HTTP status (or status class like '4xx') -> verdict mapping; statuses the map does not name follow the engine's default classification (SPEC.md \u00a78 exit-code classes).",
+      "description": "HTTP status (or status class like '4xx') -> verdict mapping; statuses the map does not name follow the engine's default classification (SPEC.md §8 exit-code classes).",
       "additionalProperties": {
         "type": "object",
         "required": [
@@ -330,7 +341,7 @@
     },
     "idempotency_scope": {
       "type": "string",
-      "description": "Deliver bindings (ADR-044): config key whose resolved value scopes deliveries rows (SPEC \u00a78). Optional."
+      "description": "Deliver bindings (ADR-044): config key whose resolved value scopes deliveries rows (SPEC §8). Optional."
     },
     "cost": {
       "type": "object",

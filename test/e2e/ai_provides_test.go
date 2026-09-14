@@ -29,7 +29,7 @@ steps:
       state: {enum: [now, later]}
       rationale: {}
     with:
-      prompt: Decide when to work each contact.
+      template: Decide when to work each contact.
 
   - id: brief
     use: ai/compose
@@ -37,7 +37,7 @@ steps:
     uses: [qualify.state, qualify.rationale]
     provides: [subject]
     with:
-      prompt: Write a subject line from the judgment.
+      template: Write a subject line from the judgment.
 `
 
 const judgeBadEnum = `[
@@ -162,7 +162,7 @@ steps:
     provides:
       tier: {enum: [a, b]}
     with:
-      prompt: Tier the account.
+      template: Tier the account.
 ` + extra
 	}
 
@@ -185,7 +185,7 @@ steps:
 	h.write("compose.yaml", pipeline("company_name", `  - id: brief
     use: ai/compose
     with:
-      prompt: Write.
+      template: Write.
 `))
 	res = h.run("plan", "compose.yaml")
 	if res.code != 2 {
@@ -226,7 +226,7 @@ steps:
     uses: [title]
     provides:
 ` + decl + `    with:
-      prompt: Write.
+      template: Write.
 `
 	}
 	h.write("ok.yaml", pipeline(`      first_line: {canonical: true, type: string}
@@ -295,18 +295,18 @@ steps:
     provides: [note]
     with:
       query: SELECT id AS identity_id FROM identities
-`, `step "keep": provides: is only valid on participant steps (ai/*, human/*, agent/*)`},
+`, `step "keep": provides: is only valid on participant steps (ai/*, human/*, agent/*, text/*)`},
 		{"inside with", `  - id: judge
     use: ai/filter
     with:
-      prompt: Judge.
+      template: Judge.
       provides: {state: {}}
 `, `step "judge": provides: is a step-level key, not a with: key`},
 		{"reserved name", `  - id: judge
     use: ai/filter
     provides: [pass, identity_key]
     with:
-      prompt: Judge.
+      template: Judge.
 `, `step "judge": provides: "identity_key" is reserved by the AI output shape`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

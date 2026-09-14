@@ -18,6 +18,7 @@ import (
 	"github.com/gtme-run/gtme/internal/ledger"
 	"github.com/gtme-run/gtme/internal/participant"
 	"github.com/gtme-run/gtme/internal/planner"
+	"github.com/gtme-run/gtme/internal/template"
 )
 
 // runParticipantStep completes a human/agent step's eligible records:
@@ -124,7 +125,7 @@ func contractFor(st *planner.Step) (participant.Contract, error) {
 
 // surfaceFor is what the participant is shown (SPEC §8, ADR-049).
 func surfaceFor(st *planner.Step) participant.Surface {
-	s := participant.Surface{Fields: st.RenderFields, Template: st.RenderTemplate, Of: st.Of}
+	s := participant.Surface{Fields: st.RenderFields, Template: st.Template, Config: template.Config(st.Config), Of: st.Of}
 	if !st.NeedsAll {
 		s.Uses = st.Needs
 	}

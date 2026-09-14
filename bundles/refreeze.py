@@ -40,7 +40,7 @@ import urllib.parse
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KEEP = {"README.md", "receipt.txt"}  # beside the manifest, never frozen
-FROZEN = {"manifest.json", "pipeline.yaml", "adapters", "registry"}
+FROZEN = {"manifest.json", "pipeline.yaml", "adapters", "registry", "templates"}
 
 
 def gtme_bin():

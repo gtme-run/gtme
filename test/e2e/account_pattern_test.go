@@ -37,7 +37,7 @@ steps:
       tier: {enum: [a, b]}
       rationale: {}
     with:
-      prompt: Tier the account.
+      template: Tier the account.
 group: qualified-accounts
 `)
 	env := h.fixtureScript("qualify.json", `[
@@ -114,7 +114,7 @@ steps:
     uses: [company_name, acct.selected_people]
     provides: [brief]
     with:
-      prompt: Write a one-line account brief from the headcount.
+      template: Write a one-line account brief from the headcount.
   - id: handoff
     use: group/deliver
     with:

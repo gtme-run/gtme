@@ -154,8 +154,8 @@ func Print(w io.Writer, p *Plan) {
 		if s.RunnerOwned() {
 			surface := "the uses: fields"
 			switch {
-			case s.RenderTemplate != "":
-				surface = "a template"
+			case s.Template != "":
+				surface = "the template"
 			case len(s.RenderFields) > 0:
 				surface = list(s.RenderFields)
 			case s.Of != "":
@@ -168,6 +168,9 @@ func Print(w io.Writer, p *Plan) {
 			default:
 				fmt.Fprintf(w, "     prompt:    tty — at a terminal the run asks; otherwise records wait for `gtme answer` (ADR-049)\n")
 			}
+		}
+		if s.TemplateFile != "" {
+			fmt.Fprintf(w, "     template:  %s (loaded; its bytes join the judgment signature — ADR-057)\n", s.TemplateFile)
 		}
 		if s.Deferred {
 			fmt.Fprintf(w, "     deferred:  the run ends in flight here; the next `gtme run` of this pipeline collects (ADR-038)\n")

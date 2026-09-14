@@ -30,7 +30,7 @@ steps:
     uses: [full_name]
     provides: [first_line]
     with:
-      prompt: Write one opening line.
+      template: Write one opening line.
 
   - id: grade
     use: human/review
@@ -199,7 +199,7 @@ func TestHumanJudgmentIsCached(t *testing.T) {
 	// compose step remembers its own answer too, so the rewrite has to be a
 	// new question for it as well — a changed prompt.
 	h.write("review.yaml", strings.Replace(reviewYAML,
-		"prompt: Write one opening line.", "prompt: Write one warmer opening line.", 1))
+		"template: Write one opening line.", "template: Write one warmer opening line.", 1))
 	rewritten := `[
   {"identity_key":"jane.doe@acme.com","review.first_line":"Jane — congratulations on the raise."},
   {"identity_key":"bob@globex.io","review.first_line":"Hi Bob, Globex is hiring fast."},
@@ -277,7 +277,7 @@ steps:
     uses: [full_name]
     provides: [first_line]
     with:
-      prompt: Write one opening line.
+      template: Write one opening line.
   - id: grade
     use: agent/review
     of: agent.first_line

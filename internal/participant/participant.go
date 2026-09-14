@@ -16,12 +16,12 @@ import (
 	"io"
 	"os"
 	"os/user"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/gtme-run/gtme/internal/adapters"
+	"github.com/gtme-run/gtme/internal/template"
 )
 
 // Field is one declared output a participant answers.
@@ -320,33 +320,29 @@ func coerce(f Field, v any, fromString bool) (any, error) {
 }
 
 // Surface is what a participant is shown per record (SPEC §8, ADR-049):
-// the render: fields, a template, or — by default — the uses: fields, or the
-// of: value alone.
+// the step's template: (ADR-057, rendered over record.* and config.*), the
+// render: fields, or — by default — the uses: fields, or the of: value
+// alone.
 type Surface struct {
 	Fields   []string
 	Template string
+	Config   map[string]any
 	Of       string
 	Uses     []string
 }
 
-var placeholder = regexp.MustCompile(`\{\{\s*([A-Za-z0-9_.\-]+)\s*\}\}`)
-
-// Render renders one record's surface as text: the template with its
-// placeholders filled, or one `field: value` line per shown field (the
-// referent first, marked), every value JSON-encoded so a string reads as a
-// string.
+// Render renders one record's surface as text: the template rendered, or
+// one `field: value` line per shown field (the referent first, marked),
+// every value JSON-encoded so a string reads as a string. A template that
+// fails to render (plan already checked it; a runtime filter error is what
+// is left) shows the error in place of the record rather than nothing.
 func (s Surface) Render(fields map[string]any) string {
 	if strings.TrimSpace(s.Template) != "" {
-		return placeholder.ReplaceAllStringFunc(s.Template, func(m string) string {
-			name := placeholder.FindStringSubmatch(m)[1]
-			if v, ok := fields[name]; ok {
-				if str, ok := v.(string); ok {
-					return str
-				}
-				return encode(v)
-			}
-			return "(no " + name + ")"
-		})
+		out, err := template.Render(s.Template, s.Config, fields)
+		if err != nil {
+			return "(" + err.Error() + ")"
+		}
+		return out
 	}
 	var b strings.Builder
 	if s.Of != "" {

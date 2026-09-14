@@ -1986,7 +1986,7 @@ built; ADR-055 defers it to ROADMAP.md. The event recipe is in §8.)
    zero-key path prints the top-up receipt — `cached`, `avoided` — on a
    persisting ledger (`examples/cache.yaml`), which `--simulate` cannot
    (ADR-028).
-10. **`text/compose`** (compose, entity-agnostic; ADR-057; queued as M30)
+10. **`text/compose`** (compose, entity-agnostic; ADR-057; built in M30)
    — runner-owned, the sibling of `human/compose`: no subprocess, no
    session, no credential, no cost. Renders `template:` once per record
    over `config.*` and `record.*` (the `uses:` and `of:` fields) and
@@ -2537,7 +2537,7 @@ decided contract, not shipped behavior.
   the deliver step; a binding installed under `demo/anything` is refused
   by name.
 - **M30 — `template:` and `text/compose` (ADR-057; §2, §7, §8, §9, §10
-  items 3, 3b, 5, 10, §10a). Queued.** One loader (`string | {file:}`),
+  items 3, 3b, 5, 10, §10a). Built 2026-09-13 (changelog v0.48).** One loader (`string | {file:}`),
   the bounded Liquid dialect behind `github.com/osteele/liquid`'s basic
   engine with exactly the listed tags and filters registered, the
   plan-time scope check, the signature over the loaded source plus
@@ -2559,7 +2559,7 @@ decided contract, not shipped behavior.
   plan; `{% include %}` and an unlisted filter fail plan; `freeze
   --bundle` packs the file by hash and the bundle simulates on a clean
   ledger; bare `freeze` prints the template inline.
-- **M31 — one dialect (ADR-057). Queued after M30.** The binding request
+- **M31 — one dialect (ADR-057). Built 2026-09-13 (changelog v0.49).** The binding request
   templates (§10a), `human/*` `render:`, and the ADR-046 cost template
   move to the M30 parser: the `{{a|b}}` fallback becomes `{{ a |
   default: b }}` in the five built-in bindings, the typed-leaf rule (a
@@ -2915,6 +2915,43 @@ no reconstruction required from raw table scans.
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.49 — 2026-09-13 (M31 build: one dialect, built)
+**Changed:** §11 M31 marked built; no normative text changed — v0.47's
+contract is shipped behaviour, covered by M31's acceptance. Behavioural
+notes from the build: a binding leaf is a Liquid *object* in the shared
+dialect (`{{ … }}` with the filter allowlist) and never a block, so
+`{% if %}` in a request template fails verify as much as an unlisted
+filter does; the typed-leaf and omitempty rules are unchanged (a leaf
+that is exactly one placeholder substitutes the typed value, a leaf any
+of whose placeholders is empty is omitted); the retired `{{a|b}}`
+alternatives are caught before the parser (which would only say "syntax
+error") and refused naming the `| default:` rewrite, at `Parse`, so
+`adapters verify`, `adapters add` and every load see it; the five
+built-in bindings' conformance fixtures produce byte-identical requests
+(the harvest URL was the one rewrite); `render.template` was already
+refused in M30, so this milestone's `render:` half was the parser move;
+`cost.amount_usd` evaluates through the same object evaluator.
+`spec/binding-schema.json`'s templating description follows.
+
+### v0.48 — 2026-09-13 (M30 build: `template:` and `text/compose`, built)
+**Changed:** §11 M30 marked built; §10 item 10 marked built; no normative
+text changed — v0.47's contract is shipped behaviour, covered by M30's
+acceptance. Behavioural notes from the build: a `with:` key a template
+references (`config.<key>`) is set aside before the adapter's closed
+`config_schema` validates the rest, so a persona can live beside the
+template without the manifest declaring it, while an unreferenced stray
+key is still refused as a typo; the pipeline loader reads `{file:}`
+relative to the pipeline file into the step's config, so the planner,
+the runner and `runs.config_json` all see the source and only `freeze
+--bundle` needs the reference (kept beside the step, packed under
+`templates/`); an `ai/*` template renders once at runner start and the
+adapter receives text under the same key; `human/*`'s surface and
+`text/compose` share one renderer, lenient on an absent field (`|
+default:` fills it, as `on_missing: run` dispatches it); a `text/*`
+output counts as fetched for the fence when any field the step read did,
+traced through the signature in its provenance. M31 (bindings, `render:`
+and the cost template on the same parser) stays queued.
 
 ### v0.47 — 2026-09-13 (ADR-057 reconciliation: `template:` and `text/compose`; build queued as M30, M31)
 **Added:** §7 the template-scope check and the signature over the loaded

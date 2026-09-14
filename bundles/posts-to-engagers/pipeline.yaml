@@ -26,7 +26,7 @@ steps:
   - id: worth-a-look
     use: ai/filter
     with:
-      prompt: |
+      template: |
         Keep people whose headline says they run marketing, growth, demand generation or revenue operations. Drop recruiters, students and anyone whose headline is empty.
     uses:
       - full_name

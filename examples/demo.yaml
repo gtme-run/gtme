@@ -24,7 +24,7 @@ steps:
     use: ai/filter
     uses: [title, company_name]   # what the search shows before a paid reveal — free (ADR-043)
     with:
-      prompt: >
+      template: >
         Keep only people who plausibly own outbound tooling decisions.
 
   - id: reveal              # ADR-043: pay Apollo's per-credit reveal only past the filter
@@ -37,7 +37,7 @@ steps:
     when: fit.passed
     uses: [full_name, title, company_name]
     with:
-      prompt: >
+      template: >
         Write first_line and ps_line for a short, honest intro email.
 
   - id: send                # a deliver adapter is an ordinary step (ADR-031)

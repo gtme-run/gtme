@@ -31,7 +31,7 @@ steps:
     use: ai/filter
     uses: [full_name]
     with:
-      prompt: Keep only contacts who plausibly buy outbound tooling.
+      template: Keep only contacts who plausibly buy outbound tooling.
 %s
 group: q3-qualified
 `
@@ -173,7 +173,7 @@ steps:
     uses: [full_name]
     require: [warm]
     with:
-      prompt: judge
+      template: judge
 `)
 	res := h.run("plan", "gated.yaml")
 	if res.code != 2 {

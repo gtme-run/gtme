@@ -93,7 +93,7 @@ func TestFilterEmitsVerdicts(t *testing.T) {
 	}}
 	a := &Adapter{Mode: modeFilter, Engine: engine}
 
-	msgs, err := drive(t, a, map[string]any{"prompt": "Keep decision makers."}, "a@x.com", "b@x.com")
+	msgs, err := drive(t, a, map[string]any{"template": "Keep decision makers."}, "a@x.com", "b@x.com")
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestComposeEmitsFields(t *testing.T) {
 	}}
 	a := &Adapter{Mode: modeCompose, Engine: engine}
 
-	msgs, err := drive(t, a, map[string]any{"prompt": "Write two lines."}, "a@x.com")
+	msgs, err := drive(t, a, map[string]any{"template": "Write two lines."}, "a@x.com")
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestRetriesOnceThenSucceeds(t *testing.T) {
 	}}
 	a := &Adapter{Mode: modeFilter, Engine: engine}
 
-	msgs, err := drive(t, a, map[string]any{"prompt": "Keep them."}, "a@x.com")
+	msgs, err := drive(t, a, map[string]any{"template": "Keep them."}, "a@x.com")
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestFailsAfterOneRetry(t *testing.T) {
 	engine := &scriptEngine{answers: []string{"nope", "still nope"}}
 	a := &Adapter{Mode: modeFilter, Engine: engine}
 
-	_, err := drive(t, a, map[string]any{"prompt": "Keep them."}, "a@x.com")
+	_, err := drive(t, a, map[string]any{"template": "Keep them."}, "a@x.com")
 	if err == nil {
 		t.Fatal("want an error when the model cannot produce valid output twice")
 	}
@@ -269,7 +269,7 @@ func TestParseAcceptsFencedJSON(t *testing.T) {
 func TestEngineErrorsPropagate(t *testing.T) {
 	engine := &scriptEngine{answers: []string{"unused"}, err: errors.New("rate limited")}
 	a := &Adapter{Mode: modeFilter, Engine: engine}
-	if _, err := drive(t, a, map[string]any{"prompt": "x"}, "a@x.com"); err == nil {
+	if _, err := drive(t, a, map[string]any{"template": "x"}, "a@x.com"); err == nil {
 		t.Fatal("want the engine error to fail the batch")
 	}
 }
@@ -284,7 +284,7 @@ func TestPromptRequired(t *testing.T) {
 func TestFieldsRestriction(t *testing.T) {
 	engine := &scriptEngine{answers: []string{`[{"identity_key":"a@x.com","pass":true}]`}}
 	a := &Adapter{Mode: modeFilter, Engine: engine}
-	if _, err := drive(t, a, map[string]any{"prompt": "x", "fields": []any{"title"}}, "a@x.com"); err != nil {
+	if _, err := drive(t, a, map[string]any{"template": "x", "fields": []any{"title"}}, "a@x.com"); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if strings.Contains(engine.prompts[0], `"email"`) {
@@ -345,7 +345,7 @@ func TestFilterWithDeclaredProvidesEmitsRecordAndVerdict(t *testing.T) {
 		  {"identity_key":"b@x.com","pass":false,"reason":"no","qualify.state":"later","qualify.rationale":"y","qualify.score":2}]`,
 	}}
 	a := &Adapter{Mode: modeFilter, Engine: engine}
-	msgs, err := drive(t, a, map[string]any{"prompt": "Judge.", "provides": declared}, "a@x.com", "b@x.com")
+	msgs, err := drive(t, a, map[string]any{"template": "Judge.", "provides": declared}, "a@x.com", "b@x.com")
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -395,7 +395,7 @@ func TestFilterWithDeclaredProvidesEmitsRecordAndVerdict(t *testing.T) {
 // — the element shape names every declared field, with enum alternatives.
 func TestSystemPromptShapeIsGeneratedFromSchema(t *testing.T) {
 	a := &Adapter{Mode: modeFilter}
-	cfg, err := parseConfig(map[string]any{"prompt": "x", "provides": declared})
+	cfg, err := parseConfig(map[string]any{"template": "x", "provides": declared})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -449,7 +449,7 @@ func TestComposeWithDeclaredProvidesReplacesTheDefault(t *testing.T) {
 		`[{"identity_key":"a@x.com","outreach.subject":"Hi","outreach.body":"Long text","first_line":"ignored"}]`,
 	}}
 	a := &Adapter{Mode: modeCompose, Engine: engine}
-	msgs, err := drive(t, a, map[string]any{"prompt": "Write.", "provides": provides}, "a@x.com")
+	msgs, err := drive(t, a, map[string]any{"template": "Write.", "provides": provides}, "a@x.com")
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -469,7 +469,7 @@ func TestComposeWithDeclaredProvidesReplacesTheDefault(t *testing.T) {
 // TestDeclaredValidationMessages covers what the retry tells the model.
 func TestDeclaredValidationMessages(t *testing.T) {
 	a := &Adapter{Mode: modeFilter}
-	cfg, _ := parseConfig(map[string]any{"prompt": "x", "provides": declared})
+	cfg, _ := parseConfig(map[string]any{"template": "x", "provides": declared})
 	sh, err := a.shapeFor(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -550,7 +550,7 @@ func TestDeferredSubmitsThenCollects(t *testing.T) {
 	}
 	a := &Adapter{Mode: modeFilter, Engine: engine}
 
-	msgs, err := drive(t, a, map[string]any{"prompt": "Judge.", "deferred": true}, "a@x.com", "b@x.com")
+	msgs, err := drive(t, a, map[string]any{"template": "Judge.", "deferred": true}, "a@x.com", "b@x.com")
 	if err != nil {
 		t.Fatalf("submit session: %v", err)
 	}
@@ -582,7 +582,7 @@ func TestDeferredSubmitsThenCollects(t *testing.T) {
 		go func() {
 			w := protocol.NewWriter(inW)
 			w.Write(protocol.Message{Type: protocol.TypeOpen, StepID: "step", RunID: "run1",
-				Config: map[string]any{"prompt": "Judge.", "deferred": true}, Pending: &protocol.PendingRef{Token: "tok-a"}})
+				Config: map[string]any{"template": "Judge.", "deferred": true}, Pending: &protocol.PendingRef{Token: "tok-a"}})
 			for _, k := range []string{"a@x.com", "b@x.com"} {
 				w.Write(protocol.Record(protocol.Key{EntityType: "person", IdentityKey: k}, map[string]any{"email": k}, nil))
 			}
@@ -651,7 +651,7 @@ func TestDeferredSubmitsThenCollects(t *testing.T) {
 func TestDeferredWithoutBatchSurfaceAnswersSynchronously(t *testing.T) {
 	engine := &scriptEngine{answers: []string{`[{"identity_key":"a@x.com","pass":true,"reason":"ok"}]`}}
 	a := &Adapter{Mode: modeFilter, Engine: engine}
-	msgs, err := drive(t, a, map[string]any{"prompt": "Judge.", "deferred": true}, "a@x.com")
+	msgs, err := drive(t, a, map[string]any{"template": "Judge.", "deferred": true}, "a@x.com")
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -682,7 +682,7 @@ func TestCostCarriesEngineBasis(t *testing.T) {
 		engine := &scriptEngine{measured: tc.measured, answers: []string{
 			`[{"identity_key":"a@x.com","pass":true,"reason":"in icp"}]`,
 		}}
-		msgs, err := drive(t, &Adapter{Mode: modeFilter, Engine: engine}, map[string]any{"prompt": "Keep."}, "a@x.com")
+		msgs, err := drive(t, &Adapter{Mode: modeFilter, Engine: engine}, map[string]any{"template": "Keep."}, "a@x.com")
 		if err != nil {
 			t.Fatalf("Run: %v", err)
 		}

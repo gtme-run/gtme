@@ -35,7 +35,9 @@ recall it.
    (`email`, `email_status`, `headline`), `<vendor>.<name>` where they do
    not. Declare `credentials`, `auth`, `errors` (404 → `skip` for "not
    found"), `cost` (a `{{config.*}}` template if the price is
-   plan-dependent), `freshness_days`.
+   plan-dependent), `freshness_days`. Request leaves are Liquid objects in
+   gtme's one dialect: `{{ record.a | default: record.b }}` is the
+   fallback (never `{{a|b}}`, which verify refuses), and no block tags.
 
 4. **Fixtures: `fixtures/conformance.json`.** Preferred: one real,
    sanitized response per request, recorded live. Otherwise write it to

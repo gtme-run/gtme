@@ -21,14 +21,14 @@ steps:
   - id: icp-filter
     use: ai/filter
     with:
-      prompt: Keep only contacts who own outbound tooling decisions.
+      template: Keep only contacts who own outbound tooling decisions.
       batch_size: 25
 
   - id: personalize
     use: ai/compose
     when: icp-filter.passed
     with:
-      prompt: Write first_line and ps_line from what you know.
+      template: Write first_line and ps_line from what you know.
       batch_size: 25
 
   - id: deliver
@@ -157,7 +157,7 @@ steps:
   - id: icp-filter
     use: ai/filter
     with:
-      prompt: Keep the good ones.
+      template: Keep the good ones.
 `)
 	env := h.fixtureScript("ai.json", "nope", "still not json")
 	env = append(env, "GTME_CONCURRENCY=1")

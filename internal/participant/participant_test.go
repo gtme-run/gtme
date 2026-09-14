@@ -61,8 +61,11 @@ func TestRenderSurfaces(t *testing.T) {
 	if !strings.HasPrefix(got, `first_line (the value under review): "Hi Jane"`) || !strings.Contains(got, `title: "VP"`) || strings.Contains(got, "email") {
 		t.Errorf("render = %q", got)
 	}
-	tpl := Surface{Template: "{{title}} — {{first_line}} ({{missing}})"}
-	if got := tpl.Render(fields); got != "VP — Hi Jane ((no missing))" {
+	// The template dialect (ADR-057): record.* for the fields, config.*
+	// for the step's with:, lenient on an absent field — `| default:` is
+	// the operator's tool for that.
+	tpl := Surface{Template: "{{ record.title }} — {{ record.first_line }} ({{ record.missing | default: 'none' }}, {{ config.persona }})", Config: map[string]any{"persona": "cto"}}
+	if got := tpl.Render(fields); got != "VP — Hi Jane (none, cto)" {
 		t.Errorf("template = %q", got)
 	}
 }

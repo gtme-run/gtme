@@ -65,6 +65,12 @@ Rules of thumb the plan will not tell you:
 - Deliver last, keyed on email (`idempotency: email`), and `on_missing:
   skip` so nobody is sent without the fields the copy needs.
 - A judgment's `uses:` is what the model sees. Say so when you change it.
+- The text on any participant step is `template:` — a string or `{file:
+  path}`. An `ai/*` template sees `config.*` only (records arrive as the
+  payload); a `text/compose`, `human/*` or `agent/*` template also reads
+  `record.<field>` for its `uses:` fields. Render the deterministic half
+  of personalisation with `text/compose` (one field, no model, no cost)
+  and spend the model on judgment.
 - A model step needs `ANTHROPIC_API_KEY` armed even though plan lists it
   as optional. Say which keys the human will set, by name only.
 

@@ -8,7 +8,7 @@ steps:
   - id: lines
     use: ai/compose
     with:
-      prompt: |
+      template: |
         Write first_line and ps_line for a short, honest intro email. first_line names something specific about their role; ps_line is one low-pressure sentence. No flattery, no exclamation marks.
     uses:
       - full_name

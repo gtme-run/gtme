@@ -19,7 +19,7 @@ steps:
   - id: brief
     use: ai/compose
     with:
-      prompt: |
+      template: |
         Write a three-sentence account brief: who is on the buying committee, who to open with, and the one angle that fits the whole account. Plain language, no hype.
     uses:
       - company_name

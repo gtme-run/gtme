@@ -67,7 +67,7 @@ type agentParticipants struct {
 // a judgment, and the nuances each of which someone will otherwise trip on
 // (ADR-049's consequences).
 var agentParticipantDoc = agentParticipants{
-	Note: "A human/* or agent/* step is a participant step: it opens no adapter session, and its answer is yours to record. Use agent/* for a step you answer yourself and human/* for one a person answers; the pipeline file says whose work it is, and `gtme runs` says who is awaited. Under `--simulate` a participant step is a simulation gap — there is no prompt to script and no person to rehearse.",
+	Note: "template: is the operator's text on every participant step (ADR-057) — a string or {file: path}, in a bounded Liquid (if/unless/case, for with limit, and the filters default, truncate, size, first, last, join, upcase, downcase, capitalize, strip, date). An ai/* step renders it once over config.* (its own with: keys) and the records arrive as the fenced payload, so record.* there is a plan error; a text/compose, human/* or agent/* step renders it per record and may read record.<field> for its uses:/of: fields — a namespaced field reads as record.ns.name. uses: is what the template may read, not what it must; an absent field renders empty, `| default:` fills it. text/compose renders one field (provides: [name]) with no model and no cost, and writes nothing when the render is empty. A human/* or agent/* step is a participant step: it opens no adapter session, and its answer is yours to record. Use agent/* for a step you answer yourself and human/* for one a person answers; the pipeline file says whose work it is, and `gtme runs` says who is awaited. Under `--simulate` a participant step is a simulation gap — there is no prompt to script and no person to rehearse.",
 	Rhythm: []string{
 		"1. `gtme run pipeline.yaml` — the step pends every record it reaches and the run ends `pending`; the receipt names the count, the participant and this verb.",
 		"2. `gtme show --run last --pending [STEP]` — read the waiting records and the surface each is shown. stdout is NDJSON: identity_key, surface, outputs.",
@@ -231,7 +231,7 @@ steps:
       fit: {enum: [strong, weak]}
       rationale: {}
     with:
-      prompt: >
+      template: >
         Keep only contacts likely to own outbound tooling decisions,
         and say how strong the fit is.
       batch_size: 25
@@ -247,7 +247,7 @@ steps:
     use: ai/compose
     uses: [recent_posts, role_history]
     with:
-      prompt: >
+      template: >
         Write first_line and ps_line using recent_posts and role_history.
       batch_size: 25
   - id: send
@@ -277,15 +277,15 @@ steps:
     uses: [full_name, title]
     provides: [first_line]
     with:
-      prompt: Write one opening line.
+      template: Write one opening line.
   - id: grade
     use: human/review
     of: review.first_line
     provides:
       grade: {enum: [A, B, C, D, F]}
+    uses: [full_name, title]
     with:
-      render:
-        template: "{{full_name}} ({{title}})\n{{review.first_line}}"
+      template: "{{ record.full_name }} ({{ record.title }})\n{{ record.review.first_line }}"
   - id: approved
     use: group/deliver
     with:
@@ -326,7 +326,7 @@ steps:
     use: ai/compose
     uses: [recent_posts, role_history]
     with:
-      prompt: >
+      template: >
         Write first_line and ps_line using recent_posts and role_history.
       batch_size: 25
   - id: send

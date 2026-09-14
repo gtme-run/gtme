@@ -133,7 +133,7 @@ steps:
     use: ai/filter
     uses: [first_name, title, company_name]   # masked fields only (ADR-043)
     with:
-      prompt: >
+      template: >
         Keep only contacts likely to own outbound tooling decisions.
       batch_size: 25
 
@@ -152,7 +152,7 @@ steps:
     uses: [recent_posts, role_history]
     when: icp-filter.passed
     with:
-      prompt: >
+      template: >
         Write first_line and ps_line using recent_posts and role_history.
       batch_size: 25
 

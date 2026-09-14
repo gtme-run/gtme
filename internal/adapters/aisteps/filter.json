@@ -7,13 +7,13 @@
   "config_schema": {
     "type": "object",
     "required": [
-      "prompt"
+      "template"
     ],
     "additionalProperties": false,
     "properties": {
-      "prompt": {
+      "template": {
         "type": "string",
-        "description": "What to keep, in the operator's words"
+        "description": "The operator's text (ADR-057): a template rendered once per step over config.* \u2014 the shared block the records follow (SPEC \u00a710.3). The runner loads {file:} and renders before OPEN; the adapter receives text."
       },
       "batch_size": {
         "type": "integer",

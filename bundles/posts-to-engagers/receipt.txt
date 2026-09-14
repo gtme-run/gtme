@@ -1,10 +1,10 @@
 $ gtme run . --simulate
-bundle posts-to-engagers (frozen from run 01M1WCRJFYCXETP5JMM3EZ7QEN) — hashes verified
+bundle posts-to-engagers (frozen from run 01M2EPQT26NC2HZHWWQM5PFY6Q) — hashes verified
 simulate: ignoring missing credentials (2 plan problems:
   - step "posts": missing credential HARVEST_API_KEY (set it in the environment or run `gtme secret set HARVEST_API_KEY`)
   - step "engagers": missing credential HARVEST_API_KEY (set it in the environment or run `gtme secret set HARVEST_API_KEY`))
 simulate: fixtures only — no network, no spend, nothing sends, nothing persists
-run 01M1WCRK299VK4DZN30ZGFZ7RQ (posts-to-engagers)
+run 01M2EPQTN2PCKHGW09E8KKKKB3 (posts-to-engagers)
 source [info]: read 3 rows from people.csv
 source: sourced 3 records
 has-profile: 3 in, 2 out, 0 cached, 1 filtered, 0 failed
@@ -16,7 +16,7 @@ engagers [info]: harvest/post-reactions: 4 records
 engagers: 2 in, 2 out, 0 cached, 0 filtered, 0 failed — 4 traversed (person), 2 coalesced
 worth-a-look: 5 in, 5 out, 0 cached, 0 filtered, 0 failed
 
-run 01M1WCRK299VK4DZN30ZGFZ7RQ — done (SIMULATED — fixtures only; nothing sent, nothing persisted)
+run 01M2EPQTN2PCKHGW09E8KKKKB3 — done (SIMULATED — fixtures only; nothing sent, nothing persisted)
 step          adapter                 in  out  empty  cached  filtered  failed  cost     avoided
 source        csv/source              0   3    -      0       -         -       $0       -
 has-profile   sql/filter              3   2    -      0       1         -       $0       -

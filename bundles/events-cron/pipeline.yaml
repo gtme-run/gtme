@@ -16,7 +16,7 @@ steps:
   - id: lines
     use: ai/compose
     with:
-      prompt: |
+      template: |
         Write first_line and ps_line for a welcome note to someone who just started a paid trial. first_line thanks them by first name and names the plan; ps_line offers one concrete next step. No exclamation marks.
     when: paid-trial.passed
     uses:
