@@ -1,11 +1,11 @@
 {
   "bundle_format_version": 1,
   "name": "account-brief",
-  "source_run_id": "01M1WCRNC0EW2FFQJZG5VS4F3J",
-  "created_at": "2026-09-06T22:17:32.722Z",
-  "gtm_version": "v0.3.0-dirty",
+  "source_run_id": "01M2EPQY0C28S5Z7Y4WXGJPD6J",
+  "created_at": "2026-09-14T00:58:14.329Z",
+  "gtm_version": "v0.5.2-0.20260914003239-614243ceabdb+dirty",
   "contents": {
-    "pipeline.yaml": "f61ea052f29cfeb94bcedf209d95b6c6c77c1316c540da6af533faa57cb0fc5a",
+    "pipeline.yaml": "29b4e750d9fa0e90178e37e18a07f84373751865aa71c7145f447824311b2821",
     "registry/company.json": "56a4a6434fbb77bd24e2fc7f013abb28129a23f2d88d367ae591b9f7230814b5",
     "registry/person.json": "2666a0850834b1542364a8c5deb7ce27e6033f931fb0fbe74397cb858f3457bc",
     "registry/post.json": "53962867ce1614f937a16b50dddf736045271d7d6f44d4253d989ac571d63508"

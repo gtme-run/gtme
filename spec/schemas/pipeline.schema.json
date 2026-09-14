@@ -126,8 +126,29 @@
         },
         "with": {
           "type": "object",
-          "description": "The step's config, validated against the adapter's config_schema. Sent as OPEN.config. On a human/* step (ADR-049) it MAY carry render: and prompt:, below; engine: is not a key anywhere (ADR-050).",
+          "description": "The step's config, validated against the adapter's config_schema. Sent as OPEN.config. On a participant step (ai/*, human/*, agent/*, text/*) it MAY carry template: (ADR-057); on a human/* step render: and prompt: (ADR-049); engine: is not a key anywhere (ADR-050).",
           "properties": {
+            "template": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "file"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "file": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              ],
+              "description": "ADR-057, participant steps: the operator's text, a string or {file: <path>} (relative to the pipeline file), in the bounded Liquid dialect of SPEC.md §10 item 10. An ai/* step renders it once over config.* (the shared block; records never enter it); a text/*, human/* or agent/* step renders it per record over config.* and record.*, the latter limited to uses:/of:. The planner parses it and refuses an unknown tag or filter, a record.* reference out of scope, or a config.* key absent from with:."
+            },
             "render": {
               "type": "object",
               "additionalProperties": false,
@@ -138,16 +159,17 @@
                     "type": "string",
                     "minLength": 1
                   }
-                },
-                "template": {
-                  "type": "string"
                 }
               },
-              "description": "ADR-049, human/* and agent/* steps: what the participant is shown per record — the listed fields (validated as uses:, SPEC.md §7) or a {{field}} template. Default: the uses: fields, or the of: value alone."
+              "description": "ADR-049, human/* and agent/* steps: the fields the participant is shown per record (validated as uses:, SPEC.md §7). Default: the uses: fields, or the of: value alone; a template: (ADR-057) replaces the listing."
             },
             "prompt": {
               "type": "string",
-              "description": "On a human/* step (ADR-049): tty (default) walks the records inside `gtme run` at a terminal, never leaves every record pending for `gtme answer`; an agent/* step is always never. On an ai/* step this is the operator's prompt text (SPEC.md §10.3)."
+              "description": "On a human/* step (ADR-049): tty (default) walks the records inside `gtme run` at a terminal, never leaves every record pending for `gtme answer`; an agent/* step is always never. Never text: an ai/* step's text is template: (ADR-057), and with.prompt there is a plan error naming it.",
+              "enum": [
+                "tty",
+                "never"
+              ]
             },
             "engine": {
               "not": {},
@@ -161,7 +183,7 @@
             "type": "string",
             "minLength": 1
           },
-          "description": "ADR-004: a participant step's dynamic needs. Valid only on steps whose adapter role is filter/compose/review (the participant roles, ADR-048: ai/*, human/*, agent/*). The planner MUST validate it exactly as needs.required (SPEC.md §7), and at execution time the projected fields object MUST be built from `uses` rather than from the manifest's open-ended `needs`."
+          "description": "ADR-004: a participant step's dynamic needs. Valid only on steps whose adapter role is filter/compose/review (the participant roles, ADR-048: ai/*, human/*, agent/*, and text/*, ADR-057). The planner MUST validate it exactly as needs.required (SPEC.md §7), and at execution time the projected fields object MUST be built from `uses` rather than from the manifest's open-ended `needs`."
         },
         "of": {
           "type": "string",
@@ -191,7 +213,11 @@
           "description": "Deliver steps only (ADR-018/019/031): egress mapping of target merge-field name → canonical or namespaced ledger field. Its values are the step's dynamic needs (SPEC.md §6, §7); the planner validates each against upstream provides and rejects the key on any other step."
         },
         "redeliver": {
-          "enum": ["always", "on_change", "never"],
+          "enum": [
+            "always",
+            "on_change",
+            "never"
+          ],
           "description": "ADR-045, deliver steps only: repeat policy. Defaults to on_change when the adapter declares idempotency: native, never otherwise; always/on_change are plan errors on a target without native idempotency."
         },
         "on_missing": {
@@ -229,7 +255,13 @@
                     "additionalProperties": false,
                     "properties": {
                       "type": {
-                        "enum": ["string", "integer", "number", "boolean", "array"]
+                        "enum": [
+                          "string",
+                          "integer",
+                          "number",
+                          "boolean",
+                          "array"
+                        ]
                       },
                       "enum": {
                         "type": "array",

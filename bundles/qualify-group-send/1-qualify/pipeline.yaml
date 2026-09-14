@@ -24,7 +24,7 @@ steps:
   - id: fit
     use: ai/filter
     with:
-      prompt: |
+      template: |
         Keep people who own or influence the outbound tooling budget: marketing, growth, demand generation and revenue operations leaders. Drop engineers, recruiters and anyone whose title says they are not on the go-to-market side.
     when: worth-a-model-call.passed
     uses:

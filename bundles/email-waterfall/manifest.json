@@ -1,9 +1,9 @@
 {
   "bundle_format_version": 1,
   "name": "email-waterfall",
-  "source_run_id": "01M1WCRHSQTAVMSP5PGHXMC6A6",
-  "created_at": "2026-09-06T22:17:29.186Z",
-  "gtm_version": "v0.3.0-dirty",
+  "source_run_id": "01M2EPQSC6EBJBW6FSCMB5HQ2W",
+  "created_at": "2026-09-14T00:58:09.694Z",
+  "gtm_version": "v0.5.2-0.20260914003239-614243ceabdb+dirty",
   "contents": {
     "adapters/finder-a-email/binding.yaml": "38e53e4aa8ca2953a92ffff1e373102b252e0f20b5d81648d1c77b17b255cf88",
     "adapters/finder-a-email/fixtures/conformance.json": "5897674f288808489a66be7bed9dc9f74ffd88a79f4a56a27cb812d09119c92c",

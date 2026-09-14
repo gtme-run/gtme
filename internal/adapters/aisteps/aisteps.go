@@ -26,6 +26,7 @@ import (
 	"github.com/gtme-run/gtme/internal/adapters"
 	"github.com/gtme-run/gtme/internal/ai"
 	"github.com/gtme-run/gtme/internal/protocol"
+	"github.com/gtme-run/gtme/internal/template"
 )
 
 // Adapter ids.
@@ -66,7 +67,9 @@ type Adapter struct {
 }
 
 type config struct {
-	Prompt    string
+	// Template is the operator's text, already rendered by the runner over
+	// config.* (ADR-057) — the shared half of the prompt (ADR-035).
+	Template  string
 	Model     string
 	MaxTokens int
 	Fields    []string
@@ -89,9 +92,9 @@ type config struct {
 
 func parseConfig(raw map[string]any) (config, error) {
 	var c config
-	c.Prompt, _ = raw["prompt"].(string)
-	if strings.TrimSpace(c.Prompt) == "" {
-		return c, fmt.Errorf("config.prompt is required")
+	c.Template, _ = raw[template.Key].(string)
+	if strings.TrimSpace(c.Template) == "" {
+		return c, fmt.Errorf("config.template is required (ADR-057)")
 	}
 	c.Model, _ = raw["model"].(string)
 	c.Of, _ = raw[adapters.OfConfigKey].(string)

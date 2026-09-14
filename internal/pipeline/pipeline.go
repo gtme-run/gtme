@@ -5,12 +5,14 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/gtme-run/gtme/internal/template"
 	"gopkg.in/yaml.v3"
 )
 
@@ -124,6 +126,14 @@ type Step struct {
 	Suppress *Suppress `yaml:"suppress,omitempty" json:"suppress,omitempty"`
 
 	Waterfall any `yaml:"waterfall,omitempty" json:"-"`
+
+	// TemplateFile is the `template: {file: <path>}` reference a step was
+	// loaded with (SPEC §9, ADR-057), relative to the pipeline file. Load
+	// reads the file into With["template"] so the planner, the runner and
+	// the run's config snapshot see the source itself; the reference stays
+	// here so `freeze --bundle` can pack the file and keep the reference,
+	// while bare `freeze` (YAML) inlines the text. Never authored.
+	TemplateFile string `yaml:"-" json:"template_file,omitempty"`
 }
 
 // Suppress is a deliver step's contact-policy window (SPEC §8, ADR-021).
@@ -145,7 +155,40 @@ func Load(path string) (*Pipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+	if err := p.ResolveTemplates(filepath.Dir(path)); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
 	return p, nil
+}
+
+// ResolveTemplates reads every step's `template: {file: <path>}` (SPEC §9,
+// ADR-057) relative to dir into With["template"], recording the reference
+// in TemplateFile. A missing or unreadable file is an error here, which
+// `gtme plan` and `gtme run` report as a plan failure (exit 2).
+func (p *Pipeline) ResolveTemplates(dir string) error {
+	resolve := func(s *Step) error {
+		if s == nil {
+			return nil
+		}
+		src, file, present, err := template.Load(s.With, dir)
+		if err != nil {
+			return fmt.Errorf("pipeline: %s: %w", s.ID, err)
+		}
+		if present && file != "" {
+			s.With[template.Key] = src
+			s.TemplateFile = file
+		}
+		return nil
+	}
+	if err := resolve(p.Source); err != nil {
+		return err
+	}
+	for i := range p.Steps {
+		if err := resolve(&p.Steps[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Parse decodes and validates pipeline YAML.

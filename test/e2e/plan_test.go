@@ -88,7 +88,7 @@ steps:
     use: ai/filter
     uses: [recent_posts]
     with:
-      prompt: "keep everyone"
+      template: "keep everyone"
 `)
 
 	res := h.run("plan", "pipeline.yaml")
@@ -182,7 +182,7 @@ steps:
     use: ai/filter
     uses: [full_name, csv.favorite_color]
     with:
-      prompt: "keep people whose favorite color suggests taste"
+      template: "keep people whose favorite color suggests taste"
 `)
 	res := h.mustRun("plan", "pipeline.yaml")
 	contains(t, res.stderr, `column "e_mail" looks like canonical "email"`, "plan output")

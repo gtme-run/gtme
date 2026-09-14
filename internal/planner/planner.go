@@ -19,6 +19,7 @@ import (
 	"github.com/gtme-run/gtme/internal/pipeline"
 	"github.com/gtme-run/gtme/internal/registry"
 	"github.com/gtme-run/gtme/internal/secrets"
+	"github.com/gtme-run/gtme/internal/template"
 	"github.com/santhosh-tekuri/jsonschema/v5"
 )
 
@@ -92,17 +93,25 @@ type Step struct {
 	// (ADR-045): always | on_change | never.
 	RedeliverMode string
 
-	// Participant classifies a participant step (ADR-048/049): ai, human,
-	// agent, or "" for a provider step. Of is the referent field (ADR-048):
-	// the value a compose or review step is about, validated as one more
-	// uses: entry. RenderFields/RenderTemplate are a human/agent step's
-	// surface (ADR-049) and Prompt its policy — tty or never; an agent/*
-	// step is always never.
-	Participant    string
-	Of             string
-	RenderFields   []string
-	RenderTemplate string
-	Prompt         string
+	// Participant classifies a participant step (ADR-048/049/057): ai,
+	// human, agent, text, or "" for a provider step. Of is the referent
+	// field (ADR-048): the value a compose or review step is about,
+	// validated as one more uses: entry. RenderFields are a human/agent
+	// step's listed surface (ADR-049) and Prompt its policy — tty or never;
+	// an agent/* step is always never.
+	Participant  string
+	Of           string
+	RenderFields []string
+	Prompt       string
+	// Template is the step's operator text (SPEC §9, ADR-057), loaded — a
+	// file reference already read into its source; TemplateFile is that
+	// reference when there was one; TemplateConfig the config.* keys the
+	// template references, which join the judgment signature beside the
+	// source (ADR-039). Checked at plan (SPEC §7): the dialect, and the
+	// scope its role allows.
+	Template       string
+	TemplateFile   string
+	TemplateConfig []string
 
 	Credentials map[string]string
 	// MissingOptional are declared-optional credentials that did not resolve;
@@ -189,6 +198,10 @@ type Plan struct {
 func (s *Step) RunnerOwned() bool {
 	return s.Participant == adapters.KindHuman || s.Participant == adapters.KindAgent
 }
+
+// IsText reports a text/* step (ADR-057): runner-owned in that no session
+// opens, but nothing waits — the runner renders the template per record.
+func (s *Step) IsText() bool { return s.Participant == adapters.KindText }
 
 // PendingToken is the runner-owned token a human/agent step's unanswered
 // records wait under (SPEC §8, ADR-049): <run-id>/<step-id>.
@@ -696,7 +709,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 		} {
 			if k.set && k.key == "on_missing:" {
 				problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-					Msg: fmt.Sprintf("on_missing: is only valid on deliver steps and participant steps (ai/*, human/*, agent/*); %s has role %q — ADR-031, ADR-053", ps.Use, ps.Role)})
+					Msg: fmt.Sprintf("on_missing: is only valid on deliver steps and participant steps (ai/*, human/*, agent/*, text/*); %s has role %q — ADR-031, ADR-053", ps.Use, ps.Role)})
 				continue
 			}
 			if k.set {
@@ -728,7 +741,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 				Msg: fmt.Sprintf("provides: is only valid on filter/compose/review steps (%s has role %q) — ADR-033", ps.Use, ps.Role)})
 		case !participant:
 			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-				Msg: fmt.Sprintf("provides: is only valid on participant steps (ai/*, human/*, agent/*); %s takes its outputs from its own contract, not from a step-level declaration — ADR-033", ps.Use)})
+				Msg: fmt.Sprintf("provides: is only valid on participant steps (ai/*, human/*, agent/*, text/*); %s takes its outputs from its own contract, not from a step-level declaration — ADR-033", ps.Use)})
 		}
 	}
 	// gateOf rejects of: on a step that is neither a compose nor a review
@@ -1103,7 +1116,10 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 	if resolved.Manifest.RunnerOwned() {
 		if render, ok := ps.Config["render"].(map[string]any); ok {
 			ps.RenderFields = configStrings(render["fields"])
-			ps.RenderTemplate, _ = render["template"].(string)
+			if _, moved := render["template"]; moved {
+				problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
+					Msg: "render.template: moved — the participant's surface is the step's template: (with: {template: ..}), over record.<field> for the uses:/of: fields (ADR-057)"})
+			}
 			for _, f := range ps.RenderFields {
 				ps.Needs = appendMissing(ps.Needs, f)
 				ps.Required = appendMissing(ps.Required, f)
@@ -1115,6 +1131,25 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 			ps.Prompt = "never" // an agent/* step never prompts (ADR-049)
 		case ps.Prompt == "":
 			ps.Prompt = "tty"
+		}
+	}
+	// template: (SPEC §7/§9, ADR-057) — the operator's text on a
+	// participant step, checked here for the dialect and for what its role
+	// may reference: config.* only on a batch step (ai/*), record.* limited
+	// to uses:/of: on a per-record step.
+	var templateKeys []string
+	if participant {
+		problems = append(problems, planTemplate(&s, &ps, isAI)...)
+		templateKeys = ps.TemplateConfig
+	}
+	// text/compose renders exactly one field (SPEC §10 item 10, ADR-057).
+	if ps.Participant == adapters.KindText {
+		if s.Provides == nil {
+			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
+				Msg: fmt.Sprintf("%s renders one field — declare it with provides: [<name>] (ADR-057)", s.Use)})
+		} else if decl, err := s.ProvidesFields(); err == nil && len(decl) != 1 {
+			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
+				Msg: fmt.Sprintf("%s provides exactly one field, the rendered text (got %d) — a second field is a second step (ADR-057)", s.Use, len(decl))})
 		}
 	}
 	// A dynamic enrich step (http/enrich, SPEC §10a) derives its needs from
@@ -1235,14 +1270,44 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 	// agent answers itself. Checked before config validation so the fix,
 	// not "additional property", is what the operator reads.
 	config := ps.Config
+	drop := map[string]bool{}
 	if _, ok := ps.Config["engine"]; ok && participant {
 		problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
 			Msg: "engine: is not a key (ADR-050) — the API is the only model engine (the fixture engine is selected by GTME_AI_ENGINE, never in YAML); for engine: claude-code, make this an agent/* step (agent/filter, agent/compose, agent/review) and answer it with `gtme answer --as claude-code`"})
+		drop["engine"] = true
+	}
+	// prompt: retired as the text key (ADR-057): on an ai/* step the text is
+	// template:, and the fix is named rather than "additional property".
+	if _, ok := ps.Config["prompt"]; ok && isAI {
+		problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
+			Msg: "prompt: is not the text key — write template: (a string, or {file: <path>}; ADR-057). prompt: tty|never is the human/* step's mode and never text"})
+		drop["prompt"] = true
+	}
+	// A with: key the template references is the template's, not the
+	// adapter's (ADR-057: config.<key> names the step's own with: keys), so
+	// it is set aside before the adapter's closed config_schema sees it —
+	// an unreferenced stray key is still refused as a typo.
+	for _, k := range templateKeys {
+		if _, declared := resolved.Manifest.ConfigProperties()[k]; !declared {
+			drop[k] = true
+		}
+	}
+	if len(drop) > 0 || (participant && renderHasTemplate(ps.Config)) {
 		config = make(map[string]any, len(ps.Config))
 		for k, v := range ps.Config {
-			if k != "engine" {
-				config[k] = v
+			if drop[k] {
+				continue
 			}
+			if k == "render" && renderHasTemplate(ps.Config) {
+				render := map[string]any{}
+				for rk, rv := range v.(map[string]any) {
+					if rk != template.Key {
+						render[rk] = rv
+					}
+				}
+				v = render
+			}
+			config[k] = v
 		}
 	}
 	// limit is the engine's on a source binding (ADR-047): validated only
@@ -1946,6 +2011,46 @@ func resolveConfigQuery(scope Scope, path, kind, text string) (any, string, erro
 		return values[0], fmt.Sprintf("%s → 1 row (scalar): %s%s", label, shown[0], reads), nil
 	}
 	return values, fmt.Sprintf("%s → %d rows (list): %s%s", label, len(values), strings.Join(shown, ", "), reads), nil
+}
+
+// planTemplate loads and checks a participant step's template: (SPEC §7,
+// ADR-057): the loaded source, its file reference, the config keys it
+// reads, and every problem the dialect or the scope raises. An ai/* step is
+// a batch step (config.* only); every other participant renders per record.
+func planTemplate(s *pipeline.Step, ps *Step, isAI bool) []Problem {
+	src, file, present, err := template.Load(ps.Config, "")
+	if err != nil {
+		return []Problem{{Step: s.ID, Kind: KindConfig, Msg: err.Error()}}
+	}
+	if !present {
+		return nil
+	}
+	scope := template.Record
+	if isAI {
+		scope = template.Batch
+	}
+	checked, msgs := template.Check(src, scope, s.Uses, ps.Of, ps.Config)
+	problems := make([]Problem, 0, len(msgs))
+	for _, m := range msgs {
+		problems = append(problems, Problem{Step: s.ID, Kind: KindConfig, Msg: m})
+	}
+	ps.Template = src
+	ps.TemplateFile = s.TemplateFile
+	if file != "" {
+		ps.TemplateFile = file
+	}
+	ps.TemplateConfig = checked.ConfigKeys
+	return problems
+}
+
+// renderHasTemplate reports the retired render.template key (ADR-057).
+func renderHasTemplate(config map[string]any) bool {
+	render, ok := config["render"].(map[string]any)
+	if !ok {
+		return false
+	}
+	_, has := render[template.Key]
+	return has
 }
 
 // withoutReservedKeys drops the engine-owned keys a source binding's

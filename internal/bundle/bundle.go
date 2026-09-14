@@ -21,6 +21,7 @@ import (
 	"github.com/gtme-run/gtme/internal/binding"
 	"github.com/gtme-run/gtme/internal/pipeline"
 	"github.com/gtme-run/gtme/internal/planner"
+	"github.com/gtme-run/gtme/internal/template"
 	"github.com/gtme-run/gtme/spec"
 )
 
@@ -65,6 +66,11 @@ func Write(dir string, p *pipeline.Pipeline, sourceRunID, gtmVersion, createdAt 
 	}
 
 	files := map[string][]byte{}
+
+	// Template files travel (SPEC §8, ADR-057): the loaded source lands
+	// under templates/ by content hash like everything else, and the
+	// bundled pipeline keeps a file reference to it.
+	p = packTemplates(p, files)
 
 	raw, err := pipeline.Marshal(p)
 	if err != nil {
@@ -151,6 +157,45 @@ func Write(dir string, p *pipeline.Pipeline, sourceRunID, gtmVersion, createdAt 
 	}
 	sort.Strings(warnings)
 	return warnings, nil
+}
+
+// packTemplates writes every `template: {file:}` step's loaded source into
+// the bundle's files under templates/ and points the (copied) pipeline at
+// it, so `gtme run <bundle>` loads the file from inside the bundle. Two
+// steps' files sharing a name but not content are told apart by step id.
+func packTemplates(p *pipeline.Pipeline, files map[string][]byte) *pipeline.Pipeline {
+	out := *p
+	if p.Source != nil {
+		src := *p.Source
+		out.Source = &src
+	}
+	out.Steps = append([]pipeline.Step(nil), p.Steps...)
+	pack := func(s *pipeline.Step) {
+		if s == nil || s.TemplateFile == "" {
+			return
+		}
+		src, ok := s.With[template.Key].(string)
+		if !ok {
+			return
+		}
+		base := filepath.Base(filepath.FromSlash(s.TemplateFile))
+		name := path("templates", base)
+		if existing, taken := files[name]; taken && string(existing) != src {
+			name = path("templates", s.ID+"-"+base)
+		}
+		files[name] = []byte(src)
+		with := make(map[string]any, len(s.With))
+		for k, v := range s.With {
+			with[k] = v
+		}
+		with[template.Key] = map[string]any{"file": name}
+		s.With = with
+	}
+	pack(out.Source)
+	for i := range out.Steps {
+		pack(&out.Steps[i])
+	}
+	return &out
 }
 
 // Load verifies a bundle's content hashes and returns its manifest and

@@ -1,15 +1,15 @@
 $ gtme run . --simulate
-bundle trial-welcome (frozen from run 01M1WCVDVN4WKA6BMW69N6R47Z) — hashes verified
+bundle trial-welcome (frozen from run 01M2EPQTRMDX7PKDMJP001G2X0) — hashes verified
 simulate: ignoring missing credentials (step "welcome": missing credential INSTANTLY_API_KEY (set it in the environment or run `gtme secret set INSTANTLY_API_KEY`))
 simulate: fixtures only — no network, no spend, nothing sends, nothing persists
-run 01M1WCVEB0QXZTMGGBFZCXGZ7J (trial-welcome)
+run 01M2EPQV9F7S46XZRFRSCATZM6 (trial-welcome)
 source [info]: read 5 rows from events.csv
 source: sourced 4 records (1 coalesced into known identities)
 paid-trial: 4 in, 2 out, 0 cached, 2 filtered, 0 failed
 lines: 2 in, 2 out, 0 cached, 0 filtered, 0 failed
 welcome: 2 in, 0 out, 0 cached, 0 filtered, 0 failed, 2 held (dry run)
 
-run 01M1WCVEB0QXZTMGGBFZCXGZ7J — done (SIMULATED — fixtures only; nothing sent, nothing persisted)
+run 01M2EPQV9F7S46XZRFRSCATZM6 — done (SIMULATED — fixtures only; nothing sent, nothing persisted)
 step        adapter                    in  out  empty  cached  filtered  failed  cost  avoided
 source      csv/source                 0   4    -      0       -         -       $0    -
 paid-trial  sql/filter                 4   2    -      0       2         -       $0    -

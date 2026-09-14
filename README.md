@@ -16,12 +16,12 @@ steps:
   - id: fit
     use: ai/filter                # AI judgment behind the same contract as any step
     uses: [full_name, title, company_domain]
-    with: { prompt: Keep people who own outbound tooling decisions. }
+    with: { template: Keep people who own outbound tooling decisions. }
   - id: lines
     use: ai/compose
     when: fit.passed
     uses: [full_name, title, company_name]
-    with: { prompt: Write first_line and ps_line for a short, honest intro. }
+    with: { template: Write first_line and ps_line for a short, honest intro. }
   - id: send                      # delivery is a step like any other — put it anywhere, use several
     use: instantly/add-to-campaign
     with: { campaign: "Q3 VP Marketing" }
@@ -197,7 +197,7 @@ always-current surface:
 | **In** | `csv/source` · group-as-source · `apollo/search` *(binding)* |
 | **Enrich** | `harvest/profile` · `http/enrich` (any URL → markdown or JSON) · `sql/transform` |
 | **Judge** | `ai/filter` · `sql/filter` · `ai/review` |
-| **Write** | `ai/compose` |
+| **Write** | `ai/compose` · `text/compose` (a template, no model) |
 | **Ask** | `human/filter` · `human/compose` · `human/review` · `agent/*` (the same three, answered by an agent) |
 | **Out** | `instantly/add-to-campaign` · `attio/assert` *(binding)* · `http/deliver` (any URL) · `csv/deliver` · `group/deliver` (the next stage) |
 

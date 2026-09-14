@@ -9,7 +9,7 @@ steps:
   - id: lines
     use: ai/compose
     with:
-      prompt: |
+      template: |
         Write first_line and ps_line for a short intro email to one seat on a buying committee. first_line names their role at the company; ps_line is one low-pressure sentence. No flattery.
     uses:
       - full_name

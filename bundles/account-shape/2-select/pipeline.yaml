@@ -14,7 +14,7 @@ steps:
   - id: triage
     use: ai/filter
     with:
-      prompt: |
+      template: |
         Keep people who own reporting or the budget for it: marketing, revenue operations, finance. Drop engineers and individual contributors.
     when: at-qualified-account.passed
     uses:

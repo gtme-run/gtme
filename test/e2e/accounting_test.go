@@ -112,7 +112,7 @@ steps:
     use: ai/compose
     uses: [web.homepage]
     with:
-      prompt: Write from the homepage.
+      template: Write from the homepage.
 `)
 	env := h.fixtureScript("ai.json", "$auto")
 	res = h.runWithEnv(env, "", "run", "oversized.yaml")
@@ -148,7 +148,7 @@ steps:
     use: ai/compose
     uses: [title, linkedin_url]
 ` + policy + `    with:
-      prompt: Write.
+      template: Write.
 `
 	}
 	// carol has no linkedin_url in peopleCSV.

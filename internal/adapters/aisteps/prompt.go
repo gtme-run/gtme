@@ -42,7 +42,7 @@ var fenceNeutraliser = strings.NewReplacer("<<<", "‹‹‹", ">>>", "›››
 // prompt, identical across a step's batches) and payload (this batch's
 // records, plus the retry note when the previous answer was rejected).
 func assemble(cfg config, records []record, validationErr string) (shared, payload string) {
-	shared = strings.TrimSpace(cfg.Prompt)
+	shared = strings.TrimSpace(cfg.Template)
 
 	fetched := map[string]bool{}
 	if cfg.Fence {

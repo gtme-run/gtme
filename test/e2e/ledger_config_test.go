@@ -42,7 +42,7 @@ steps:
   - id: judge
     use: ai/filter
     with:
-      prompt: Keep the vip titles.
+      template: Keep the vip titles.
       fields: {segment: vip-titles}
 `)
 	plan := h.mustRun("plan", "judge.yaml")

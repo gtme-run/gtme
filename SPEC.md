@@ -1986,7 +1986,7 @@ built; ADR-055 defers it to ROADMAP.md. The event recipe is in §8.)
    zero-key path prints the top-up receipt — `cached`, `avoided` — on a
    persisting ledger (`examples/cache.yaml`), which `--simulate` cannot
    (ADR-028).
-10. **`text/compose`** (compose, entity-agnostic; ADR-057; queued as M30)
+10. **`text/compose`** (compose, entity-agnostic; ADR-057; built in M30)
    — runner-owned, the sibling of `human/compose`: no subprocess, no
    session, no credential, no cost. Renders `template:` once per record
    over `config.*` and `record.*` (the `uses:` and `of:` fields) and
@@ -2537,7 +2537,7 @@ decided contract, not shipped behavior.
   the deliver step; a binding installed under `demo/anything` is refused
   by name.
 - **M30 — `template:` and `text/compose` (ADR-057; §2, §7, §8, §9, §10
-  items 3, 3b, 5, 10, §10a). Queued.** One loader (`string | {file:}`),
+  items 3, 3b, 5, 10, §10a). Built 2026-09-13 (changelog v0.48).** One loader (`string | {file:}`),
   the bounded Liquid dialect behind `github.com/osteele/liquid`'s basic
   engine with exactly the listed tags and filters registered, the
   plan-time scope check, the signature over the loaded source plus
@@ -2915,6 +2915,25 @@ no reconstruction required from raw table scans.
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.48 — 2026-09-13 (M30 build: `template:` and `text/compose`, built)
+**Changed:** §11 M30 marked built; §10 item 10 marked built; no normative
+text changed — v0.47's contract is shipped behaviour, covered by M30's
+acceptance. Behavioural notes from the build: a `with:` key a template
+references (`config.<key>`) is set aside before the adapter's closed
+`config_schema` validates the rest, so a persona can live beside the
+template without the manifest declaring it, while an unreferenced stray
+key is still refused as a typo; the pipeline loader reads `{file:}`
+relative to the pipeline file into the step's config, so the planner,
+the runner and `runs.config_json` all see the source and only `freeze
+--bundle` needs the reference (kept beside the step, packed under
+`templates/`); an `ai/*` template renders once at runner start and the
+adapter receives text under the same key; `human/*`'s surface and
+`text/compose` share one renderer, lenient on an absent field (`|
+default:` fills it, as `on_missing: run` dispatches it); a `text/*`
+output counts as fetched for the fence when any field the step read did,
+traced through the signature in its provenance. M31 (bindings, `render:`
+and the cost template on the same parser) stays queued.
 
 ### v0.47 — 2026-09-13 (ADR-057 reconciliation: `template:` and `text/compose`; build queued as M30, M31)
 **Added:** §7 the template-scope check and the signature over the loaded

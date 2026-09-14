@@ -27,14 +27,14 @@ steps:
     uses: [title]
     provides: [rationale]
     with:
-      prompt: %s
+      template: %s
   - id: brief
     use: ai/compose
     when: judge.passed
     uses: [full_name]
     provides: [line]
     with:
-      prompt: Write one line.
+      template: Write one line.
 group: judged
 `
 
@@ -161,7 +161,7 @@ steps:
     use: ai/filter
     uses: [title]
     with:
-      prompt: Keep decision makers.
+      template: Keep decision makers.
       deferred: true
 group: judged
 `)

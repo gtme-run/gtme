@@ -1,0 +1,33 @@
+{
+  "id": "text/compose",
+  "version": 1,
+  "role": "compose",
+  "entity_type": "*",
+  "needs": "dynamic",
+  "provides": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "config_schema": {
+    "type": "object",
+    "required": [
+      "template"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "template": {
+        "type": "string",
+        "description": "The template rendered once per record over record.* (the uses:/of: fields) and config.* (ADR-057); the result is the one field provides: declares. The runner loads {file:} before validation."
+      },
+      "provides": {
+        "type": "object",
+        "description": "The step's derived provides schema (ADR-033): exactly one field, the rendered text. Injected by the runner from the step-level provides: key \u2014 never authored inside with:."
+      },
+      "of": {
+        "type": "string",
+        "description": "The referent (ADR-048): the field whose value this step is about. Injected by the runner from the step-level of: key \u2014 never authored inside with:."
+      }
+    }
+  }
+}

@@ -192,6 +192,11 @@ func (r *runner) runStep(ctx context.Context, i int) error {
 		r.printStepLine(st)
 		return nil
 	}
+	if st.IsText() {
+		// A text/* step (SPEC §10 item 10, ADR-057): no session — the
+		// runner renders the template per record itself.
+		return r.runTextStep(ctx, st, work)
+	}
 	if st.RunnerOwned() {
 		// A human/agent step (SPEC §8, ADR-049): no session — the run asks at
 		// a terminal, collects what `gtme answer` recorded, or leaves the
@@ -367,6 +372,7 @@ func (r *runner) prepare(ctx context.Context, st *planner.Step, identityID, toke
 				it.fetched = append(it.fetched, name)
 			}
 		}
+		it.fetched = r.textFetched(it.fetched, rec)
 		// The referent (ADR-048): a review or edit of a value the record
 		// does not have is a failed record, not a judgment about nothing.
 		if st.Of != "" {

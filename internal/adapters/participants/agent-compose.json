@@ -20,6 +20,10 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
+      "template": {
+        "type": "string",
+        "description": "What the participant is shown per record (ADR-057): a template over record.* (the uses:/of: fields) and config.*, in place of the field listing. The runner loads {file:} before validation."
+      },
       "render": {
         "type": "object",
         "additionalProperties": false,
@@ -30,13 +34,9 @@
               "type": "string"
             },
             "description": "The fields shown to the participant (default: the uses: fields, or the of: value alone); validated as uses: (SPEC \u00a77)"
-          },
-          "template": {
-            "type": "string",
-            "description": "A text template rendered per record \u2014 {{field}} placeholders \u2014 shown instead of the field listing"
           }
         },
-        "description": "What the participant is shown per record (ADR-049)"
+        "description": "What the participant is shown per record (ADR-049): the listed fields, or the step's template: (ADR-057)"
       },
       "provides": {
         "type": "object",
@@ -51,7 +51,7 @@
         "enum": [
           "never"
         ],
-        "description": "An agent/* step never prompts (ADR-049): its records wait in the ledger for `gtme answer --as <name>`"
+        "description": "tty (default): at a terminal, `gtme run` walks the records and asks; never: every record waits in the ledger for `gtme answer` (ADR-049). The mode, never text \u2014 the text is template: (ADR-057)"
       }
     }
   }

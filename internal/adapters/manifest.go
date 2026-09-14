@@ -115,6 +115,7 @@ const (
 	AIPrefix    = "ai/"
 	HumanPrefix = "human/"
 	AgentPrefix = "agent/"
+	TextPrefix  = "text/"
 )
 
 // ProvidesConfigKey is the OPEN config key the runner injects an AI step's
@@ -132,6 +133,25 @@ const OfConfigKey = "of"
 // batch's provenance so the AI adapter can fence them. Never authored
 // inside with:.
 const FetchedConfigKey = "fetched"
+
+// ConfigProperties lists the keys the manifest's config_schema declares
+// (top-level properties), or nil when it declares none.
+func (m *Manifest) ConfigProperties() map[string]bool {
+	if len(m.ConfigSchema) == 0 {
+		return nil
+	}
+	var doc struct {
+		Properties map[string]json.RawMessage `json:"properties"`
+	}
+	if err := json.Unmarshal(m.ConfigSchema, &doc); err != nil {
+		return nil
+	}
+	out := make(map[string]bool, len(doc.Properties))
+	for k := range doc.Properties {
+		out[k] = true
+	}
+	return out
+}
 
 // IsAI reports a model-backed AI step (ADR-026): the adapters that answer
 // through the API engine (or the fixture engine under test).
@@ -152,11 +172,14 @@ func (m *Manifest) RunnerOwned() bool {
 	return k == KindHuman || k == KindAgent
 }
 
-// Participant kinds, by adapter id prefix.
+// Participant kinds, by adapter id prefix. KindText (ADR-057) is the
+// template renderer — a participant with no one behind it: a compose that
+// renders its field deterministically from a template.
 const (
 	KindAI    = "ai"
 	KindHuman = "human"
 	KindAgent = "agent"
+	KindText  = "text"
 )
 
 // ParticipantKind classifies an adapter id: ai, human, agent, or "" for a
@@ -169,9 +192,15 @@ func ParticipantKind(id string) string {
 		return KindHuman
 	case strings.HasPrefix(id, AgentPrefix):
 		return KindAgent
+	case strings.HasPrefix(id, TextPrefix):
+		return KindText
 	}
 	return ""
 }
+
+// IsText reports a text/* adapter (ADR-057): runner-owned like human/*,
+// but nothing waits — the runner renders the template itself.
+func (m *Manifest) IsText() bool { return ParticipantKind(m.ID) == KindText }
 
 // EntityAny is the entity_type an entity-agnostic manifest declares
 // (SPEC §6, ADR-033): its steps take the pipeline's entity type.

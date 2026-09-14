@@ -28,13 +28,13 @@ steps:
     use: ai/filter
     uses: [full_name, company_domain]
     with:
-      prompt: Keep everyone who plausibly buys outbound tooling.
+      template: Keep everyone who plausibly buys outbound tooling.
 
   - id: lines
     use: ai/compose
     uses: [full_name]
     with:
-      prompt: Write first_line and ps_line.
+      template: Write first_line and ps_line.
 
   - id: deliver
     use: mock/deliver

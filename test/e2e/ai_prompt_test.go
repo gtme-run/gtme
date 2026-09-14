@@ -51,7 +51,7 @@ steps:
     uses: [title, web.homepage]
     respend: true
     with:
-      prompt: Keep companies that make anvils.
+      template: Keep companies that make anvils.
 ` + fence
 	}
 	h.write("fenced.yaml", pipeline(""))

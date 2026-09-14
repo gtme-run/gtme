@@ -2,10 +2,11 @@ package runner
 
 // The judgment cache (SPEC §7, ADR-039): a participant step's answer is
 // reused when the question and the facts are unchanged. The question is the
-// judgment signature — adapter, model, operator prompt, output shape, uses:,
-// of: for an AI step; adapter, render:, output shape, uses:, of: for a
-// human/agent step (never the participant's name: the cache is checked at
-// dispatch, before anyone has answered, ADR-049) — and the facts are the
+// judgment signature — adapter, model, the template's source and the config
+// it references (ADR-057), output shape, uses:, of: for an AI step; adapter,
+// render:, template, output shape, uses:, of: for a human/agent/text step
+// (never the participant's name: the cache is checked at dispatch, before
+// anyone has answered, ADR-049) — and the facts are the
 // input hash over the fields the judgment reads, the referent's value
 // included. Both are recorded on the `done` event that carries the
 // judgment, and the signature rides in provenance (`ai/<op> @
@@ -57,11 +58,21 @@ func (r *runner) judgmentSignature(st *planner.Step) string {
 	}
 	if isAIStep(st) {
 		model, _ := st.Config["model"].(string)
-		prompt, _ := st.Config["prompt"].(string)
 		question["model"] = ai.ProvenanceModel(model, func(k string) string { return st.Credentials[k] })
-		question["prompt"] = strings.TrimSpace(prompt)
-	} else {
-		question["render"] = map[string]any{"fields": st.RenderFields, "template": st.RenderTemplate}
+	} else if st.RunnerOwned() {
+		question["render"] = map[string]any{"fields": st.RenderFields}
+	}
+	// The template (ADR-057): its loaded source — so a changed file
+	// re-judges and the same bytes inline or in a file share a signature —
+	// plus the config.* values it references, so a changed persona
+	// re-judges and batch_size stays out of it.
+	if st.Template != "" {
+		question["template"] = strings.TrimSpace(st.Template)
+		referenced := map[string]any{}
+		for _, k := range st.TemplateConfig {
+			referenced[k] = st.Config[k]
+		}
+		question["config"] = referenced
 	}
 	sig := digest(question)
 	r.mu.Lock()

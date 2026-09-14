@@ -28,6 +28,7 @@ import (
 	"github.com/gtme-run/gtme/internal/participant"
 	"github.com/gtme-run/gtme/internal/pipeline"
 	"github.com/gtme-run/gtme/internal/planner"
+	"github.com/gtme-run/gtme/internal/template"
 )
 
 const answerUsage = "usage: gtme answer [RUN_ID|last|PIPELINE] [STEP] [IDENTITY_KEY] [--set field=value ...] [--as NAME] [--cost USD [--measured]] [--note TEXT]"
@@ -309,7 +310,7 @@ func pendingRecords(ctx context.Context, l *ledger.Ledger, st *planner.Step, pen
 // answerSurface is what a participant is shown for this step — the same
 // surface the in-run walk renders (SPEC §9's render:, else uses:, else of:).
 func answerSurface(st *planner.Step) participant.Surface {
-	s := participant.Surface{Fields: st.RenderFields, Template: st.RenderTemplate, Of: st.Of}
+	s := participant.Surface{Fields: st.RenderFields, Template: st.Template, Config: template.Config(st.Config), Of: st.Of}
 	if !st.NeedsAll {
 		s.Uses = st.Needs
 	}

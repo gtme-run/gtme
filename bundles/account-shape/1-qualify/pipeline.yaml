@@ -15,7 +15,7 @@ steps:
   - id: judge
     use: ai/filter
     with:
-      prompt: |
+      template: |
         Keep companies likely to have reporting pain: software or manufacturing, small enough that one person owns the stack. Tier a is a clear fit, b is plausible. Say why in one sentence.
     when: small-enough.passed
     uses:

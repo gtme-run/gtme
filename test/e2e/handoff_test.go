@@ -36,7 +36,7 @@ steps:
     use: ai/filter
     uses: [title]
     with:
-      prompt: Keep decision makers.
+      template: Keep decision makers.
 
   - id: handoff
     use: group/deliver
