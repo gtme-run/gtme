@@ -3556,6 +3556,149 @@ existing.
 changelog. README.md, ADAPTERS.md, START.md and the example ride the
 build.
 
+### ADR-057: `template:` — one key for operator text, rendered by role
+**Status:** Proposed (2026-09-13 — from a design session on how prompts,
+templated copy and files fit the grammar; approval is merging the packet;
+build queued as M30, the dialect unification as M31)
+**Context:** Three places in gtme already hold operator-authored text with
+holes: a binding's request template (`{{config.x}}`, `{{record.x}}`,
+`{{variables.x}}`, with a `|` fallback), a `human/*` step's `render:
+{template:}` (bare `{{field}}`), and a templated `cost.amount_usd`
+(ADR-046). Each is substitution only — "no expressions, no computation" —
+and each is its own small dialect. A fourth kind of text, the AI step's
+`prompt:`, has no holes at all and is deliberately kept that way: ADR-035
+appends records to the prompt as a fenced, mechanically encoded payload
+and never interpolates them, so the prompt stays the shared block a cache
+breakpoint can sit behind and fetched content cannot bypass the fence.
+ADR-019 already named prompts and campaign templates as one class — text
+whose needs a static manifest cannot know — which is why `uses:` and
+`variables:` exist. ROADMAP.md's "Packs" entry (2026-09-05) asked for the
+missing half: a prompt that comes from a file, hashed into the judgment
+signature and carried by the bundle, so a persona authored once serves
+several pipelines. And nothing in the grammar renders text per record
+without a model: a first line that is "Hi {{first_name}}, saw your post on
+{{topic}}" is deterministic and free, and today needs an `ai/compose` to
+write it.
+Two questions were open. Whether prompts and templates are the same
+thing: they are, in what you write; they differ in what the text is
+rendered *against* — a batch prompt sees config, a per-record template
+sees the record. And whether conditional logic belongs in text at all,
+given the no-computation rule: that rule protects binding requests (an
+expression in a wire request hides a contract) and the ledger's
+determinism; a sandboxed template that produces a text field breaks
+neither, so long as the logic never decides what advances or what is
+judged.
+**Decision:** (1) **`template:` is the one key for operator text.** On
+every participant-role step (`ai/*`, `human/*`, `agent/*`, and `text/*`
+below) `with.template` is a string or `{file: <path>}`. `prompt:` as the
+AI step's text key retires: `with.prompt` on an `ai/*` step fails `gtme
+plan` naming `template:`. The `human/*` mode key `prompt: tty | never`
+(ADR-049) is unaffected — it never held text. `render.template` (ADR-049)
+folds into `template:`; `render.fields` stays as the no-template surface.
+(2) **The dialect is Liquid, bounded.** Objects `{{ … }}`; tags `if` /
+`elsif` / `else` / `unless` / `case` / `when`, `for` (with `limit`,
+`offset`, `reversed`), `comment`, `raw`; filters `default`, `truncate`,
+`truncatewords`, `size`, `first`, `last`, `join`, `upcase`, `downcase`,
+`capitalize`, `strip`, `date`. Nothing else: no `assign` / `capture` /
+`increment` (no state), no `include` / `render` (no file reaches another
+file), no unlisted filter. An unknown tag or filter, or a parse error, is
+a plan error. Liquid over a logic-less dialect because campaign copy
+outgrows presence-only sections on the first `| default:` or "first two
+posts", and migrating templates between dialects later is worse than
+choosing the fuller one now; Liquid over Handlebars because it was built
+for untrusted authors — a closed tag and filter set, no host helpers. It
+is declared the dialect for every `{{ }}` in gtme; the binding request
+templates, `render:`, and the cost template move to it in M31. (3) **What
+a template sees is set by its role, and plan enforces it.** Every
+reference is namespaced — `config.<key>` for the step's own `with:` (minus
+`template` itself), `record.<field>` for the record. A **batch step**
+(`ai/*`) renders once per step over `config.*` only; the rendered text is
+ADR-035's shared block, unchanged in every other respect (records still
+arrive as the fenced payload), and `record.*` in an `ai/*` template is a
+plan error that names the rule. A **per-record step** (`text/*`,
+`human/*`, `agent/*`) renders once per record over `config.*` and
+`record.*`, where `record.*` is limited to the step's `uses:` and `of:`; a
+reference outside them is a plan error, exactly as an undeclared need is.
+`uses:` stays explicit — the template may reference a subset of it, never
+a superset. (4) **`text/compose`** is a runner-owned compose-role adapter,
+the sibling of `human/compose`: no subprocess, no session, no credential,
+no cost, entity-agnostic. Config `template:`; `uses:` as any compose;
+`provides:` required and exactly one field — the rendered text is that
+field's value. A render that is empty after trimming writes nothing and
+the record continues (a later step's needs decide what that means). It
+emits RECORDs only, never a VERDICT: a template's `if` shapes text, it
+does not gate; a comparison that encodes judgment ("is this a large
+account") belongs upstream as a labelled field from a review, which the
+template then tests for. Runs identically armed and under `--simulate`;
+never a simulation gap. (5) **Files.** `{file: <path>}` resolves relative
+to the pipeline file; a missing or unreadable file is a plan error. The
+contents are the template source, treated exactly as an inline string —
+same dialect, same role context, same checks; a file with no placeholders
+is verbatim text. The loaded source enters `runs.config_json` in place of
+the reference, so the snapshot is self-contained; `freeze --bundle` keeps
+the reference and packs the file by content hash; bare `freeze` inlines
+the contents as a block scalar so its stdout stays self-contained. (6)
+**Signature and provenance.** ADR-039's judgment signature hashes the
+template *source* after loading plus the `config.*` values the template
+references — so a changed file or a changed persona re-judges, an inline
+and a file template with the same bytes share a signature, and
+`batch_size` stays out of it as today. `text/compose` takes ADR-026's
+provenance form with nothing in the engine's place — `text/compose @
+#<sig>` — and the input hash over `uses:` as every participant adapter,
+so an unchanged record under an unchanged template is `skipped_cache`
+like a model's answer. (7) **Fencing is transitive.** A field written by a
+`text/*` step counts as externally fetched for ADR-035's fence when any
+field the step `uses:` counts as fetched; the runner computes this from
+the step's declaration at projection — no ledger change. (8)
+**Dependency.** `github.com/osteele/liquid` (MIT) joins §2's list, with
+its transitive `github.com/osteele/tuesday` (strftime, for `date`) and
+`gopkg.in/yaml.v2`; its module graph also lists lint tooling under a
+`tool` directive, which reaches go.sum and not the binary. Verified
+2026-09-13: its basic engine registers no tags or filters, so the
+allowlist is exactly what the runner registers, and strict mode errors on
+an undefined reference. Bindings keep the in-house substitution engine
+until M31.
+**Consequences:** One loader (`string | {file:}`), one parser, one
+reference check, reused by four adapters; the binding engine's "no
+expressions" comment retires in M31, and the rule it protected is
+restated as (3) and (4): logic renders text, and never chooses what
+advances. `text/compose` makes a rendered first line, a subject, a note
+an ordinary field a deliver step's `variables:` maps or an `ai/*` step
+`uses:` — the deterministic half of personalisation stops costing a model
+call. The rename touches every shipped pipeline (README, ADAPTERS.md,
+VALIDATION.md, three examples, eight bundles), the pipeline schema, the AI
+adapter's config struct and manifests, `help --agent`, and the
+`create-pipeline` skill; all ride M30 as one mechanical pass. Under
+`--simulate` a `text/compose` step runs for real. Guidance for `help
+--agent`, each a nuance someone will trip on: `record.*` works only on
+per-record steps; `uses:` is what the template may read, not what it
+must; an empty render writes nothing; a comparison in a template shapes
+text and gates nothing. Deferred to ROADMAP.md: `{{ variables.* }}` in a
+`text/*` template (a constant merge value is a `text/compose` field),
+further filters, and a template file including another (no, until a pack
+needs composition).
+**Rejected:** *Two keys* (`prompt:` for instruction, `template:` for
+text) — the same artefact under two names, and `prompt:` was a misnomer on
+the one step where the rendered text is the output. *`prompt:` as the one
+key* — collides with ADR-049's `prompt: tty | never`, and renaming that
+built key to make room is worse than naming the text by what it is.
+*Records in AI prompts* — collapses ADR-035's shared/payload split, makes
+the signature per-record, and routes fetched content around the fence.
+*Mustache-style sections only* — no `default`, no `limit`, outgrown
+immediately and migrated later. *Handlebars* — logic lives in
+host-registered helpers, each a function to write and version.
+*Inferring `uses:` from the template* — ADR-004 made it explicit for a
+reason; the check runs both ways instead. *A multi-field `text/compose`*
+— one template renders one text; a second field is a second step.
+**Spec impact:** AMEND (this packet's second commit) — §2 (dependency),
+§7 (signature over the template source; the reference-scope check), §8
+(freeze and bundle carry template files; the participants' surface), §9
+(`template:` grammar, the `file:` form, the example), §10 (items 3, 3b, 5
+say `template:`; new item 10 `text/compose`), §10a (provenance form), §11
+(M30 and M31 queued), changelog v0.47. `spec/schemas/pipeline.schema.json`,
+the manifests, examples, bundles, README, ADAPTERS.md, VALIDATION.md and
+the plugin skill ride the build.
+
 ### ADR-054: `traverse` — a run is a sequence of typed segments, and a type is a file
 **Status:** Accepted (2026-09-05 — design session; answers ADR-008's parked
 question and ROADMAP.md's "Entity types" (until this packet, "Object
