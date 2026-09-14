@@ -67,7 +67,7 @@ type agentParticipants struct {
 // a judgment, and the nuances each of which someone will otherwise trip on
 // (ADR-049's consequences).
 var agentParticipantDoc = agentParticipants{
-	Note: "template: is the operator's text on every participant step (ADR-057) — a string or {file: path}, in a bounded Liquid (if/unless/case, for with limit, and the filters default, truncate, size, first, last, join, upcase, downcase, capitalize, strip, date). An ai/* step renders it once over config.* (its own with: keys) and the records arrive as the fenced payload, so record.* there is a plan error; a text/compose, human/* or agent/* step renders it per record and may read record.<field> for its uses:/of: fields — a namespaced field reads as record.ns.name. uses: is what the template may read, not what it must; an absent field renders empty, `| default:` fills it. text/compose renders one field (provides: [name]) with no model and no cost, and writes nothing when the render is empty. A human/* or agent/* step is a participant step: it opens no adapter session, and its answer is yours to record. Use agent/* for a step you answer yourself and human/* for one a person answers; the pipeline file says whose work it is, and `gtme runs` says who is awaited. Under `--simulate` a participant step is a simulation gap — there is no prompt to script and no person to rehearse.",
+	Note: "template: is the operator's text on every participant step (ADR-057) — a string or {file: path}, in a bounded Liquid (if/unless/case, for with limit, and the filters default, truncate, size, first, last, join, upcase, downcase, capitalize, strip, date). An ai/* step renders it once over config.* (its own with: keys) and the records arrive as the fenced payload, so record.* there is a plan error; a text/compose, human/* or agent/* step renders it per record and may read record.<field> for its uses:/of: fields — a namespaced field reads as record.ns.name. uses: is what the template may read, not what it must; an absent field renders empty, `| default:` fills it. text/compose renders one field (provides: [name]) with no model and no cost, and writes nothing when the render is empty. A human/* or agent/* step is a participant step: it opens no adapter session, and its answer is yours to record. Use agent/* for a step you answer yourself and human/* for one a person answers; the pipeline file says whose work it is, and `gtme runs` says who is awaited. Under `--simulate` a human/* or agent/* step is a simulation gap — there is no person to rehearse — while text/compose runs for real, being free and deterministic.",
 	Rhythm: []string{
 		"1. `gtme run pipeline.yaml` — the step pends every record it reaches and the run ends `pending`; the receipt names the count, the participant and this verb.",
 		"2. `gtme show --run last --pending [STEP]` — read the waiting records and the surface each is shown. stdout is NDJSON: identity_key, surface, outputs.",
@@ -187,6 +187,10 @@ type agentExample struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Yaml        string `json:"yaml"`
+	// Files are the sidecars the example references beside the pipeline —
+	// template files (ADR-057) — keyed by path, so an agent (and the e2e
+	// that plans every example) can write them alongside.
+	Files map[string]string `json:"files,omitempty"`
 }
 
 // agentExamples are the 3 canonical examples SPEC §8 requires: minimal and
@@ -340,6 +344,57 @@ steps:
     on_missing: skip
     idempotency: email
 `,
+	},
+	{
+		Name:        "persona-file-and-text-compose",
+		Description: "The template surface (ADR-057). The model step's prompt lives in a file that reads config.product, so one persona serves many pipelines and a changed file re-judges; the copy is a second file rendered per record by text/compose — a conditional on the model's label, a capped loop over its list output, `| default:` for a missing first name — with no model and no cost. A namespaced field (welcome.segment) reads as record.welcome.segment. Only the deterministic half re-renders when the copy changes; only the judgment re-runs when the persona changes. Both files travel in a bundle.",
+		Yaml: `name: welcome
+version: 1
+source:
+  use: csv/source
+  with:
+    path: people.csv
+steps:
+  - id: classify
+    use: ai/compose
+    uses: [title, company_domain]
+    provides:
+      segment: {enum: [founder, marketer, engineer]}
+      hooks: {type: array}
+    with:
+      template: {file: persona.md}
+      product: gtme
+  - id: note
+    use: text/compose
+    uses: [first_name, welcome.segment, welcome.hooks]
+    provides: [note]
+    with:
+      template: {file: welcome.md}
+      product: gtme
+  - id: out
+    use: csv/deliver
+    with:
+      path: welcome-notes.csv
+    variables:
+      email: email
+      note: welcome.note
+    idempotency: email
+`,
+		Files: map[string]string{
+			"persona.md": `You are welcoming new trial signups to {{ config.product }}.
+For each record, classify the person into one segment — founder, marketer
+or engineer — from their title, and list two short hooks: concrete things
+{{ config.product }} does that this segment cares about. Noun phrases, no hype.
+`,
+			"welcome.md": `{%- if record.welcome.segment == "engineer" -%}
+{{ record.first_name | default: "Hi there" }} — {{ config.product }} has a CLI and a SQLite ledger you can query.
+{%- elsif record.welcome.segment == "marketer" -%}
+{{ record.first_name | default: "Hi there" }}, {{ config.product }} runs your sequences from one file{% for hook in record.welcome.hooks limit:2 %}, {{ hook }}{% endfor %}.
+{%- else -%}
+{{ record.first_name | default: "Hi there" }}, founders usually start with the receipt: {{ record.welcome.hooks | first }}.
+{%- endif -%}
+`,
+		},
 	},
 }
 

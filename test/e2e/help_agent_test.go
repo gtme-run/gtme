@@ -10,7 +10,7 @@ jane.doe@acme.com,Jane,Jane Doe,acme.com,https://www.linkedin.com/in/jane-doe/,V
 `
 
 // TestHelpAgentSurface checks the shape SPEC §8 / ADR-007 require: every verb,
-// every installed adapter's manifest, and exactly 3 canonical examples.
+// every installed adapter's manifest, and exactly 5 canonical examples.
 func TestHelpAgentSurface(t *testing.T) {
 	h := newHarness(t)
 	res := h.mustRun("help", "--agent")
@@ -40,8 +40,8 @@ func TestHelpAgentSurface(t *testing.T) {
 	contains(t, res.stdout, "sql/filter", "help --agent sql_steps")
 	contains(t, res.stdout, "sql/transform", "help --agent sql_steps")
 
-	if len(doc.Examples) != 4 {
-		t.Errorf("examples = %d, want exactly 4", len(doc.Examples))
+	if len(doc.Examples) != 5 {
+		t.Errorf("examples = %d, want exactly 5", len(doc.Examples))
 	}
 
 	// The answer rhythm is the one part of the surface an agent drives
@@ -99,8 +99,9 @@ func TestHelpAgentExamplesPassPlan(t *testing.T) {
 
 	var doc struct {
 		Examples []struct {
-			Name string `json:"name"`
-			Yaml string `json:"yaml"`
+			Name  string            `json:"name"`
+			Yaml  string            `json:"yaml"`
+			Files map[string]string `json:"files"`
 		} `json:"examples"`
 	}
 	if err := json.Unmarshal([]byte(res.stdout), &doc); err != nil {
@@ -120,6 +121,10 @@ func TestHelpAgentExamplesPassPlan(t *testing.T) {
 		"APOLLO_API_KEY=fixture", "HARVEST_API_KEY=fixture", "INSTANTLY_API_KEY=fixture",
 	}
 	for _, ex := range doc.Examples {
+		// Template files ride beside the pipeline (ADR-057).
+		for name, body := range ex.Files {
+			h.write(name, body)
+		}
 		path := h.write(ex.Name+".yaml", ex.Yaml)
 		plan := h.runWithEnv(creds, "", "plan", path)
 		if plan.code != 0 {
