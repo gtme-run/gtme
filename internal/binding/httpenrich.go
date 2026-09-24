@@ -261,12 +261,22 @@ func (a *HTTPEnrich) fetch(ctx context.Context, w *protocol.Writer, p adapters.P
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return &httpx.Error{Kind: httpx.KindNetwork, Provider: "http", Msg: err.Error()}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		// One unreachable target is nothing acquired for that record (SPEC §5),
+		// exactly like a 4xx below — not a crash that fails the whole session.
+		return w.Write(protocol.Log("warn", fmt.Sprintf(
+			"http/enrich: %s: %s — nothing stored", key.IdentityKey, err.Error())))
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, int64(cfg.MaxBytes)+1))
 	if err != nil {
-		return &httpx.Error{Kind: httpx.KindNetwork, Provider: "http", Msg: "reading response: " + err.Error()}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return w.Write(protocol.Log("warn", fmt.Sprintf(
+			"http/enrich: %s: reading response: %s — nothing stored", key.IdentityKey, err.Error())))
 	}
 	if resp.StatusCode >= 400 {
 		return w.Write(protocol.Log("warn", fmt.Sprintf(

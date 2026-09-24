@@ -336,3 +336,55 @@ steps:
 	contains(t, last.stderr, "status:   done — 0 records, $4.1000 spent (estimated)", "gtme runs last")
 	reconcile(t, res.stderr)
 }
+
+// TestDeadSiteAdvancesEmpty is #76: one unreachable target among three
+// advances empty, the other two store the field, the step reports
+// 2 out / 1 empty / 0 failed, and the downstream step still runs.
+func TestDeadSiteAdvancesEmpty(t *testing.T) {
+	h := newHarness(t)
+	h.write("people.csv", peopleCSV)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("d") == "globex.io" {
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if err != nil {
+				t.Fatal(err)
+			}
+			conn.Close() // the client sees EOF: a dead site
+			return
+		}
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte("<html><body><p>anvils</p></body></html>"))
+	}))
+	defer srv.Close()
+	h.write("dead.yaml", `name: dead-site
+source:
+  use: csv/source
+  with:
+    path: people.csv
+steps:
+  - id: fetch
+    use: http/enrich
+    with:
+      url: "`+srv.URL+`/site?d={{record.company_domain}}"
+      markdown: true
+      field: web.homepage
+      freshness_days: 7
+  - id: write
+    use: ai/compose
+    uses: [web.homepage]
+    with:
+      template: Write from the homepage.
+`)
+	env := h.fixtureScript("ai.json", "$auto")
+	res := h.runWithEnv(env, "", "run", "dead.yaml")
+	if res.code != 0 {
+		t.Fatalf("exit = %d (a dead site must not fail the run)\nstderr:\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "nothing stored", "the dead site warns")
+	contains(t, res.stderr, "fetch: 3 in, 2 out, 1 empty, 0 cached, 0 filtered, 0 failed", "one empty, none failed")
+	contains(t, res.stderr, "write: 3 in, 3 out, 0 cached, 0 filtered, 0 failed (1 missing web.homepage)", "downstream ran")
+	if n := h.queryInt(`SELECT count(*) FROM field_values WHERE field = 'web.homepage'`); n != 2 {
+		t.Errorf("web.homepage rows = %d, want 2", n)
+	}
+	reconcile(t, res.stderr)
+}
