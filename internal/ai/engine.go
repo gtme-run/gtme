@@ -7,6 +7,8 @@ package ai
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strings"
@@ -188,6 +190,15 @@ type BatchEngine interface {
 type BatchRequest struct {
 	CustomID string
 	Request  Request
+}
+
+// BatchID is the wire id for one record's request in a provider batch. A
+// provider constrains custom_id (Anthropic: ^[a-zA-Z0-9_-]{1,64}$) and an
+// identity key never fits it, so the id is the key's sha256 in hex — stable
+// across the submit and collect sessions, which are separate processes.
+func BatchID(identityKey string) string {
+	sum := sha256.Sum256([]byte(identityKey))
+	return hex.EncodeToString(sum[:])
 }
 
 // BatchResult is one request's outcome.
