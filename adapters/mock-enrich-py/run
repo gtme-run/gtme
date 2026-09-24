@@ -69,9 +69,11 @@ def main():
             key = msg.get("key") or {}
             identity_key = key.get("identity_key", "")
 
-            # Induced failure, for testing crash-and-resume. Output already sent
-            # stays in the ledger because the ledger is append-only.
-            if config.get("fail_on") and config["fail_on"] == identity_key:
+            # Induced failure, for testing crash-and-resume. fail_on is one
+            # identity_key or a comma-separated list of them. Output already
+            # sent stays in the ledger because the ledger is append-only.
+            fail_on = [k.strip() for k in str(config.get("fail_on") or "").split(",") if k.strip()]
+            if identity_key in fail_on:
                 print(
                     f"mock-enrich-py: induced failure on {identity_key}",
                     file=sys.stderr,
