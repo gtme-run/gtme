@@ -85,16 +85,13 @@ func (e *apiEngine) Complete(ctx context.Context, req Request) (Response, error)
 		Text:             text,
 		Model:            string(msg.Model),
 		Engine:           EngineAPI,
+		StopReason:       string(msg.StopReason),
 		InputTokens:      int(msg.Usage.InputTokens),
 		OutputTokens:     int(msg.Usage.OutputTokens),
 		CacheReadTokens:  int(msg.Usage.CacheReadInputTokens),
 		CacheWriteTokens: int(msg.Usage.CacheCreationInputTokens),
 	}
 	res.CostUSD, res.Priced = Price(res.Model, res.InputTokens, res.OutputTokens, res.CacheReadTokens, res.CacheWriteTokens)
-
-	if msg.StopReason == anthropic.StopReasonMaxTokens {
-		return res, fmt.Errorf("ai: response hit max_tokens (%d) before finishing; raise max_tokens or lower batch_size", maxTokens)
-	}
 	return res, nil
 }
 
@@ -190,6 +187,7 @@ func (e *apiEngine) Collect(ctx context.Context, token string) (map[string]Batch
 				Text:             text,
 				Model:            string(msg.Model),
 				Engine:           EngineAPI,
+				StopReason:       string(msg.StopReason),
 				InputTokens:      int(msg.Usage.InputTokens),
 				OutputTokens:     int(msg.Usage.OutputTokens),
 				CacheReadTokens:  int(msg.Usage.CacheReadInputTokens),

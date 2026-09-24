@@ -133,6 +133,7 @@ func (e *fixtureEngine) Complete(ctx context.Context, req Request) (Response, er
 		Text:         text,
 		Model:        "fixture",
 		Engine:       EngineFixture,
+		StopReason:   StopEnd,
 		InputTokens:  len(req.Prompt) / 4,
 		OutputTokens: len(text) / 4,
 		CostUSD:      0,

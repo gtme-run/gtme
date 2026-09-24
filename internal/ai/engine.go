@@ -64,11 +64,23 @@ type FieldShape struct {
 	Enum []string
 }
 
+// Stop reasons every engine reports on Response.StopReason.
+const (
+	StopEnd       = "end_turn"
+	StopMaxTokens = "max_tokens"
+)
+
 // Response is what an engine returns, including what it cost.
 type Response struct {
 	Text   string
 	Model  string
 	Engine string
+	// StopReason is why the model stopped, in the vendor's words. StopEnd is a
+	// finished answer; StopMaxTokens is a billed reply cut off before the end —
+	// a successful call whose text is unusable as-is, which the caller decides
+	// what to do about (ask for less, or drop it). Never an error: nothing
+	// went wrong, the answer was just bigger than max_tokens.
+	StopReason string
 
 	InputTokens      int
 	OutputTokens     int
