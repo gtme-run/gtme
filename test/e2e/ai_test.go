@@ -201,3 +201,41 @@ func countLines(t *testing.T, path string) int {
 	}
 	return len(nonEmptyLines(string(raw)))
 }
+
+// TestMaxTokensDropIsNotCachedAsAJudgment: a compose record dropped because
+// its reply was cut off at max_tokens advances empty, but that advance is not
+// a judgment (SPEC §7) — nothing was judged — so a later run with a working
+// engine asks again instead of skipping it as same_judgment forever.
+func TestMaxTokensDropIsNotCachedAsAJudgment(t *testing.T) {
+	h := newHarness(t)
+	h.write("people.csv", peopleCSV)
+	pipeline := `name: truncated
+source:
+  use: csv/source
+  with:
+    path: people.csv
+steps:
+  - id: write
+    use: ai/compose
+    with:
+      template: Write a line.
+`
+	h.write("t.yaml", pipeline)
+	res := h.runWithEnv(h.fixtureScript("ai.json", "$max_tokens"), "", "run", "t.yaml")
+	if res.code != 0 {
+		t.Fatalf("run 1 exit = %d\nstderr:\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "write: 3 in, 0 out, 3 empty, 0 cached, 0 filtered, 0 failed", "run 1 drops all three")
+	if n := h.queryInt(`SELECT count(*) FROM step_events WHERE step_id='write' AND event='done' AND json_extract(detail,'$.signature') IS NOT NULL`); n != 0 {
+		t.Errorf("done events carrying a judgment signature after a drop = %d, want 0 (nothing was judged)", n)
+	}
+
+	res = h.runWithEnv(h.fixtureScript("ai.json", "$auto"), "", "run", "t.yaml")
+	if res.code != 0 {
+		t.Fatalf("run 2 exit = %d\nstderr:\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "write: 3 in, 3 out, 0 cached, 0 filtered, 0 failed", "run 2 asks again")
+	if n := h.queryInt(`SELECT count(*) FROM field_values WHERE field='first_line'`); n != 3 {
+		t.Errorf("first_line rows after run 2 = %d, want 3", n)
+	}
+}

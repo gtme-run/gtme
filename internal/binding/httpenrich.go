@@ -91,6 +91,12 @@ func parseHTTPEnrichConfig(raw map[string]any) (httpEnrichConfig, error) {
 	if strings.TrimSpace(c.URL) == "" {
 		return c, fmt.Errorf("http/enrich: config.url is required")
 	}
+	// A URL no request could ever reach is a config error, refused once here
+	// rather than warned once per record below. A leading placeholder may carry
+	// the scheme itself, so only a literal prefix is checked.
+	if u := strings.ToLower(strings.TrimSpace(c.URL)); !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "{{") {
+		return c, fmt.Errorf("http/enrich: config.url must start with http:// or https:// (got %q)", c.URL)
+	}
 	if v, ok := raw["method"].(string); ok && v != "" {
 		c.Method = v
 	}

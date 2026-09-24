@@ -38,6 +38,10 @@ type fixtureEngine struct {
 // FixtureAuto is the sentinel that makes the fixture engine answer correctly.
 const FixtureAuto = "$auto"
 
+// FixtureMaxTokens is the sentinel that makes the fixture engine answer the
+// way the API does when a reply is cut off: StopMaxTokens, truncated text.
+const FixtureMaxTokens = "$max_tokens"
+
 // FixturePending is the sentinel a scripted Collect consumes to say "still
 // processing" (ADR-038 tests): the run stays pending until the next entry.
 const FixturePending = "$pending"
@@ -126,14 +130,18 @@ func (e *fixtureEngine) Complete(ctx context.Context, req Request) (Response, er
 	text := e.responses[i]
 	e.mu.Unlock()
 
-	if strings.TrimSpace(text) == FixtureAuto {
+	stop := StopEnd
+	switch strings.TrimSpace(text) {
+	case FixtureAuto:
 		text = autoAnswer(req)
+	case FixtureMaxTokens:
+		stop, text = StopMaxTokens, `[{"identity_key":`
 	}
 	return Response{
 		Text:         text,
 		Model:        "fixture",
 		Engine:       EngineFixture,
-		StopReason:   StopEnd,
+		StopReason:   stop,
 		InputTokens:  len(req.Prompt) / 4,
 		OutputTokens: len(text) / 4,
 		CostUSD:      0,
