@@ -38,3 +38,26 @@ func TestHTTPEnrichInterruptStillEnds(t *testing.T) {
 		t.Fatalf("Run = %v, want context.Canceled to propagate", err)
 	}
 }
+
+// TestHTTPEnrichRejectsAMalformedScheme: a transport failure per record is
+// "nothing stored", but a URL that can never be fetched is a config error,
+// refused at OPEN rather than warned once per record.
+func TestHTTPEnrichRejectsAMalformedScheme(t *testing.T) {
+	base := map[string]any{"markdown": true, "field": "web.homepage", "freshness_days": float64(7)}
+	for url, wantErr := range map[string]bool{
+		"htp://{{record.company_domain}}/":     true,
+		"ftp://{{record.company_domain}}/":     true,
+		"http://{{record.company_domain}}/":    false,
+		"HTTPS://api.example/{{record.email}}": false,
+		"{{record.website}}":                   false, // the record carries the scheme
+	} {
+		cfg := map[string]any{"url": url}
+		for k, v := range base {
+			cfg[k] = v
+		}
+		_, err := parseHTTPEnrichConfig(cfg)
+		if (err != nil) != wantErr {
+			t.Errorf("url %q: err = %v, want error %v", url, err, wantErr)
+		}
+	}
+}

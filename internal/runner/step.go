@@ -1069,6 +1069,12 @@ func (r *runner) processChunk(ctx context.Context, st *planner.Step, items []*it
 			continue
 		}
 		if !it.output {
+			// Nothing was said, so nothing was judged: the empty advance carries
+			// no judgment signature (SPEC §7), or a record an AI step dropped —
+			// a reply cut off at max_tokens, an unparseable batch item — would
+			// be skipped as same_judgment on every later run, even after the
+			// operator fixed the cause.
+			it.signature = ""
 			if err := r.advance(ctx, st, it, map[string]any{"fields": 0}, nil); err != nil {
 				return err
 			}
