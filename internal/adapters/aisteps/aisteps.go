@@ -318,8 +318,9 @@ func (a *Adapter) Run(ctx context.Context, p adapters.Ports) error {
 // deferred is the batch path (SPEC §5/§8, ADR-038). Without a token it
 // submits one request per record — custom_id is the identity key, the
 // shared half of the prompt identical across them — and ends with PENDING.
-// With a token it collects: results are parsed record by record against the
-// same shape; a record whose answer is invalid is failed by omission (there
+// With a token it collects: results, keyed by ai.BatchID of the identity key
+// (#75: a raw key never fits a provider's custom_id), are parsed record by
+// record against the same shape; a record whose answer is invalid is failed by omission (there
 // is no retry against a batch), a record the provider errored likewise; if
 // the provider is still processing it emits PENDING again.
 func (a *Adapter) deferred(ctx context.Context, engine ai.BatchEngine, w *protocol.Writer, cfg config, sh shape, model string, records []record, token string) error {
@@ -328,7 +329,7 @@ func (a *Adapter) deferred(ctx context.Context, engine ai.BatchEngine, w *protoc
 		for _, rec := range records {
 			one := []record{rec}
 			shared, payload := assemble(cfg, one, "")
-			reqs = append(reqs, ai.BatchRequest{CustomID: rec.key.IdentityKey, Request: ai.Request{
+			reqs = append(reqs, ai.BatchRequest{CustomID: ai.BatchID(rec.key.IdentityKey), Request: ai.Request{
 				System: a.systemPrompt(sh, cfg), Prompt: shared + "\n\n" + payload, Shared: shared, Payload: payload,
 				Model: model, MaxTokens: cfg.MaxTokens, Keys: []string{rec.key.IdentityKey}, Kind: a.Mode, Fields: sh.fields,
 			}})
@@ -352,7 +353,7 @@ func (a *Adapter) deferred(ctx context.Context, engine ai.BatchEngine, w *protoc
 	answered := map[string]map[string]any{}
 	var order []record
 	for _, rec := range records {
-		res, ok := results[rec.key.IdentityKey]
+		res, ok := results[ai.BatchID(rec.key.IdentityKey)]
 		if !ok {
 			_ = w.Write(protocol.Log("warn", fmt.Sprintf("%s: batch %s carried no result for %s", a.id(), token, rec.key.IdentityKey)))
 			continue
