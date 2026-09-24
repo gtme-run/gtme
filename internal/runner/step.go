@@ -714,10 +714,12 @@ func (r *runner) dispatch(ctx context.Context, st *planner.Step, work []*item) e
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			// A crashed chunk fails the step but not the pool: the worker
+			// keeps draining, or with every worker gone the unbuffered send
+			// below would block forever (#77).
 			for c := range queue {
 				if err := r.processChunk(ctx, st, c); err != nil {
 					once.Do(func() { fatal = err })
-					return
 				}
 			}
 		}()
