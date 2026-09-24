@@ -536,7 +536,7 @@ func (b *batchScript) Collect(ctx context.Context, token string) (map[string]ai.
 }
 
 // TestDeferredSubmitsThenCollects is ADR-038 at the adapter: a deferred
-// session submits one request per record (custom_id = identity key) and ends
+// session submits one request per record (custom_id = ai.BatchID(identity key)) and ends
 // with PENDING; a session opened with the token collects — still-processing
 // is PENDING again, results are parsed per record, an invalid one is failed
 // by omission, and COST lands at collection.
@@ -554,8 +554,8 @@ func TestDeferredSubmitsThenCollects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("submit session: %v", err)
 	}
-	if len(engine.submitted) != 1 || len(engine.submitted[0]) != 2 || engine.submitted[0][0].CustomID != "a@x.com" {
-		t.Fatalf("submitted = %+v, want one batch of two requests keyed by identity", engine.submitted)
+	if len(engine.submitted) != 1 || len(engine.submitted[0]) != 2 || engine.submitted[0][0].CustomID != ai.BatchID("a@x.com") {
+		t.Fatalf("submitted = %+v, want one batch of two requests keyed by ai.BatchID(identity key)", engine.submitted)
 	}
 	if !strings.Contains(engine.submitted[0][0].Request.Payload, "Records (1):") ||
 		engine.submitted[0][0].Request.Shared != "Judge." {

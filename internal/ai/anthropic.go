@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"regexp"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
@@ -135,9 +136,16 @@ func messageParams(req Request) anthropic.MessageNewParams {
 
 // Submit sends every request as one Message Batch (ADR-038): half the
 // per-token price, answered later under the batch id.
+// customIDPattern is what the Message Batches API accepts as a custom_id; an
+// identity key never fits it, which is why callers submit ai.BatchID (#75).
+var customIDPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,64}$`)
+
 func (e *apiEngine) Submit(ctx context.Context, reqs []BatchRequest) (string, error) {
 	items := make([]anthropic.MessageBatchNewParamsRequest, 0, len(reqs))
 	for _, r := range reqs {
+		if !customIDPattern.MatchString(r.CustomID) {
+			return "", fmt.Errorf("ai: custom_id %q is not ^[a-zA-Z0-9_-]{1,64}$", r.CustomID)
+		}
 		p := messageParams(r.Request)
 		items = append(items, anthropic.MessageBatchNewParamsRequest{
 			CustomID: r.CustomID,
