@@ -3669,9 +3669,9 @@ changelog. README.md, ADAPTERS.md, START.md and the example ride the
 build.
 
 ### ADR-057: `template:` — one key for operator text, rendered by role
-**Status:** Proposed (2026-09-13 — from a design session on how prompts,
-templated copy and files fit the grammar; approval is merging the packet;
-build queued as M30, the dialect unification as M31)
+**Status:** Accepted (2026-09-13 — from a design session on how prompts,
+templated copy and files fit the grammar; human-approved 2026-09-14 by
+merging the packet, PR #71; built as M30 and M31, shipped in v0.6.0)
 **Context:** Three places in gtme already hold operator-authored text with
 holes: a binding's request template (`{{config.x}}`, `{{record.x}}`,
 `{{variables.x}}`, with a `|` fallback), a `human/*` step's `render:
