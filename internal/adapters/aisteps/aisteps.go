@@ -299,17 +299,19 @@ func (a *Adapter) Run(ctx context.Context, p adapters.Ports) error {
 		}
 	}
 
-	answers, res, err := a.ask(ctx, engine, w, cfg, sh, model, records)
+	answers, err := a.askSplitting(ctx, engine, w, cfg, sh, model, records)
 	if err != nil {
 		return err
 	}
-
-	if res.CostUSD > 0 || res.Priced {
-		if err := w.Write(costMessage(res)); err != nil {
-			return err
+	// Only answered records are emitted: a dropped one gets no RECORD and no
+	// verdict, which is what "nothing acquired" and "no verdict" mean (SPEC §5).
+	answered := records[:0:0]
+	for _, rec := range records {
+		if _, ok := answers[rec.key.IdentityKey]; ok {
+			answered = append(answered, rec)
 		}
 	}
-	if err := a.emit(w, sh, records, answers); err != nil {
+	if err := a.emit(w, sh, answered, answers); err != nil {
 		return err
 	}
 	return w.Write(protocol.End())
@@ -370,6 +372,10 @@ func (a *Adapter) deferred(ctx context.Context, engine ai.BatchEngine, w *protoc
 		cost.InputTokens += res.Response.InputTokens
 		cost.OutputTokens += res.Response.OutputTokens
 		cost.Model, cost.Engine = res.Response.Model, res.Response.Engine
+		if res.Response.StopReason == ai.StopMaxTokens {
+			_ = w.Write(protocol.Log("warn", fmt.Sprintf("%s: %s: reply in batch %s hit max_tokens — nothing stored (raise max_tokens)", a.id(), rec.key.IdentityKey, token)))
+			continue
+		}
 		answers, err := a.parse(res.Response.Text, sh, []record{rec})
 		if err != nil {
 			_ = w.Write(protocol.Log("warn", fmt.Sprintf("%s: %s: invalid model output in batch %s (%v) — no retry against a batch", a.id(), rec.key.IdentityKey, token, err)))
@@ -396,7 +402,9 @@ func costMessage(res ai.Response) protocol.Message {
 }
 
 // ask sends the batch, validates the answer, and retries once with the
-// validation error appended (SPEC §2). A second failure fails the batch.
+// validation error appended (SPEC §2). A second failure fails the batch. Each
+// call writes its own COST. A reply cut off at max_tokens returns no answers
+// and no error; the caller reads StopReason.
 func (a *Adapter) ask(ctx context.Context, engine ai.Engine, w *protocol.Writer, cfg config, sh shape, model string, records []record) (map[string]map[string]any, ai.Response, error) {
 	shared, payload := assemble(cfg, records, "")
 	req := ai.Request{
@@ -419,6 +427,18 @@ func (a *Adapter) ask(ctx context.Context, engine ai.Engine, w *protocol.Writer,
 		if err != nil {
 			return nil, res, err
 		}
+		// Every call is billed, this one included whatever comes next; the
+		// runner sums COST rows, so each call reports its own.
+		if res.CostUSD > 0 || res.Priced {
+			if err := w.Write(costMessage(res)); err != nil {
+				return nil, res, err
+			}
+		}
+		if res.StopReason == ai.StopMaxTokens {
+			// Cut off, not wrong: parsing or retrying the same batch would only
+			// truncate again. The caller reads StopReason and asks for less.
+			return nil, res, nil
+		}
 		answers, err := a.parse(res.Text, sh, records)
 		if err == nil {
 			return answers, res, nil
@@ -429,6 +449,38 @@ func (a *Adapter) ask(ctx context.Context, engine ai.Engine, w *protocol.Writer,
 		req.Prompt, req.Shared, req.Payload = shared+"\n\n"+payload, shared, payload
 	}
 	return nil, last, fmt.Errorf("%s: model output still invalid after one retry: %w", a.id(), lastErr)
+}
+
+// askSplitting is ask with one more recovery: an answer cut off at max_tokens
+// means the batch is too big for one reply, so it is halved and each half asked
+// on its own (SPEC §9's "one invocation per batch" is the ceiling, not a
+// promise to fail). A record that truncates even alone is dropped with a
+// warning — nothing is emitted for it, so it advances empty or, for a filter,
+// fails "no verdict returned" (SPEC §5) — and the batch goes on.
+func (a *Adapter) askSplitting(ctx context.Context, engine ai.Engine, w *protocol.Writer, cfg config, sh shape, model string, records []record) (map[string]map[string]any, error) {
+	answers, res, err := a.ask(ctx, engine, w, cfg, sh, model, records)
+	if err != nil || res.StopReason != ai.StopMaxTokens {
+		return answers, err
+	}
+	if len(records) == 1 {
+		_ = w.Write(protocol.Log("warn", fmt.Sprintf("%s: %s: response hit max_tokens even as a batch of one — nothing stored (raise max_tokens)",
+			a.id(), records[0].key.IdentityKey)))
+		return map[string]map[string]any{}, nil
+	}
+	half := len(records) / 2
+	_ = w.Write(protocol.Log("warn", fmt.Sprintf("%s: a batch of %d hit max_tokens; retrying as %d + %d",
+		a.id(), len(records), half, len(records)-half)))
+	merged := map[string]map[string]any{}
+	for _, part := range [][]record{records[:half], records[half:]} {
+		ans, err := a.askSplitting(ctx, engine, w, cfg, sh, model, part)
+		if err != nil {
+			return nil, err
+		}
+		for k, v := range ans {
+			merged[k] = v
+		}
+	}
+	return merged, nil
 }
 
 func (a *Adapter) id() string {

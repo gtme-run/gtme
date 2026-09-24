@@ -22,6 +22,9 @@ type scriptEngine struct {
 	callCount int
 	// measured marks the engine's cost as vendor-reported (ADR-046).
 	measured bool
+	// stops is the StopReason per answer, index-aligned with answers; absent
+	// means StopEnd. A truncated answer is a priced call, not an error.
+	stops []string
 }
 
 func (e *scriptEngine) Name() string { return "script" }
@@ -38,6 +41,10 @@ func (e *scriptEngine) Complete(ctx context.Context, req ai.Request) (ai.Respons
 	if i >= len(e.answers) {
 		i = len(e.answers) - 1
 	}
+	stop := ai.StopEnd
+	if i < len(e.stops) && e.stops[i] != "" {
+		stop = e.stops[i]
+	}
 	return ai.Response{
 		Text:         e.answers[i],
 		Model:        "script",
@@ -46,6 +53,7 @@ func (e *scriptEngine) Complete(ctx context.Context, req ai.Request) (ai.Respons
 		OutputTokens: 20,
 		Priced:       true,
 		Measured:     e.measured,
+		StopReason:   stop,
 	}, nil
 }
 
@@ -699,5 +707,119 @@ func TestCostCarriesEngineBasis(t *testing.T) {
 		if costs != 1 {
 			t.Errorf("measured=%v: cost messages = %d, want 1", tc.measured, costs)
 		}
+	}
+}
+
+// TestMaxTokensSplitsTheBatch is #77 (part 1): a batch whose answer is cut
+// off at max_tokens is halved and re-asked in order, every record is still
+// judged, the session does not fail, and the truncated attempt is costed.
+func TestMaxTokensSplitsTheBatch(t *testing.T) {
+	engine := &scriptEngine{
+		answers: []string{
+			`[{"identity_key":"a@x.com"`, // cut off
+			`[{"identity_key":"a@x.com","pass":true,"reason":"ok"},{"identity_key":"b@x.com","pass":true,"reason":"ok"}]`,
+			`[{"identity_key":"c@x.com","pass":true,"reason":"ok"},{"identity_key":"d@x.com","pass":true,"reason":"ok"}]`,
+		},
+		stops: []string{ai.StopMaxTokens},
+	}
+	a := &Adapter{Mode: modeFilter, Engine: engine}
+
+	msgs, err := drive(t, a, map[string]any{"template": "Keep them."}, "a@x.com", "b@x.com", "c@x.com", "d@x.com")
+	if err != nil {
+		t.Fatalf("Run: %v (max_tokens must not fail the batch)", err)
+	}
+	if engine.callCount != 3 {
+		t.Fatalf("engine calls = %d, want 3: the batch, then each half (no parse retry on a truncated reply)", engine.callCount)
+	}
+	passed, costs := 0, 0
+	warned := false
+	for _, m := range msgs {
+		switch {
+		case m.Type == protocol.TypeVerdict && m.Passed():
+			passed++
+		case m.Type == protocol.TypeLog && strings.Contains(m.Msg, "max_tokens"):
+			warned = true
+		case m.Type == protocol.TypeCost:
+			costs++
+		}
+	}
+	if passed != 4 || !warned || costs != 3 {
+		t.Errorf("passed = %d, warned = %v, costs = %d; want 4, true, 3 (the truncated call is billed too)", passed, warned, costs)
+	}
+}
+
+// TestMaxTokensOnASingleRecordDropsIt: a record that truncates even alone is
+// dropped with a warning — no verdict, so the runner fails it "no verdict
+// returned" and the run continues.
+func TestMaxTokensOnASingleRecordDropsIt(t *testing.T) {
+	engine := &scriptEngine{
+		answers: []string{`[{"identity_key":"a@x.com"`},
+		stops:   []string{ai.StopMaxTokens, ai.StopMaxTokens, ai.StopMaxTokens},
+	}
+	a := &Adapter{Mode: modeFilter, Engine: engine}
+
+	msgs, err := drive(t, a, map[string]any{"template": "Keep them."}, "a@x.com", "b@x.com")
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	dropped := 0
+	for _, m := range msgs {
+		if m.Type == protocol.TypeVerdict || m.Type == protocol.TypeRecord {
+			t.Errorf("no answer must be emitted for a dropped record: %+v", m)
+		}
+		if m.Type == protocol.TypeLog && strings.Contains(m.Msg, "even as a batch of one") {
+			dropped++
+		}
+	}
+	if dropped != 2 || engine.callCount != 3 {
+		t.Errorf("drop warnings = %d, calls = %d; want 2 and 3 (the pair, then each alone)", dropped, engine.callCount)
+	}
+}
+
+// TestDeferredCollectDropsATruncatedItem: Collect used to ignore stop_reason,
+// so a truncated batch item was parsed as if complete and warned "invalid
+// model output". It is now dropped for what it is, and still costed.
+func TestDeferredCollectDropsATruncatedItem(t *testing.T) {
+	engine := &batchScript{
+		scriptEngine: scriptEngine{answers: []string{`[{"identity_key":"a@x.com"`}, stops: []string{ai.StopMaxTokens}},
+	}
+	a := &Adapter{Mode: modeFilter, Engine: engine}
+
+	if _, err := drive(t, a, map[string]any{"template": "Judge.", "deferred": true}, "a@x.com"); err != nil {
+		t.Fatalf("submit session: %v", err)
+	}
+	inR, inW := io.Pipe()
+	outR, outW := io.Pipe()
+	go func() {
+		w := protocol.NewWriter(inW)
+		w.Write(protocol.Message{Type: protocol.TypeOpen, StepID: "step", RunID: "run1",
+			Config: map[string]any{"template": "Judge.", "deferred": true}, Pending: &protocol.PendingRef{Token: "tok-a"}})
+		w.Write(protocol.Record(protocol.Key{EntityType: "person", IdentityKey: "a@x.com"}, map[string]any{"email": "a@x.com"}, nil))
+		w.Write(protocol.End())
+		inW.Close()
+	}()
+	go func() {
+		outW.CloseWithError(a.Run(context.Background(), adapters.Ports{In: inR, Out: outW, Log: io.Discard}))
+	}()
+	var warned, costed bool
+	r := protocol.NewReader(outR)
+	for {
+		m, err := r.Next()
+		if err != nil {
+			break
+		}
+		switch {
+		case m.Type == protocol.TypeVerdict:
+			t.Errorf("a truncated item must not be judged: %+v", m)
+		case m.Type == protocol.TypeLog && strings.Contains(m.Msg, "max_tokens"):
+			warned = true
+		case m.Type == protocol.TypeLog && strings.Contains(m.Msg, "invalid model output"):
+			t.Errorf("a truncated item is not an invalid answer: %q", m.Msg)
+		case m.Type == protocol.TypeCost:
+			costed = true
+		}
+	}
+	if !warned || !costed {
+		t.Errorf("warned = %v, costed = %v; want both", warned, costed)
 	}
 }
