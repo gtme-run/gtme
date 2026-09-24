@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -117,5 +118,47 @@ func TestResumeLastAndUnknownRun(t *testing.T) {
 	contains(t, res.stderr, "already sourced", "stderr")
 	if strings.Contains(res.stderr, "mock: 3 in") {
 		t.Error("resuming a finished run must not redo its work")
+	}
+}
+
+// TestPoolExitsWhenEveryWorkerCrashes is #77 (part 2): a worker used to exit
+// on its first crashed chunk, and once every worker had, the dispatcher
+// blocked forever on a queue nobody read. 300 rows under concurrency 2 make
+// five 64-record chunks; the first record of chunks 1 and 2 kills its
+// session, so both workers see a crash with three chunks still queued. The
+// run must finish failed with every chunk processed, not hang.
+func TestPoolExitsWhenEveryWorkerCrashes(t *testing.T) {
+	h := newHarness(t)
+	var csv strings.Builder
+	csv.WriteString("email,full_name,company_domain,linkedin_url,title\n")
+	for i := 0; i < 300; i++ {
+		fmt.Fprintf(&csv, "p%03d@example.com,Person %03d,example.com,,Manager\n", i, i)
+	}
+	h.write("people.csv", csv.String())
+	h.write("crash.yaml", `name: pool-crash
+source:
+  use: csv/source
+  with:
+    path: people.csv
+steps:
+  - id: mock
+    use: mock-enrich-py
+    cache: 30d
+    with:
+      fail_on: p000@example.com,p064@example.com
+`)
+	res := h.runWithEnv([]string{"GTME_CONCURRENCY=2"}, "", "run", "crash.yaml")
+	if res.code <= 0 {
+		t.Fatalf("exit = %d (a killed process is -1: the runner hung)\nstderr:\n%s", res.code, res.stderr)
+	}
+	if n := h.queryInt(`SELECT count(*) FROM runs WHERE status = 'failed'`); n != 1 {
+		t.Errorf("failed runs = %d, want 1", n)
+	}
+	if n := h.queryInt(
+		`SELECT count(*) FROM step_events WHERE step_id='mock' AND event='failed' AND identity_id IS NULL`); n != 2 {
+		t.Errorf("step-level failed events = %d, want 2 (one per crashed session)", n)
+	}
+	if n := h.queryInt(`SELECT count(*) FROM step_events WHERE step_id='mock' AND event='claimed'`); n != 300 {
+		t.Errorf("claimed = %d, want 300 (the surviving chunks were still processed)", n)
 	}
 }

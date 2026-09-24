@@ -25,7 +25,7 @@
       "note": {"type": "string"},
       "fail_on": {
         "type": "string",
-        "description": "identity_key that makes this adapter exit non-zero, for resume tests"
+        "description": "identity_key (or comma-separated keys) that makes this adapter exit non-zero, for crash tests"
       }
     }
   },
