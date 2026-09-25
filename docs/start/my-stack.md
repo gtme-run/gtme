@@ -240,7 +240,7 @@ send: resolved variables for 5 record(s) — review, then run again without --dr
 total: $0.1437 (estimated) spent
 ```
 
-Check that the campaign checks passed, the count matches `limit`, and every `first_line` reads like something you'd send. Five people cost fourteen cents.
+Check that the campaign checks passed, the count matches `limit`, and every `first_line` reads like something you'd send.
 
 ## Arm it
 
