@@ -1,0 +1,100 @@
+# The docs site map. Underscore-prefixed, so Spandrel ignores it.
+#
+# Two jobs: (1) the writing queue, in order; (2) the set of paths a page may
+# link to. A link to a planned page is fine; a link to a path not in this
+# file is a lint error, so nobody invents a slug.
+#
+# status: planned | draft | reviewed | published
+
+budgets: # prose words, code blocks excluded
+  start: 600 # raised from 500 on 2026-09-25: Door 1 review asked for the pipeline file on the page
+  concepts: 900
+  guides: 1200
+  reference: 0 # generated; no budget
+
+collections:
+  start:
+    - { slug: install, name: Install, status: reviewed }
+    - { slug: show-me, name: "Door 1: show me", status: reviewed }
+    - { slug: my-csv, name: "Door 2: my CSV", status: reviewed }
+    - { slug: my-stack, name: "Door 3: my stack", status: reviewed }
+    - { slug: add-a-vendor, name: "Door 4: add a vendor", status: reviewed }
+    - { slug: for-agents, name: For agents, status: reviewed }
+  concepts:
+    - { slug: pipeline, name: A pipeline is a YAML file, status: planned }
+    - { slug: steps-and-roles, name: Steps and roles, status: planned }
+    - { slug: gate-ladder, name: The gate ladder, status: planned }
+    - { slug: runs-and-receipts, name: Runs and receipts, status: planned }
+    - { slug: ledger, name: The ledger, status: draft }
+    - { slug: identity-keys, name: Identity keys, status: planned }
+    - { slug: canonical-fields, name: Canonical fields, status: planned }
+    - { slug: facts, name: Facts have provenance, status: planned }
+    - { slug: groups, name: Groups and segments, status: planned }
+    - { slug: types-and-traverse, name: Types and traverse, status: planned }
+    - { slug: participants, name: Participants, status: planned }
+    - { slug: campaign-is-a-folder, name: A campaign is a folder, status: planned }
+    - { slug: adapter-tiers, name: Two adapter tiers, status: planned }
+    - { slug: agent-operable, name: Agent-operable by design, status: planned }
+  guides:
+    - { slug: first-pipeline, name: Build your first pipeline from a CSV, status: planned }
+    - { slug: connect-your-stack, name: "Connect your stack: secrets, plan, dry-run, arm", status: planned }
+    - { slug: launch, name: Launch, status: planned }
+    - { slug: guard, name: Guard, status: planned }
+    - { slug: report, name: Report, status: planned }
+    - { slug: interrogate, name: Interrogate, status: planned }
+    - { slug: top-up, name: Top up, status: planned }
+    - { slug: iterate, name: Iterate, status: planned }
+    - { slug: recover, name: Recover, status: planned }
+    - { slug: segment, name: Segment, status: planned }
+    - { slug: multi-stage, name: Multi-stage campaigns with groups, status: planned }
+    - { slug: traverse, name: Traverse a relation, status: planned }
+    - { slug: human-in-the-loop, name: Put a human in the loop, status: planned }
+    - { slug: cron-and-events, name: Run on cron and events, status: planned }
+    - { slug: bundles, name: Package and share a campaign, status: planned }
+    - { slug: claude-code, name: Use gtme from Claude Code, status: planned }
+    - { slug: add-a-binding, name: Add a vendor with a binding, status: planned }
+    - { slug: process-adapter, name: Write a process adapter, status: planned }
+    - { slug: publish-to-registry, name: Publish to the registry, status: planned }
+  reference:
+    - { slug: cli, name: CLI, status: planned, children: [init, plan, run, runs, show, query, answer, freeze, groups, secret, adapters, vacuum, help, version] }
+    - { slug: pipeline-yaml, name: pipeline.yaml keys, status: planned }
+    - { slug: adapters, name: Adapter catalog, status: planned }
+    - { slug: bundles, name: Bundles, status: planned }
+    - { slug: fields, name: Canonical field registry, status: planned }
+    - { slug: ledger-schema, name: Ledger schema and views, status: planned }
+    - { slug: plugin-skills, name: Plugin skills, status: planned }
+    - { slug: binding-manifest, name: Binding manifest, status: planned }
+    - { slug: wire-protocol, name: Wire protocol, status: planned }
+    - { slug: conformance, name: Conformance kit and fixtures, status: planned }
+
+# Canon rendered outside the nav. Anchors are allowed after these.
+canon:
+  - /spec
+  - /decisions
+
+# The project's nouns. When a page mentions one that isn't its own subject,
+# the lint expects a link to the term's page on first mention, or a one-line
+# gloss. Keys are matched as whole words, case-insensitive.
+terms:
+  ledger: /concepts/ledger
+  receipt: /concepts/runs-and-receipts
+  identity key: /concepts/identity-keys
+  canonical field: /concepts/canonical-fields
+  provenance: /concepts/facts
+  confidence: /concepts/facts
+  projection: /concepts/ledger
+  gate ladder: /concepts/gate-ladder
+  simulate: /concepts/gate-ladder
+  dry-run: /concepts/gate-ladder
+  armed: /concepts/gate-ladder
+  adapter: /concepts/adapter-tiers
+  binding: /concepts/adapter-tiers
+  process adapter: /concepts/adapter-tiers
+  group: /concepts/groups
+  segment: /concepts/groups
+  traverse: /concepts/types-and-traverse
+  participant: /concepts/participants
+  bundle: /concepts/campaign-is-a-folder
+  freeze: /concepts/campaign-is-a-folder
+  idempotency: /concepts/runs-and-receipts
+  door: /start/show-me

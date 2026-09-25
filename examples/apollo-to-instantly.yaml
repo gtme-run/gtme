@@ -17,7 +17,7 @@ version: 1
 source:
   use: apollo/search
   with:
-    query: "vp marketing, saas, 50-200 employees"
+    query: "saas"
     titles: ["vp marketing", "head of marketing"]
     employee_ranges: ["50,200"]
     limit: 500
