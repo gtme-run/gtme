@@ -1,6 +1,12 @@
 ---
 name: "Door 2: my CSV"
 description: Your own CSV of people, judged by an AI filter, given two intro lines each, and written to a local CSV, for one model key and cents on the model
+for: "You have a CSV of people and an Anthropic key, and you want them judged and written with your own prompts."
+learn:
+  - "map CSV columns to gtme's field names"
+  - "plan and simulate before spending anything"
+  - "run armed and read what the model cost"
+  - "change a prompt and re-run"
 order: 3
 links:
   - to: /start/show-me
@@ -146,9 +152,23 @@ steps:
     gtme run my-csv.yaml
     ```
 
-    <!-- receipt: capture with a real key before publish -->
+    ```
+    run 01M3D1R0CE22N0DJ4DCTFC0R7D (my-csv)
+    source [info]: read 3 rows from contacts.csv
+    source: sourced 3 records
+    fit: 3 in, 3 out, 0 cached, 0 filtered, 0 failed
+    lines: 3 in, 3 out, 0 cached, 0 filtered, 0 failed
+    ...
+    run 01M3D1R0CE22N0DJ4DCTFC0R7D — done
+    step    adapter      in  out  empty  cached  filtered  failed  cost     avoided
+    source  csv/source   0   3    -      0       -         -       $0       -
+    fit     ai/filter    3   3    -      0       -         -       $0.0027  -
+    lines   ai/compose   3   3    -      0       -         -       $0.0051  -
+    out     csv/deliver  3   3    -      0       -         -       $0       -
+    total: $0.0078 (estimated) spent
+    ```
 
-    Read `cost` on the `fit` and `lines` rows for what the model cost. On the `out` row, `out` counts the rows written to `out.csv`.
+    Read `cost` on the `fit` and `lines` rows for what the model cost: under a cent for three people. On the `out` row, `out` counts the rows written to `out.csv`. All three passed the filter this time; the ledger keeps the verdict either way.
 
 1. Run it again:
 
@@ -156,9 +176,24 @@ steps:
     gtme run my-csv.yaml
     ```
 
-    <!-- receipt: capture with a real key before publish -->
+    ```
+    run 01M3D1R9N6HMB6TF7K2NNCERN3 (my-csv)
+    source [info]: read 3 rows from contacts.csv
+    source: sourced 3 records
+    fit: 3 in, 0 out, 3 cached, 0 filtered, 0 failed
+    lines: 3 in, 0 out, 3 cached, 0 filtered, 0 failed
+    out: 3 in, 0 out, 3 cached, 0 filtered, 0 failed
 
-    On both AI rows, `cached` matches `in` and the cost is $0, because every judgment is in [the ledger](/concepts/ledger). The `out` row writes nothing twice.
+    run 01M3D1R9N6HMB6TF7K2NNCERN3 — done
+    step    adapter      in  out  empty  cached  filtered  failed  cost  avoided
+    source  csv/source   0   3    -      0       -         -       $0    -
+    fit     ai/filter    3   0    -      3       -         -       $0    ?
+    lines   ai/compose   3   0    -      3       -         -       $0    ?
+    out     csv/deliver  3   0    -      3       -         -       $0    $0.0000
+    total: $0 spent, $0.0000+? avoided via cache (9 records skipped)
+    ```
+
+    On both AI rows, `cached` matches `in` and the cost is $0, because every judgment is in [the ledger](/concepts/ledger). The `?` under `avoided` is the model's metered price, which the receipt can't restate; the first receipt already told you it was $0.0078. The `out` row writes nothing twice.
 
 ## Run your file
 

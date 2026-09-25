@@ -1,6 +1,10 @@
 ---
 name: Concepts
 description: The ideas behind gtme, ordered simplest to most complex, so that each page only needs the ones before it
+for: "You've seen at least one receipt and want to know what happened underneath."
+learn:
+  - "the order to read the concepts in"
+  - "which pages are the data model"
 order: 2
 links:
   - to: /concepts/ledger

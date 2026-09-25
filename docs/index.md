@@ -1,6 +1,10 @@
 ---
 name: gtme docs
 description: "How gtme works and how to use it, in four collections: Start, Concepts, Guides, and Reference"
+for: "Anyone who has heard of gtme and wants to know where to start reading."
+learn:
+  - "which of the four collections answers the question you have"
+  - "where the canon lives and how the docs relate to it"
 links:
   - to: /start
     type: relates-to

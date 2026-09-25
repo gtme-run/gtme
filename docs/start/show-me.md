@@ -1,6 +1,11 @@
 ---
 name: "Door 1: show me"
 description: Run a whole outbound pipeline offline with no keys, then run a keyless pipeline twice and watch the second run skip what the first one paid for
+for: "Your first run. You have gtme and no API keys, and you want to see a whole pipeline work before connecting anything."
+learn:
+  - "run an outbound pipeline offline from recorded samples"
+  - "read a receipt"
+  - "why a second run costs less and delivers nobody twice"
 order: 2
 links:
   - to: /start/install

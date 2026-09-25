@@ -1,6 +1,11 @@
 ---
 name: Start
 description: Install gtme and walk one of four doors to a receipt, spending nothing until a page says so in plain words right before the command
+for: "You have gtme installed, or are about to, and want a first result before reading anything else."
+learn:
+  - "how to pick a door by what you have on hand"
+  - "what each door needs, spends, and ends with"
+  - "what a receipt is"
 order: 1
 links:
   - to: /start/install

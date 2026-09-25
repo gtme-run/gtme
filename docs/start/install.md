@@ -1,6 +1,11 @@
 ---
 name: Install
 description: Install gtme with Homebrew, check it with gtme version and gtme init, and update or remove it later
+for: "You have a Mac or Linux terminal and haven't installed gtme yet."
+learn:
+  - "install gtme with Homebrew or from a release"
+  - "prove the install with `gtme version` and `gtme init`"
+  - "update and uninstall it"
 order: 1
 links:
   - to: /start/show-me

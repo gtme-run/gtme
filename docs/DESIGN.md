@@ -267,6 +267,10 @@ output with a comment on the first line.
 ---
 name: Identity keys
 description: How the same person or company is the same record across runs and vendors
+for: "You've seen two vendors disagree about one person, or you're about to import a CSV and want to know what makes a row the same record"
+learn:
+  - "the key tiers and the order they're tried in"
+  - "what happens when a weak key later gains a stronger one"
 order: 6
 links:
   - to: /concepts/ledger
@@ -278,6 +282,14 @@ links:
 ---
 ```
 
+- `for` is one sentence saying who the page is for and when: the state
+  the reader is in. "You've run a pipeline twice and want to know why
+  the second run was cheaper." An agent reads it to decide whether to
+  send someone here.
+- `learn` is two to four items, each a verb phrase or a question the page
+  answers. The site renders `for` and `learn` as a "What you'll learn"
+  block under the title. Both are frontmatter, not prose, so an agent
+  gets them as data and the word budget doesn't count them.
 - `name` is the sidebar and MCP title. Sentence case, no trailing period.
 - `description` is one sentence under 160 characters. It is what an
   agent reads before deciding to open the page, so it is the definition,

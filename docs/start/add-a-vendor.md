@@ -1,6 +1,11 @@
 ---
 name: "Door 4: add a vendor"
 description: Write an adapter for an API gtme doesn't ship as one YAML file, verify it offline against a recorded response, and simulate a pipeline through it
+for: "You use a vendor gtme doesn't ship and want to see what an adapter is before handing the job to Claude Code."
+learn:
+  - "search the registry before writing anything"
+  - "write a binding from an API doc, record a fixture, and verify it offline"
+  - "where an API key goes"
 order: 5
 links:
   - to: /start/my-stack

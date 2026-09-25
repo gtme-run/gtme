@@ -1,6 +1,11 @@
 ---
 name: "Door 3: my stack"
 description: Run a live Apollo-to-Instantly pipeline on your own keys, climbing simulate, plan, and dry-run before one armed run that sends
+for: "You have Apollo, Harvest, Anthropic, and Instantly, and you want a live campaign with nothing sent until you've read the dry run."
+learn:
+  - "climb simulate, plan, dry-run, armed, with a spend sentence before each"
+  - "what preflight checks on the Instantly campaign"
+  - "why the armed run can differ from the dry run, and how to pin it"
 order: 4
 links:
   - to: /concepts/gate-ladder
@@ -57,7 +62,7 @@ version: 1
 source:
   use: apollo/search
   with:
-    query: "vp marketing, saas, 50-200 employees"
+    query: "saas"
     titles: ["vp marketing", "head of marketing"]
     employee_ranges: ["50,200"]
     limit: 500
@@ -210,9 +215,32 @@ The dry run spends Apollo reveal credits, Harvest calls, and model tokens. It se
 gtme run apollo-to-instantly.yaml --dry-run
 ```
 
-<!-- receipt: capture with live accounts before publish -->
+```
+dry run: deliver steps will resolve and receipt their variables, but nothing sends
+run 01M3D1ZTKBQBS57C9WPK8NQM60 (apollo-to-instantly)
+source [info]: apollo/search: 5 records
+...
+send: preflight ok — 3 check(s)
+send: 5 in, 0 out, 0 cached, 0 filtered, 0 failed, 5 held (dry run)
 
-In the receipt, check that the campaign checks passed, the count matches `limit`, every `first_line` is filled and sane, and the `cost` column is what you expected.
+run 01M3D1ZTKBQBS57C9WPK8NQM60 — done (dry run — nothing sent)
+step         adapter                    in  out  empty  cached  filtered  failed  cost     avoided
+source       apollo/search              0   5    -      0       -         -       $0       -
+icp-filter   ai/filter                  5   5    -      0       -         -       $0.0105  -
+reveal       apollo/enrich              5   5    -      0       -         -       $0.0500  -
+linkedin     harvest/profile            5   5    -      0       -         -       $0.0600  -
+personalize  ai/compose                 5   5    -      0       -         -       $0.0232  -
+send         instantly/add-to-campaign  5   0    -      0       -         -       $0       -
+send: preflight ok — 3 check(s) (✓ campaign active, ✓ variable first_line referenced, ✓ variable ps_line referenced)
+send: resolved variables for 5 record(s) — review, then run again without --dry-run to arm:
+  nh:e9de8aa74c349b813529a458a46fee98774debfb75e44f3c4dc2fd1f50ef3f92
+    first_line: "Your note about using pen and paper to reprioritize when juggling multiple projects resonated — it's a simple habit that doesn't get mentioned enough."
+    ps_line: "Happy to connect if you're open to it."
+  ...
+total: $0.1437 (estimated) spent
+```
+
+Check that the campaign checks passed, the count matches `limit`, and every `first_line` reads like something you'd send. Five people cost fourteen cents.
 
 ## Arm it
 
@@ -224,17 +252,44 @@ The armed run spends only on people the ledger lacks, and it sends:
 gtme run apollo-to-instantly.yaml
 ```
 
-<!-- receipt: capture with live accounts before publish -->
+```
+run 01M3D217B7R83KF1HCM4W3ENKJ (apollo-to-instantly)
+...
+send [info]: instantly: added 2 leads
+send: 5 in, 5 out, 0 cached, 0 filtered, 0 failed
 
-Delivery is keyed on email, so a second run adds nobody twice:
+run 01M3D217B7R83KF1HCM4W3ENKJ — done
+step         adapter                    in  out  empty  cached  filtered  failed  cost  avoided
+source       apollo/search              0   5    -      0       -         -       $0    -
+icp-filter   ai/filter                  5   0    -      5       -         -       $0    ?
+reveal       apollo/enrich              5   0    -      5       -         -       $0    $0.0500
+linkedin     harvest/profile            5   0    -      5       -         -       $0    $0.0600
+personalize  ai/compose                 5   0    -      5       -         -       $0    ?
+send         instantly/add-to-campaign  5   5    -      0       -         -       $0    -
+send: preflight ok — 3 check(s) (✓ campaign active, ✓ variable first_line referenced, ✓ variable ps_line referenced)
+send: attested 5 confirmed, 0 contradicted, 0 inconclusive (deliveries are accepted, never sent, until a provider attests)
+total: $0 (estimated) spent, $0.1100+? avoided via cache (20 records skipped)
+```
+
+Everything the dry run paid for came back from the ledger; the only new work was five adds. Delivery is keyed on email, so a second run adds nobody twice:
 
 ```sh
 gtme run apollo-to-instantly.yaml
 ```
 
-<!-- receipt: capture with live accounts before publish -->
+```
+run 01M3D219H50J12GF22T56NES50 — done
+step         adapter                    in  out  empty  cached  filtered  failed  cost  avoided
+source       apollo/search              0   5    -      0       -         -       $0    -
+icp-filter   ai/filter                  5   0    -      5       -         -       $0    ?
+reveal       apollo/enrich              5   0    -      5       -         -       $0    $0.0500
+linkedin     harvest/profile            5   0    -      5       -         -       $0    $0.0600
+personalize  ai/compose                 5   0    -      5       -         -       $0    ?
+send         instantly/add-to-campaign  5   0    -      5       -         -       $0    $0.0000
+total: $0 (estimated) spent, $0.1100+? avoided via cache (25 records skipped)
+```
 
-That receipt shows `cached` on the paid steps, the money saved in `avoided`, and `0` out on `send`.
+`cached` on every paid step, the savings under `avoided`, `0` out on `send`. The `?` is the model's metered price, which the receipt can't restate here.
 
 ## Next
 

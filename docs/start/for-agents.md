@@ -1,6 +1,11 @@
 ---
 name: For agents
 description: Hand gtme to Claude Code or any agent with a shell in one paste line, and the rules it follows before anything spends or sends
+for: "You'd rather have Claude Code or another agent do the typing, and you want to know what it will and won't do on its own."
+learn:
+  - "the paste line and the plugin"
+  - "the rules the agent follows about spending and sending"
+  - "what the binary enforces and what only the rules do"
 order: 6
 links:
   - to: /start/show-me

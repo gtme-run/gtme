@@ -1,6 +1,12 @@
 ---
 name: The ledger
 description: Every fact gtme learns about a person or company is a row in one append-only SQLite file, and steps read from it instead of passing records to each other
+for: "You've run a pipeline twice and want to know why the second run was cheaper, or you're about to write SQL against the ledger."
+learn:
+  - "how steps read from and write to the ledger instead of passing records"
+  - "how the current value of a field is chosen"
+  - "what provenance every fact carries"
+  - "why cache, resume, and dedupe come from the schema"
 order: 5
 links:
   - to: /concepts/identity-keys
