@@ -7,7 +7,7 @@
 # status: planned | draft | reviewed | published
 
 budgets: # prose words, code blocks excluded
-  start: 600 # raised from 500 on 2026-09-25: Door 1 review asked for the pipeline file on the page
+  start: 600 # raised from 500 on 2026-09-25: See-it-run review asked for the pipeline file on the page
   concepts: 900
   guides: 1200
   reference: 0 # generated; no budget
@@ -15,10 +15,10 @@ budgets: # prose words, code blocks excluded
 collections:
   start:
     - { slug: install, name: Install, status: reviewed }
-    - { slug: show-me, name: "Door 1: show me", status: reviewed }
-    - { slug: my-csv, name: "Door 2: my CSV", status: reviewed }
-    - { slug: my-stack, name: "Door 3: my stack", status: reviewed }
-    - { slug: add-a-vendor, name: "Door 4: add a vendor", status: reviewed }
+    - { slug: show-me, name: See it run, status: reviewed }
+    - { slug: my-csv, name: Your CSV, status: reviewed }
+    - { slug: my-stack, name: Your stack, status: reviewed }
+    - { slug: add-a-vendor, name: Add a vendor, status: reviewed }
     - { slug: for-agents, name: For agents, status: reviewed }
   concepts:
     - { slug: pipeline, name: A pipeline is a YAML file, status: planned }
@@ -97,4 +97,3 @@ terms:
   bundle: /concepts/campaign-is-a-folder
   freeze: /concepts/campaign-is-a-folder
   idempotency: /concepts/runs-and-receipts
-  door: /start/show-me

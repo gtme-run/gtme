@@ -53,7 +53,7 @@ The three vendors here are fictional (reserved `.example` hosts) and their
 fixtures are hand-written to the shape most finders share: a GET per
 person, the address in the response, 404 for nothing. Your finder is a
 binding of the same role dropped into `~/.gtme/adapters/<vendor>-email/`
-— `gtme help --bindings` prints the contract, door 4 in `START.md` walks
+— `gtme help --bindings` prints the contract, "Add a vendor" in `START.md` walks
 it — with `use:` changed in a copy of `pipeline.yaml`. Put your finders in
 the order you want to pay for them. The verifier's status values are the
 vendor's; the `deliverable` filter names the ones you accept.

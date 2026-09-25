@@ -85,4 +85,4 @@ On your machine, both paths start with your home folder. Running `gtme init` aga
 
 ## Next
 
-**[Door 1: show me](/start/show-me) runs a whole outbound pipeline offline with no keys.** It ends in a [receipt](/concepts/runs-and-receipts), one row per step with what it cost. If you'd rather have Claude Code do the typing, [For agents](/start/for-agents) has the line to paste and the Claude Code plugin.
+**[See it run](/start/show-me) runs a whole outbound pipeline offline with no keys.** It ends in a [receipt](/concepts/runs-and-receipts), one row per step with what it cost. If you'd rather have Claude Code do the typing, [For agents](/start/for-agents) has the line to paste and the Claude Code plugin.

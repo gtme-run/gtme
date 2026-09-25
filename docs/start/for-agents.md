@@ -10,13 +10,13 @@ order: 6
 links:
   - to: /start/show-me
     type: relates-to
-    description: The first door, which needs no keys and spends nothing, and the one we recommend the agent start with
+    description: The page that needs no keys and spends nothing, and the one we recommend the agent start with
   - to: /start/add-a-vendor
     type: relates-to
-    description: The last of the four doors; an agent walks the same doors this collection walks by hand
+    description: The last of the four start pages; an agent walks the same pages this collection walks by hand
   - to: /concepts/runs-and-receipts
     type: relates-to
-    description: Every door ends in a receipt, which is what the agent reports back to you
+    description: Every start page ends in a receipt, which is what the agent reports back to you
   - to: /concepts/gate-ladder
     type: relates-to
     description: The rungs from simulate to armed; the agent climbs through dry-run and you arm a live target
@@ -46,7 +46,7 @@ gtme is a single binary that runs a go-to-market campaign written as a YAML file
 
 **This page needs an agent.** Use Claude Code for the plugin, or any agent that can run a shell for the paste line.
 
-**This page spends nothing.** The paste line and the plugin install cost $0. Each door states what its run spends right before the command, and the agent reads that line too.
+**This page spends nothing.** The paste line and the plugin install cost $0. Each start page states what its run spends right before the command, and the agent reads that line too.
 
 Paste this line into your agent:
 
@@ -54,9 +54,9 @@ Paste this line into your agent:
 Follow gtme.run/start.md
 ```
 
-The line points the agent at [START.md](https://gtme.run/start.md), the whole instruction set in one file, and you can open it before you paste. The agent installs gtme, then walks one door to a [receipt](/concepts/runs-and-receipts). A door is one path from nothing to a receipt. There are four, from Door 1 to [Door 4: add a vendor](/start/add-a-vendor), and they're the same doors this collection walks by hand.
+The line points the agent at [START.md](https://gtme.run/start.md), the whole instruction set in one file, and you can open it before you paste. The agent installs gtme, then walks one section to a [receipt](/concepts/runs-and-receipts). A section is one path from nothing to a receipt. There are four, from See it run to [Add a vendor](/start/add-a-vendor), the same pages this collection walks by hand.
 
-We recommend Door 1 first, because it costs nothing and proves the install. After that, pick the door that matches what you have: a CSV, vendor keys, or a vendor gtme doesn't ship.
+We recommend See it run first, because it costs nothing and proves the install. After that, pick the page that matches what you have: a CSV, vendor keys, or a vendor gtme doesn't ship.
 
 ## The plugin
 
@@ -86,7 +86,7 @@ The skills hold procedure only. They take their facts from the installed binary,
 - **Never handle a key.** `gtme secret set KEY` prompts you, and you type the key. The agent never puts one on a command line, in a file, or in the chat.
 - **Announce spend first.** The agent climbs [the gate ladder](/concepts/gate-ladder) in order. `gtme plan` and `--simulate` spend $0. A dry-run spends on vendor credits and model tokens and holds only the send. So the agent tells you the cost before any command that spends, and waits for you when the target is live.
 - **Follow the error.** Each error message names its fix. The agent does the named thing and runs the same command again.
-- **Stop at "done when."** Each door ends with a condition. The agent reports the receipt and waits, because the next door is yours to open.
+- **Stop at "done when."** Each start page ends with a condition. The agent reports the receipt and waits, because the next step is yours to take.
 
 **The binary doesn't know who typed a command.** The arm gate is the agent's rule plus your read of the dry-run receipt. What the binary enforces is that plan and simulate spend nothing and a dry-run sends nothing.
 
@@ -96,4 +96,4 @@ The skills hold procedure only. They take their facts from the installed binary,
 
 ## Next
 
-**[Use gtme from Claude Code](/guides/claude-code) walks a full session from goal to receipt.** If you'd rather see a receipt with your own eyes first, run [Door 1: show me](/start/show-me) by hand.
+**[Use gtme from Claude Code](/guides/claude-code) walks a full session from goal to receipt.** If you'd rather see a receipt with your own eyes first, run [See it run](/start/show-me) by hand.

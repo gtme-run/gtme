@@ -1,5 +1,5 @@
 ---
-name: "Door 1: show me"
+name: See it run
 description: Run a whole outbound pipeline offline with no keys, then run a keyless pipeline twice and watch the second run skip what the first one paid for
 for: "Your first run. You have gtme and no API keys, and you want to see a whole pipeline work before connecting anything."
 learn:
@@ -10,13 +10,13 @@ order: 2
 links:
   - to: /start/install
     type: depends-on
-    description: Every door starts with the gtme binary on your PATH
+    description: Every start page assumes the gtme binary is on your PATH
   - to: /start/my-csv
     type: relates-to
-    description: The next door runs the same kind of pipeline over your own rows with an Anthropic key
+    description: The next page runs the same kind of pipeline over your own rows with an Anthropic key
   - to: /concepts/gate-ladder
     type: relates-to
-    description: Simulate is the first rung of the ladder and armed is the last; this door shows both with nothing at stake
+    description: Simulate is the first rung of the ladder and armed is the last; this page shows both with nothing at stake
   - to: /concepts/ledger
     type: relates-to
     description: The second run is cheap because the first run's facts are in the ledger
@@ -31,9 +31,9 @@ links:
     description: Why demo/enrich charges a pretend price, so the receipt's arithmetic is real with zero keys
 ---
 
-# Door 1: show me
+# See it run
 
-**This door needs gtme and nothing else.** No API keys and no accounts, and it spends $0 and sends nothing. If you don't have the binary yet, [install it](/start/install) first.
+**This needs gtme and nothing else.** No API keys and no accounts, and it spends $0 and sends nothing. If you don't have the binary yet, [install it](/start/install) first.
 
 Make a folder, keep the ledger inside it so demo people stay out of your real one, and run the demo offline:
 
@@ -202,4 +202,4 @@ When you're done, `rm ledger.db out.csv` and the demo is gone. Your real ledger 
 
 ## Next
 
-**[Door 2: my CSV](/start/my-csv) runs this shape over your own contacts with one Anthropic API key.** It costs a few cents on the model. If Claude Code is doing the typing, [the agent page](/start/for-agents) has the line to paste.
+**[Your CSV](/start/my-csv) runs this shape over your own contacts with one Anthropic API key.** It costs a few cents on the model. If Claude Code is doing the typing, [the agent page](/start/for-agents) has the line to paste.

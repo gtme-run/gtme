@@ -1,4 +1,4 @@
-# Door 2 of START.md: your CSV in, judged and written rows out. One model key
+# "Your CSV" in START.md: your CSV in, judged and written rows out. One model key
 # (gtme secret set ANTHROPIC_API_KEY); nothing leaves the machine but the
 # model calls, and the deliver target is a local file.
 #

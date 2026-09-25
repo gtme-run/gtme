@@ -9,7 +9,7 @@ One ladder, every time, in order. Each rung says what it spends. The
 human arms a live target; the agent never does.
 
 **Preflight.** `gtme version` (else: `brew install gtme-run/tap/gtme`).
-`gtme init` if `~/.gtme` is missing. First machine ever: door 1 of
+`gtme init` if `~/.gtme` is missing. First machine ever: "See it run" in
 `https://gtme.run/start.md` before anything else.
 
 ## The ladder

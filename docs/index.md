@@ -8,7 +8,7 @@ learn:
 links:
   - to: /start
     type: relates-to
-    description: From nothing to a receipt through one of four doors; the place to begin
+    description: From nothing to a receipt, four ways, sorted by what you have on hand; the place to begin
   - to: /concepts
     type: relates-to
     description: The ideas behind the tool, simplest first; the ledger is the one everything else stands on
@@ -20,7 +20,7 @@ gtme is a CLI for GTM data pipelines. A small YAML file describes a campaign, an
 
 The docs are four collections, each with one job.
 
-- [Start](/start) gets you from nothing to a [receipt](/concepts/runs-and-receipts). Four [doors](/start/show-me), sorted by what you have on hand, from no keys and $0 up to your whole stack.
+- [Start](/start) gets you from nothing to a [receipt](/concepts/runs-and-receipts). Four ways to begin, sorted by what you have on hand, from [no keys and $0](/start/show-me) up to your whole stack.
 - [Concepts](/concepts) explain what you saw, one idea per page, ordered so each page only needs the ones before it. The ledger is the first one that matters.
 - Guides do one task at a time, with every command and its output.
 - Reference is for looking things up: every CLI verb, every pipeline.yaml key, every adapter, every field.

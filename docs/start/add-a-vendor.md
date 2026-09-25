@@ -1,5 +1,5 @@
 ---
-name: "Door 4: add a vendor"
+name: Add a vendor
 description: Write an adapter for an API gtme doesn't ship as one YAML file, verify it offline against a recorded response, and simulate a pipeline through it
 for: "You use a vendor gtme doesn't ship and want to see what an adapter is before handing the job to Claude Code."
 learn:
@@ -10,7 +10,7 @@ order: 5
 links:
   - to: /start/my-stack
     type: relates-to
-    description: The previous door runs vendors gtme already ships; this one adds a vendor it doesn't
+    description: The previous page runs vendors gtme already ships; this one adds a vendor it doesn't
   - to: /start/for-agents
     type: relates-to
     description: The next page hands the same work to an agent, which reads the binding contract and writes the file for you
@@ -46,11 +46,11 @@ links:
     description: Why limit works on every source binding whether or not the binding declares it
 ---
 
-# Door 4: add a vendor
+# Add a vendor
 
-**This door needs gtme, `jq`, and one network request to a free public API.** No keys, no accounts. If you don't have gtme yet, [install it](/start/install) first.
+**This needs gtme, `jq`, and one network request to a free public API.** No keys, no accounts. If you don't have gtme yet, [install it](/start/install) first.
 
-**It spends $0 and sends nothing.** If gtme already ships your vendors, go to [Door 3: my stack](/start/my-stack) instead.
+**It spends $0 and sends nothing.** If gtme already ships your vendors, go to [Your stack](/start/my-stack) instead.
 
 Most people have Claude Code write the adapter. This page shows what it writes so you can read it and check it, and [the last section](#hand-it-to-claude-code) gives you the line to hand over.
 
@@ -221,7 +221,7 @@ A real vendor adds auth, pagination, and cost to the same file, and [Add a vendo
 **Paste this line into Claude Code for your own vendor:**
 
 ```text
-Follow gtme.run/start.md and take Door 4: add VENDOR using its API docs at DOCS_URL.
+Follow gtme.run/start.md, "Add a vendor": add VENDOR using its API docs at DOCS_URL.
 ```
 
 Replace the following:

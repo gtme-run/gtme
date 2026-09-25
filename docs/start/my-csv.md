@@ -1,5 +1,5 @@
 ---
-name: "Door 2: my CSV"
+name: Your CSV
 description: Your own CSV of people, judged by an AI filter, given two intro lines each, and written to a local CSV, for one model key and cents on the model
 for: "You have a CSV of people and an Anthropic key, and you want them judged and written with your own prompts."
 learn:
@@ -11,16 +11,16 @@ order: 3
 links:
   - to: /start/show-me
     type: relates-to
-    description: Door 1 runs a pipeline of the same shape with no key and no CSV of your own
+    description: See it run has a pipeline of the same shape with no key and no CSV of your own
   - to: /guides/iterate
     type: relates-to
     description: After the first armed run, the next job is tuning the filter prompt and running again
   - to: /start/my-stack
     type: relates-to
-    description: Door 3 swaps the local CSV for vendor keys and a real delivery target
+    description: Your stack swaps the local CSV for vendor keys and a real delivery target
   - to: /concepts/gate-ladder
     type: relates-to
-    description: Simulate and plan are the $0 rungs this door climbs before the armed run
+    description: Simulate and plan are the $0 rungs this page climbs before the armed run
   - to: /concepts/ledger
     type: relates-to
     description: The armed run writes every judgment to the ledger, which is why a second run re-judges nobody
@@ -38,13 +38,13 @@ links:
     description: Why CSV headers are mapped once at the source and every later step reads canonical names
 ---
 
-# Door 2: my CSV
+# Your CSV
 
-**This door needs a CSV of people with a header row, and an Anthropic API key.** If you haven't seen a pipeline run yet, [Door 1: show me](/start/show-me) needs neither.
+**This needs a CSV of people with a header row, and an Anthropic API key.** If you haven't seen a pipeline run yet, [See it run](/start/show-me) needs neither.
 
 **It spends cents on the model for the armed run, and $0 to simulate and plan.** Nothing sends, because the delivery target is a file on your machine. Each row's name, title, and company domain go to Anthropic with your prompts for the filter and compose steps. Nothing else leaves the machine.
 
-Make a new folder with its own ledger, so nothing from Door 1 counts as already delivered, and fetch the pipeline with Door 1's three sample people:
+Make a new folder with its own ledger, so nothing from See it run counts as already delivered, and fetch the pipeline with its three sample people:
 
 ```sh
 mkdir -p gtme-mine && cd gtme-mine
@@ -223,4 +223,4 @@ When the sample reads right, set `path:` to the full file. The full run skips th
 
 ## Next
 
-**[Iterate](/guides/iterate) covers tuning the filter and running again.** If your next step is your vendors, [Door 3: my stack](/start/my-stack) swaps the CSV for them.
+**[Iterate](/guides/iterate) covers tuning the filter and running again.** If your next step is your vendors, [Your stack](/start/my-stack) swaps the CSV for them.

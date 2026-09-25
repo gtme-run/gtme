@@ -23,7 +23,7 @@ disagree, the docs page is wrong.
 
 START.md at the root is an instruction set, not knowledge (ADR-015). It
 is the agent's entry point at gtme.run/start.md and stays one file. The
-Start collection is the human-paced version of the same four doors and
+Start collection is the human-paced version of the same four ways in and
 links back to it.
 
 ## Personality
@@ -122,7 +122,7 @@ House rules on top of Google:
 - The gate-ladder vocabulary is fixed: *simulate*, *plan*, *dry-run*,
   *armed*, *spends*, *sends*. No synonyms.
 - The project's nouns are fixed: adapter, binding, process adapter,
-  ledger, receipt, identity key, canonical field, group, segment, door,
+  ledger, receipt, identity key, canonical field, group, segment,
   participant, bundle. A page that needs a new noun proposes it in
   DECISIONS.md first.
 
@@ -212,8 +212,8 @@ shape; a page that does two jobs is two pages.
 
 ### Start
 
-Job: get from nothing to a receipt. One page per door, plus Install and
-For agents. Shape: what this door needs, what it spends, the commands in
+Job: get from nothing to a receipt. One page per way in, plus Install and
+For agents. Shape: what this page needs, what it spends, the commands in
 order, the receipt you get, the one next page. One sentence of
 explanation per step at most; the Concepts links carry the rest.
 
@@ -240,7 +240,7 @@ sequence.
 Job: accomplish one task. Shape:
 
 1. **Goal.** One sentence: what you have at the end.
-2. **Before you start.** Links to the concepts and the door that get you
+2. **Before you start.** Links to the concepts and the start page that get you
    to the starting state; keys required; what this guide spends and
    sends.
 3. **Steps.** Numbered. Each step is one command or one edit, followed by
