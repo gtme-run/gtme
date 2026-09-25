@@ -181,7 +181,7 @@ func TestDemoPipelinePlans(t *testing.T) {
 	}
 }
 
-// TestMyCSVPipelinePlans guards START.md's second door the same way:
+// TestMyCSVPipelinePlans guards START.md's "Your CSV" section the same way:
 // examples/my-csv.yaml must plan against a CSV whose headers are the ones its
 // columns: block names, with only the one model key it promises.
 func TestMyCSVPipelinePlans(t *testing.T) {

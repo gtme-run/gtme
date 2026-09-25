@@ -10,7 +10,7 @@ words and see receipts; they never hear "enrich", "role", or "terminus"
 unless they ask.
 
 **Preflight.** `gtme version` (else `brew install gtme-run/tap/gtme`).
-`gtme init` if `~/.gtme` is missing. First machine ever: door 1 of
+`gtme init` if `~/.gtme` is missing. First machine ever: "See it run" in
 `https://gtme.run/start.md` first.
 
 ## 1. Talk first

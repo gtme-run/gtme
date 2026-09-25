@@ -183,7 +183,7 @@ install github.com/gtme-run/gtme/cmd/gtme@latest` builds the tagged
 release straight from the module. Building from a checkout is `git clone`
 + `./install.sh`, which also installs the repo's example external
 adapters so the README quickstart works offline.
-Whichever way, **[START.md](START.md)** is the next page: four doors,
+Whichever way, **[START.md](START.md)** is the next page: four ways to start,
 each one pipeline file, each ending in a receipt.
 
 ## The adapters

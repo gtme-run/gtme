@@ -30,7 +30,7 @@ Two rules every skill carries, from `START.md`:
 
 Install gtme itself: `brew install gtme-run/tap/gtme`, or see
 [gtme.run/get](https://gtme.run/get). First run on a machine:
-[gtme.run/start.md](https://gtme.run/start.md), door 1.
+[gtme.run/start.md](https://gtme.run/start.md), "See it run".
 
 The plugin's version tracks the binary's tag; both bump in the same
 commit. `test/e2e/plugin_test.go` runs every command block in the skills

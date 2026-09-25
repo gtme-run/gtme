@@ -1,5 +1,5 @@
 ---
-name: "Door 3: my stack"
+name: Your stack
 description: Run a live Apollo-to-Instantly pipeline on your own keys, climbing simulate, plan, and dry-run before one armed run that sends
 for: "You have Apollo, Harvest, Anthropic, and Instantly, and you want a live campaign with nothing sent until you've read the dry run."
 learn:
@@ -19,13 +19,13 @@ links:
     description: The dry-run receipt is the artifact a human reads before arming
   - to: /start/show-me
     type: relates-to
-    description: Door 1 runs the same pipeline shape offline, with no keys
+    description: See it run has the same pipeline shape offline, with no keys
   - to: /start/my-csv
     type: relates-to
-    description: The previous door, with one model key and a local CSV as the target
+    description: The previous page, with one model key and a local CSV as the target
   - to: /start/add-a-vendor
     type: relates-to
-    description: The next door, an adapter for a vendor gtme doesn't ship
+    description: The next page, an adapter for a vendor gtme doesn't ship
   - to: /guides/connect-your-stack
     type: relates-to
     description: The full walkthrough of secrets, plan, dry-run, and arming for any pipeline
@@ -37,13 +37,13 @@ links:
     description: Why Apollo search is free and only the reveal past the filter spends credits
 ---
 
-# Door 3: my stack
+# Your stack
 
-**This door needs Apollo, Harvest, Anthropic, and Instantly keys, plus an Instantly campaign that exists and is active.**
+**This needs Apollo, Harvest, Anthropic, and Instantly keys, plus an Instantly campaign that exists and is active.**
 
 **Nothing spends until the dry run, and only the armed run sends.** The dry run spends Apollo reveal credits, Harvest calls, and model tokens. Sending means adding people to your live Instantly campaign, which emails them on its own schedule.
 
-This is Door 1 on live vendors. You'll climb the [gate ladder](/concepts/gate-ladder) in order: simulate, plan, dry-run, armed.
+This is [See it run](/start/show-me) on live vendors. You'll climb the [gate ladder](/concepts/gate-ladder) in order: simulate, plan, dry-run, armed.
 
 ## The file you'll run
 
@@ -293,8 +293,8 @@ total: $0 (estimated) spent, $0.1100+? avoided via cache (25 records skipped)
 
 ## Next
 
-**[Connect your stack](/guides/connect-your-stack) covers the same climb for any pipeline.** [Door 4](/start/add-a-vendor) adds a vendor gtme doesn't ship. For Claude Code, paste this line; the agent stops at the dry-run receipt and never arms:
+**[Connect your stack](/guides/connect-your-stack) covers the same climb for any pipeline.** [Add a vendor](/start/add-a-vendor) covers a vendor gtme doesn't ship. For Claude Code, paste this line; the agent stops at the dry-run receipt and never arms:
 
 ```
-Follow gtme.run/start.md, door 3, with apollo-to-instantly.yaml at limit: 5
+Follow gtme.run/start.md, "Your stack", with apollo-to-instantly.yaml at limit: 5
 ```

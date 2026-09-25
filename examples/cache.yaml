@@ -1,4 +1,4 @@
-# Door 1's second file (START.md): the top-up receipt with zero keys, on a
+# See it run's second file (START.md): the top-up receipt with zero keys, on a
 # ledger that persists. demo/enrich is the binary's own synthetic enrichment
 # (SPEC §10 item 9): no vendor, no key, no network — deterministic scores,
 # labelled synthetic in the value itself, at a stated pretend price of
