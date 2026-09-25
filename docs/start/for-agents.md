@@ -54,7 +54,7 @@ Paste this line into your agent:
 Follow gtme.run/start.md
 ```
 
-The line points the agent at [START.md](https://gtme.run/start.md), the whole instruction set in one file, and you can open it before you paste. The agent installs gtme, then walks one section to a [receipt](/concepts/runs-and-receipts). A section is one path from nothing to a receipt. There are four, from Door 1 to [Add a vendor](/start/add-a-vendor), and they're the same doors this collection walks by hand.
+The line points the agent at [START.md](https://gtme.run/start.md), the whole instruction set in one file, and you can open it before you paste. The agent installs gtme, then walks one section to a [receipt](/concepts/runs-and-receipts). A section is one path from nothing to a receipt. There are four, from [See it run](/start/show-me) to [Add a vendor](/start/add-a-vendor), the same pages this collection walks by hand.
 
 We recommend See it run first, because it costs nothing and proves the install. After that, pick the page that matches what you have: a CSV, vendor keys, or a vendor gtme doesn't ship.
 
