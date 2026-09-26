@@ -8,6 +8,7 @@ learn:
   - "run armed and read what the model cost"
   - "change a prompt and re-run"
 order: 3
+roles: [operator, builder]
 links:
   - to: /start/show-me
     type: relates-to

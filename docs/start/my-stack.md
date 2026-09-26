@@ -7,6 +7,7 @@ learn:
   - "what preflight checks on the Instantly campaign"
   - "why the armed run can differ from the dry run, and how to pin it"
 order: 4
+roles: [operator]
 links:
   - to: /concepts/gate-ladder
     type: depends-on

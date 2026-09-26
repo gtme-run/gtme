@@ -7,6 +7,7 @@ learn:
   - "how `canonical: true` lands a step's output on a canonical field"
   - "what plan's coupling note means, and when to act on it"
 order: 7
+roles: [builder]
 links:
   - to: /concepts/pipeline
     type: depends-on

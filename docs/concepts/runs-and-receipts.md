@@ -8,6 +8,7 @@ learn:
   - "why a delivery never happens twice for the same key, target, and scope"
   - "where --resume picks up a run that stopped"
 order: 4
+roles: [operator]
 links:
   - to: /concepts/ledger
     type: relates-to

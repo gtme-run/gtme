@@ -8,6 +8,7 @@ learn:
   - "what an answer's provenance says, and why a person isn't asked the same question twice"
   - "what a human step costs a pipeline under cron"
 order: 11
+roles: [operator, builder]
 links:
   - to: /concepts/steps-and-roles
     type: depends-on

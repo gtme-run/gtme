@@ -8,6 +8,7 @@ learn:
   - "how `gtme plan` checks each step's needs against what earlier steps provide"
   - "how to read a step's plan block: projects, of, provides, and est/record"
 order: 2
+roles: [builder, operator]
 links:
   - to: /concepts/pipeline
     type: depends-on

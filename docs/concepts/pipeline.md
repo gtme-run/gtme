@@ -7,6 +7,7 @@ learn:
   - "which keys are valid on which kind of step, and how plan checks them"
   - "why a vendor's field names appear only at the two ends of a file"
 order: 1
+roles: [builder]
 links:
   - to: /concepts/steps-and-roles
     type: relates-to
