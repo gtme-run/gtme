@@ -1232,8 +1232,8 @@ the `field_values` row it was about) and the participant's `--note`. `gtme show 
 touched by that run instead of a single identity. `--fields a,b,c` narrows
 the printed fields; `--limit N` caps rows for `--run` mode. The record
 object carries `identity_key_tier` (ADR-058): the type file's `identity`
-field the key was derived from — `email`, `linkedin_url`, `domain` — or
-`name_hash`, so a bare `nh:` key is explained where it prints. `gtme show` is
+field the key was derived from — `email`, `linkedin_url`,
+`company_domain` — or `name_hash`, so a bare `nh:` key is explained where it prints. `gtme show` is
 strictly read-only: it MUST NOT write to the ledger, and it MUST NOT appear
 in `gtme freeze` output (it is an inspection tool, not a pipeline step).
 

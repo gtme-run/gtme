@@ -113,3 +113,45 @@ func TestShowNeverWrites(t *testing.T) {
 		t.Errorf("field_values went from %d to %d rows — gtme show wrote to the ledger", before, after)
 	}
 }
+
+// TestShowNamesTheIdentityKeyTier covers ADR-058's identity_key_tier: the
+// type file's identity field the key came from, or name_hash for the nh:
+// fallback. The hash tier is recognised by its prefix, never by re-running
+// a rule — the handle rule would otherwise claim any string.
+func TestShowNamesTheIdentityKeyTier(t *testing.T) {
+	h := newHarness(t)
+	h.write("tiers.csv", "Full Name,Email,Company Website\nJane Doe,jane.doe@acme.com,acme.com\nMia Chen,,initech.dev\n")
+	h.write("tiers.yaml", `name: tiers
+version: 1
+source:
+  use: csv/source
+  with:
+    path: tiers.csv
+    columns: { full_name: Full Name, email: Email, company_domain: Company Website }
+steps: []
+`)
+	h.mustRun("run", "tiers.yaml")
+
+	tier := func(key string) string {
+		res := h.mustRun("show", key)
+		var out map[string]any
+		if err := json.Unmarshal([]byte(res.stdout), &out); err != nil {
+			t.Fatalf("show %s: not JSON: %v\n%s", key, err, res.stdout)
+		}
+		s, _ := out["identity_key_tier"].(string)
+		return s
+	}
+	if got := tier("jane.doe@acme.com"); got != "email" {
+		t.Errorf("jane's tier = %q, want email", got)
+	}
+	if got := tier("acme.com"); got != "company_domain" {
+		t.Errorf("acme.com's tier = %q, want company_domain", got)
+	}
+	keys := h.queryStrings(`SELECT identity_key FROM identities WHERE identity_key LIKE 'nh:%' AND entity_type = 'person'`)
+	if len(keys) != 1 {
+		t.Fatalf("name-hashed people = %v, want exactly Mia", keys)
+	}
+	if got := tier(keys[0]); got != "name_hash" {
+		t.Errorf("Mia's tier = %q, want name_hash", got)
+	}
+}
