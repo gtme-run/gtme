@@ -728,7 +728,10 @@ ship it next to the executable. Discovery path for external adapters:
 `~/.gtme/adapters/<name>/` containing `manifest.json` + executable named `run`,
 or a `binding.yaml` (§10a) — installed by hand or by `gtme adapters add`
 (§8, ADR-042), which records the binding's source and pin in `.source.json`
-beside it. The canonical schema for this file is
+beside it. A `use:` id that resolves to no built-in and nothing on the
+discovery path is a plan error naming the command that would install it,
+`gtme adapters add <id>` (ADR-059); plan does not consult the registry
+index to decide whether the id exists there. The canonical schema for this file is
 `spec/schemas/manifest.schema.json`.
 
 ```json
@@ -1134,7 +1137,7 @@ gtme help --agent                  # machine-readable full CLI + adapter surface
 gtme help --bindings               # the binding contract: schema, discovery path, a reference binding (ADR-041)
 gtme adapters                      # installed adapters with source and pin (ADR-042)
 gtme adapters search TEXT          # search the registry index
-gtme adapters add REF              # install a binding from github.com/<owner>/<repo>/<path>[@ref], verified first
+gtme adapters add REF...           # install bindings by github.com/<owner>/<repo>/<path>[@ref] or registry id, verified first
 gtme adapters verify ID            # schema + fixtures offline; prints hosts and credentials it will use
 gtme adapters update ID [@ref]     # re-fetch at a newer ref, explicitly
 ```
@@ -1283,9 +1286,17 @@ URL) and matches id, vendor, description and role; `gtme adapters` lists
 what is installed with its source and pin. The index is published by the
 `gtme-bindings` repository, which holds the *verified* entries (its CI
 runs their fixtures) and points at *community* entries in their authors'
-repositories. The binary carries the floor (`csv/*`, `http/*`, `sql/*`,
-`ai/*`, `group/*`) and the reference twins in `spec/bindings/`; every
-other vendor is a registry entry.
+repositories. `add` takes several references in one call, and a bare
+registry id (`gtme adapters add apollo/search apollo/enrich`) resolves
+through the index to that entry's `source`, pinned at the index's `sha`,
+so a bare id is exactly as pinned as a full reference (ADR-059). Each
+reference is verified and installed on its own; one that fails does not
+undo the others, and the exit code reports the failure. The binary
+carries the floor (`csv/*`, `http/*`, `sql/*`, `ai/*`, `group/*`, the
+runner-owned `human/*`, `agent/*` and `text/compose`, and the keyless
+`demo/enrich`) and no vendor: every adapter named for a vendor is a
+registry entry (ADR-059), with the one exception §10 item 6 states until
+it moves.
 
 ### Event-driven pipelines: a scheduled run over a file a receiver writes (ADR-009; the spool adapter deferred, ADR-055)
 
@@ -1696,6 +1707,11 @@ steps:
     when: icp-filter.passed
     cache: 30d
 
+  - id: posts               # ADR-059: posts are their own call, asked for by name
+    use: harvest/recent-posts
+    when: icp-filter.passed
+    cache: 30d
+
   - id: personalize
     use: ai/compose
     uses: [recent_posts, role_history]
@@ -1879,11 +1895,14 @@ drift; read a *group* (snapshot first with `gtme groups add
 
 ## 10. v0 adapters — DECIDED
 
-All built-in: Go process adapters under `internal/adapters/<name>/`
-(embedded manifest + a `fixtures/` dir + unit tests that run offline
-against fixtures), except where an entry notes it now ships as a
-registered binding under `spec/bindings/` (§10a) — the same id, the same
-contract, pure YAML.
+The v0 set. Floor entries are built in: Go process adapters under
+`internal/adapters/<name>/` (embedded manifest + a `fixtures/` dir + unit
+tests that run offline against fixtures) or runner-owned steps. Vendor
+entries are registry entries (ADR-059): bindings in the `gtme-bindings`
+repository, verified tier, installed with `gtme adapters add <id>` (§8),
+their contracts stated here because the canonical pipeline (§9) uses
+them. Item 6 is the one vendor still built in, until the engine can carry
+what it does (ROADMAP.md).
 
 1. **`csv/source`** — reads a CSV path from config; header row → field
    names; `email`/`linkedin_url`/`name`/`company_domain` columns feed
@@ -1911,9 +1930,9 @@ contract, pure YAML.
    termination on empty/short pages (the response carries `total_entries`
    and no pagination object). -e per record. The revealed person is
    `apollo/enrich`'s job, and `works_at` emission (runner-owned, keyed on
-   org domain) fires after it — search alone carries no domain. **Ships
-   as the registered built-in binding** `spec/bindings/apollo-search/`
-   since v0.11 (rewritten against the masked shape in M20).
+   org domain) fires after it — search alone carries no domain. A
+   binding since v0.11 (rewritten against the masked shape in M20); a
+   registry entry since M33 (ADR-059).
 2a. **`apollo/enrich`** (enrich, person) — POST
    `api.apollo.io/api/v1/people/match` with `X-Api-Key`
    (`APOLLO_API_KEY`); `needs.required: [apollo.id]`; provides the
@@ -1923,8 +1942,8 @@ contract, pure YAML.
    `company_domain`, `company_employees`. Declares its per-credit cost;
    retains payloads (ADR-030). The canonical composition (§9): filter on
    the masked fields first, reveal `when: <filter>.passed` — credits are
-   spent only past judgment. Ships as the built-in binding
-   `spec/bindings/apollo-enrich/` (M20).
+   spent only past judgment. A binding since M20; a registry entry since
+   M33 (ADR-059).
 3. **`ai/filter`** (filter) — batch records into the prompt with a strict
    JSON-array output schema `[{identity_key, pass, reason}]`; emit VERDICTs;
    config supports `uses:` (§9, ADR-004); MAY declare `provides:` (ADR-033),
@@ -1958,15 +1977,31 @@ contract, pure YAML.
    the declared outputs are the menu. Behaviour in §8 ("People and agents
    answer"). `agent/*` never prompts and records provenance under
    `agent/`.
-4. **`harvest/profile`** (enrich, person) — HarvestAPI LinkedIn profile
-   lookup (`HARVEST_API_KEY`) by any one LinkedIn URL shape: needs are
-   one-of `linkedin_url` | `linkedin_internal_url` |
+4. **`harvest/profile`** (enrich, person; version 2, a registry entry
+   since M33, ADR-059) — HarvestAPI LinkedIn profile lookup
+   (`HARVEST_API_KEY`), one call per record, by any one LinkedIn URL
+   shape: needs are one-of `linkedin_url` | `linkedin_internal_url` |
    `linkedin_sales_nav_url` (§7 one-of needs), preferring the public form
-   when several are present. Provides `headline`, `recent_posts`,
-   `role_history` — and, when the lookup started from a non-public shape,
-   the resolved public `linkedin_url`, which is ADR-020's recovery path
-   (the key upgrade to the slug tier follows automatically, §4). Emit COST
-   from response metadata if present, else config-estimated.
+   when several are present. Provides `headline`, `about`, `location`,
+   `current_role`, `current_company`, `follower_count`, `open_to_work`,
+   `role_history` (one line per position, `<role> at <company>
+   (<start>–<end>)`, rendered by the `each:` extraction form, §10a) —
+   and, when the lookup started from a non-public shape, the resolved
+   public `linkedin_url`, which is ADR-020's recovery path (the key
+   upgrade to the slug tier follows automatically, §4). Cost per record
+   from config `cost_per_profile_usd` (ADR-046 template, default
+   `0.012`, basis `estimated`). Version 1, the Go adapter, also fetched
+   posts; that is item 4a now.
+4a. **`harvest/recent-posts`** (enrich, person; a registry entry,
+   ADR-059) — the person's recent LinkedIn posts from HarvestAPI's
+   profile-posts endpoint, one call per record. `needs.required:
+   [linkedin_url]`; provides `recent_posts` (array of strings, each a
+   post's text, at most config `posts_limit`, default 3, via `each:`; not
+   `limit`, which ADR-047 reserves for sources). A
+   person's field for a compose to read, distinct from the
+   `harvest/profile-posts` traverse, which mints `post` records (§4a).
+   Cost per record from config (ADR-046 template), its default set from
+   HarvestAPI's published price when M33 is built.
 5. **`ai/compose`** (compose) — batch; provides `first_line`, `ps_line`
    (strings) by default, or whatever the step's `provides:` declares
    (ADR-033); output schema enforced; config supports `uses:` and `of:`
@@ -1974,7 +2009,9 @@ contract, pure YAML.
    ADR-048); prompt assembly and entity-agnosticism as item 3.
 6. **`instantly/add-to-campaign`** (deliver, person; `idempotency_scope:
    campaign`, ADR-044 — the scope is the configured campaign *name*, so a
-   renamed campaign is a new dedupe scope) — Instantly v2 API,
+   renamed campaign is a new dedupe scope; the one vendor adapter still
+   built in, a Go process adapter until the binding engine can declare
+   name resolution, preflight and attestation, ADR-059) — Instantly v2 API,
    `Authorization: Bearer $INSTANTLY_API_KEY`: create/attach lead to
    campaign by name (resolve campaign name → id via list endpoint once per
    run; error if absent). Declares dynamic needs (§6, ADR-019) with a
@@ -2053,7 +2090,13 @@ ref); a request template (method, URL, body AND query-param templating
 from config + canonical fields); pagination (strategy page|cursor|offset,
 termination, max); extraction (records JSONPath plus per-field
 response→canonical paths, with a `transform:` hook restricted to registry
-normalization rules — never arbitrary logic); error→verdict mapping; an
+normalization rules — never arbitrary logic — and one list form, `each:`
+(ADR-059): `{each: <dotted path to an array>, template: <ADR-057
+dialect over item.*>, limit: <n | config reference>}` renders the
+template once per element, drops a render that is empty after trimming,
+stops at `limit`, and provides an array of strings; unlike a request
+leaf it may use the dialect's tags, because it renders text, not a typed
+value); error→verdict mapping; an
 idempotency declaration `native | ledger` (which party guarantees dedupe:
 Attio assert = native; Instantly = ledger via the deliveries table); a
 cost declaration (per record / per request / unit — `amount_usd` a
@@ -2080,8 +2123,10 @@ so `gtme plan` treats both tiers identically; named external bindings are
 discovered on the §6 path (`~/.gtme/adapters/<name>/` containing
 `binding.yaml` instead of an executable), and reach that path by hand or
 from the registry (§8 `gtme adapters`, ADR-042) — the binary ships the
-floor and these reference twins only; vendor bindings are registry
-entries, verified before they install. `gtme help --bindings` (§8,
+floor and no vendor binding (ADR-059); vendor bindings are registry
+entries, verified before they install. `spec/bindings/` keeps one binding
+as the worked example `gtme help --bindings` prints, registered as no
+adapter. `gtme help --bindings` (§8,
 ADR-041) is the contract an author works from.
 
 **Tier 2 — process adapters:** the §5/§6 NDJSON contract, unchanged.
@@ -2611,6 +2656,32 @@ decided contract, not shipped behavior.
   no printed string outside `help_agent.go` and `help_bindings.go`
   contains `ADR-` or `§`; every docs page that prints plan or receipt
   output is re-run and lints clean.
+- **M33 — vendors leave the binary (ADR-059; §6, §8, §9, §10, §10a,
+  §11). Queued 2026-09-26.** The binding engine gains the `each:`
+  extraction form (§10a; `spec/binding-schema.json` gains `each`).
+  `gtme-bindings` gains five verified entries: `apollo-search`,
+  `apollo-enrich` and `attio-assert` moved unchanged, `harvest-profile`
+  at version 2, and `harvest-recent-posts`; `index.json` is regenerated
+  and the registry's CI runs their fixtures. The binary drops the three
+  embedded bindings from its built-ins, deletes the Harvest Go adapter
+  and the binding twin tests, and keeps one unregistered binding under
+  `spec/bindings/` for `help --bindings`. `adapters add` takes several
+  references and bare ids; an uninstalled `use:` id is a plan error
+  naming `gtme adapters add <id>`. `examples/`, README, START.md,
+  ADAPTERS.md, the plugin skills' command blocks and the docs pages that
+  run a vendor step gain the install line; `docs/_adapters.json` is
+  regenerated. `instantly/add-to-campaign` is untouched. Acceptance,
+  offline: `gtme help --agent` from a clean HOME lists no adapter whose
+  id names a vendor other than `instantly/`; `harvest/profile@2` and
+  `harvest/recent-posts`, run over the Go adapter's recorded fixtures,
+  produce `role_history` and `recent_posts` identical to what the Go
+  adapter produced from them; `gtme plan` on a pipeline naming an
+  uninstalled `apollo/search` exits non-zero and prints `gtme adapters
+  add apollo/search`; `gtme adapters add apollo/search apollo/enrich`
+  against a local index (`GTME_REGISTRY`) installs both, each pinned to
+  the index's `sha`; a `harvest/profile` step with `posts_limit` fails
+  plan naming `harvest/recent-posts`; `make check` and the plugin e2e
+  pass with the entries installed from a local path.
 - **M28 — types and traverse (ADR-054; §3, §4, §4a, §5, §6, §7, §8, §9,
   §10a, §13). Built 2026-09-05 (changelog v0.43).** A type is a file: `spec/fields/*.json` gain
   `kind`, `identity` and per-field `reference`, §4 derivation reads the
@@ -2973,6 +3044,19 @@ tier order; the simulation-gap lines say `recorded responses` with the
 banner; `examples/cache.yaml` is removed, not aliased, and the bundles'
 committed `receipt.txt` files carry the new wording (their tables are
 unchanged). (v0.51 is ADR-059's reconciliation, on its own packet.)
+
+### v0.51 — 2026-09-26 (ADR-059 reconciliation: vendors leave the binary; build queued as M33)
+**Changed:** §6 names the plan error for an uninstalled `use:` id; §8
+`adapters add` takes several references and bare registry ids, and the
+binary carries the floor and no vendor; §9's canonical pipeline gains a
+`harvest/recent-posts` step; §10's intro says vendor entries are registry
+entries, items 2 and 2a note the move, item 4 is `harvest/profile`
+version 2 (one call, `role_history` via `each:`, cost from config), new
+item 4a `harvest/recent-posts`, item 6 is the one vendor still built in;
+§10a gains the `each:` extraction form and drops the reference-twin
+carve-out; §11 M33 queued. No wire, DDL or exit-code change; the
+manifest surface changes only for `harvest/profile`, whose version
+bumps.
 
 ### v0.50 — 2026-09-26 (ADR-058 reconciliation: plain words on the operator surface; build queued as M32)
 **Changed:** §7 "typed segments" become typed legs, and the plan labels

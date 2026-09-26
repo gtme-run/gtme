@@ -243,7 +243,8 @@ and hash-pinned (`gtme adapters add github.com/…@ref`), nothing installs
 unverified (`adapters verify` runs the fixtures offline first), the
 registry repository holds the index and the verified set, community
 entries point at their authors' repositories. The binary keeps the floor
-and the reference twins only. The hosted marketplace — accounts,
+and, since ADR-059 (2026-09-26), no vendor: the reference-twin carve-out
+is retired. The hosted marketplace — accounts,
 payments, a service — is what §13 still excludes.
 
 ## Run-lifecycle notification hook
@@ -334,6 +335,43 @@ live target that `plan` and `--dry-run` run before arming — the class of
 failure where
 every request succeeds and nothing sends. Kept here only as the trail
 from the name to the ADR.
+
+## Deliver bindings that preflight and attest — Instantly's move
+
+Named 2026-09-26 by ADR-059, which moves every vendor adapter into the
+registry and holds `instantly/add-to-campaign` back as the one built-in
+vendor until the binding engine can declare what the Go adapter does.
+Three additions, each spec-visible, so each needs its own packet:
+
+- **`resolve:`** — one request per run before any record, whose extracted
+  value is templated into later requests. For Instantly, campaign name →
+  id, which also keeps the dedupe scope on the name (ADR-044). The
+  cheaper alternative is to take the UUID only and have the docs say
+  where to find it; that is what the existing twin does, and it moves
+  the lookup onto the operator.
+- **`preflight:`** — a request plus checks drawn from a closed
+  vocabulary, each a named primitive the engine implements, never an
+  expression: a value at a path equals one of a list (campaign status is
+  Active); every `variables:` target that is not a first-class lead
+  field appears as `{{name}}` in some string under a path (the sequence
+  bodies); the array at a path is at least as long as the highest
+  `_step_N` among the targets; every variant of step N carries its own
+  step's target. The last two encode gtme's `_step_N` convention, so
+  they belong to the engine and not to one vendor. The verdicts are
+  ADR-040's (`ok`, `blocked`, `inconclusive`, never a block on an
+  unreadable field).
+- **`attest:`** — a read-back request templated from the create
+  response, plus a map from each sent body field to its path in the
+  stored object; the engine compares and returns ADR-036's three-way
+  verdict (absent is `inconclusive`, different is `contradicted`).
+
+The graduation rule (§10a) says multi-call workflows graduate to a
+process adapter. The packet has to argue that a fixed pre-run request
+and a fixed post-send read-back are phases, not a workflow, the same
+argument ADR-059 made for `each:`. If it cannot, Instantly stays a
+process adapter and ADR-059's end state changes. Sized when the packet
+is drafted; the Go adapter's preflight and attest are about 200 lines
+together, so the engine version is several times that with tests.
 
 ## Email waterfall as a pattern, not a provider
 
