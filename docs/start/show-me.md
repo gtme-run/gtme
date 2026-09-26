@@ -7,6 +7,7 @@ learn:
   - "read a receipt"
   - "why a second run costs less and delivers nobody twice"
 order: 2
+roles: [operator]
 links:
   - to: /start/install
     type: depends-on

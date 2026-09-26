@@ -12,6 +12,27 @@ budgets: # prose words, code blocks excluded
   guides: 1200
   reference: 0 # generated; no budget
 
+# Who a page is for. A page lists one or more of these in its frontmatter
+# `roles:`; the docs index renders one entry path per role. Roles are
+# attributes of pages, not pages: nothing is written about a role itself.
+roles:
+  operator:
+    name: I run campaigns
+    entry: /start/show-me
+    description: Reads plans and receipts, answers review steps, tops up, and reports. May never write a pipeline from scratch.
+  builder:
+    name: I build pipelines
+    entry: /start/my-csv
+    description: Writes pipeline files, often with an agent beside them.
+  extender:
+    name: I add a vendor
+    entry: /start/add-a-vendor
+    description: Writes a binding or a process adapter for a vendor gtme doesn't ship.
+  agent:
+    name: I am an agent
+    entry: /start/for-agents
+    description: Claude or another model driving gtme for one of the people above; reads Reference and help --agent.
+
 collections:
   start:
     - { slug: install, name: Install, status: reviewed }
@@ -20,21 +41,21 @@ collections:
     - { slug: my-stack, name: Your stack, status: reviewed }
     - { slug: add-a-vendor, name: Add a vendor, status: reviewed }
     - { slug: for-agents, name: For agents, status: reviewed }
-  concepts:
-    - { slug: pipeline, name: A pipeline is a YAML file, status: reviewed }
-    - { slug: steps-and-roles, name: Steps and roles, status: reviewed }
-    - { slug: gate-ladder, name: The gate ladder, status: reviewed }
-    - { slug: runs-and-receipts, name: Runs and receipts, status: reviewed }
-    - { slug: ledger, name: The ledger, status: draft }
-    - { slug: identity-keys, name: Identity keys, status: reviewed }
-    - { slug: canonical-fields, name: Canonical fields, status: reviewed }
-    - { slug: facts, name: Facts have provenance, status: reviewed }
-    - { slug: groups, name: Groups and segments, status: reviewed }
-    - { slug: types-and-traverse, name: Types and traverse, status: reviewed }
-    - { slug: participants, name: Participants, status: reviewed }
-    - { slug: campaign-is-a-folder, name: A campaign is a folder, status: reviewed }
-    - { slug: adapter-tiers, name: Two adapter tiers, status: reviewed }
-    - { slug: agent-operable, name: Agent-operable by design, status: planned }
+  concepts: # part: run = how a run works (operator); model = how the model works (builder, extender)
+    - { slug: pipeline, name: A pipeline is a YAML file, status: reviewed, part: model }
+    - { slug: steps-and-roles, name: Steps and roles, status: reviewed, part: model }
+    - { slug: gate-ladder, name: The gate ladder, status: reviewed, part: run }
+    - { slug: runs-and-receipts, name: Runs and receipts, status: reviewed, part: run }
+    - { slug: ledger, name: The ledger, status: draft, part: run }
+    - { slug: identity-keys, name: Identity keys, status: reviewed, part: model }
+    - { slug: canonical-fields, name: Canonical fields, status: reviewed, part: model }
+    - { slug: facts, name: Facts have provenance, status: reviewed, part: model }
+    - { slug: groups, name: Groups and segments, status: reviewed, part: run }
+    - { slug: types-and-traverse, name: Types and traverse, status: reviewed, part: model }
+    - { slug: participants, name: Participants, status: reviewed, part: run }
+    - { slug: campaign-is-a-folder, name: A campaign is a folder, status: reviewed, part: run }
+    - { slug: adapter-tiers, name: Two adapter tiers, status: reviewed, part: model }
+    - { slug: agent-operable, name: Agent-operable by design, status: planned, part: model }
   guides:
     - { slug: first-pipeline, name: Build your first pipeline from a CSV, status: planned }
     - { slug: connect-your-stack, name: "Connect your stack: secrets, plan, dry-run, arm", status: planned }

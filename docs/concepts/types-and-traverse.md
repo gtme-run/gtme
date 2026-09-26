@@ -7,6 +7,7 @@ learn:
   - "what a traverse step does to the records in a run, and how its receipt line reads"
   - "why a relation is a fact and group membership is a decision"
 order: 10
+roles: [builder]
 links:
   - to: /concepts/identity-keys
     type: depends-on

@@ -7,6 +7,7 @@ learn:
   - "what each one needs, spends, and ends with"
   - "what a receipt is"
 order: 1
+roles: [operator, builder, extender, agent]
 links:
   - to: /start/install
     type: relates-to
@@ -34,6 +35,8 @@ links:
 # Start
 
 Every page here ends in a [receipt](/concepts/runs-and-receipts): a table of what a pipeline did, what it cost, and what it would have sent. [Install](/start/install) gets the binary onto your machine. Then pick by what you have on hand.
+
+Start is written for the person who runs campaigns, and every page here ends in a receipt that person can read. Two pages serve other readers and sit here so the on-ramp is in one place. Add a vendor is where the person adding a vendor begins, and For agents is where an agent begins. Someone building pipelines begins at Your CSV.
 
 | Start with | Needs | Spends | Ends with |
 |---|---|---|---|

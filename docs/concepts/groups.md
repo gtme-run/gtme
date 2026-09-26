@@ -8,6 +8,7 @@ learn:
   - "what a suppression group blocks that delivery idempotency lets through"
   - "why a group keeps its first answer when a segment recomputes"
 order: 9
+roles: [operator, builder]
 links:
   - to: /concepts/ledger
     type: relates-to

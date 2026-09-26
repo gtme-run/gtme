@@ -8,6 +8,7 @@ learn:
   - "why a dry-run spends money and the armed run after it doesn't pay again"
   - "what each rung spends and sends on a pipeline from Apollo to Instantly"
 order: 3
+roles: [operator, builder]
 links:
   - to: /concepts/pipeline
     type: depends-on

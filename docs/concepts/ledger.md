@@ -8,6 +8,7 @@ learn:
   - "what provenance every fact carries"
   - "why cache, resume, and dedupe come from the schema"
 order: 5
+roles: [operator, builder]
 links:
   - to: /concepts/identity-keys
     type: relates-to

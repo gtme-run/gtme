@@ -7,6 +7,7 @@ learn:
   - "the rules the agent follows about spending and sending"
   - "what the binary enforces and what only the rules do"
 order: 6
+roles: [agent]
 links:
   - to: /start/show-me
     type: relates-to

@@ -7,6 +7,7 @@ learn:
   - "prove the install with `gtme version` and `gtme init`"
   - "update and uninstall it"
 order: 1
+roles: [operator, builder, extender]
 links:
   - to: /start/show-me
     type: relates-to

@@ -8,6 +8,7 @@ learn:
   - "why plan treats both tiers the same, and what simulate does with each"
   - "what the built-in floor adapters are for"
 order: 13
+roles: [extender, builder]
 links:
   - to: /concepts/steps-and-roles
     type: depends-on

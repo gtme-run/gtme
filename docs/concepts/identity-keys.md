@@ -7,6 +7,7 @@ learn:
   - "how an email, a domain, and a LinkedIn URL are normalized before they become a key"
   - "what happens when a weak key later gains a stronger one"
 order: 6
+roles: [builder]
 links:
   - to: /concepts/ledger
     type: relates-to

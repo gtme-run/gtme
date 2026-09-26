@@ -8,6 +8,7 @@ learn:
   - "what stays with the machine: credentials, inputs, and ledger state"
   - "why an edited bundle refuses to run"
 order: 12
+roles: [builder, operator]
 links:
   - to: /concepts/pipeline
     type: depends-on

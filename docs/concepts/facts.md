@@ -8,6 +8,7 @@ learn:
   - "how a cache window makes a winning value stale"
   - "why a raw vendor response isn't a fact, and what gtme vacuum deletes"
 order: 8
+roles: [builder, operator]
 links:
   - to: /concepts/ledger
     type: depends-on

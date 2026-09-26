@@ -7,6 +7,7 @@ learn:
   - "write a binding from an API doc, record a fixture, and verify it offline"
   - "where an API key goes"
 order: 5
+roles: [extender]
 links:
   - to: /start/my-stack
     type: relates-to
