@@ -570,13 +570,18 @@ func schemaSummary(raw json.RawMessage) string {
 	for _, k := range s.Required {
 		req[k] = true
 	}
+	starred := false
 	for i, n := range names {
 		if req[n] {
 			names[i] = n + "*"
+			starred = true
 		}
 	}
 	if len(names) == 0 {
 		return "none declared"
+	}
+	if !starred {
+		return strings.Join(names, ", ")
 	}
 	return strings.Join(names, ", ") + " (* required)"
 }

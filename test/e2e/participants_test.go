@@ -152,6 +152,11 @@ func TestHumanReviewPendsAnswersAndCollects(t *testing.T) {
 	show := h.mustRun("show", "jane.doe@acme.com", "--provenance")
 	contains(t, show.stdout, `"note": "too generic"`, "provenance note")
 	contains(t, show.stdout, `"referent"`, "provenance referent")
+	// The note belongs to the value the answer wrote, not to every value the
+	// run wrote (issue #94): csv/source's fields carry no note.
+	if n := strings.Count(show.stdout, `"note": "too generic"`); n != 1 {
+		t.Errorf("provenance note appears on %d fields, want 1 (review.grade only)", n)
+	}
 
 	// The other two are still pending: an unanswered record never advances.
 	if n := h.queryInt(`SELECT count(*) FROM field_values WHERE field = 'review.grade'`); n != 1 {

@@ -86,7 +86,7 @@ func showIdentity(ctx context.Context, env Env, l *ledger.Ledger, key string, on
 		return fail(ExitOther, "%v", err)
 	}
 
-	var notes map[string]string
+	var notes map[string]map[string]string
 	if provenance {
 		if notes, err = l.AnswerNotes(ctx, ident.ID); err != nil {
 			return fail(ExitOther, "%v", err)
@@ -159,7 +159,7 @@ func showRun(ctx context.Context, env Env, l *ledger.Ledger, target string, only
 		if err != nil {
 			return fail(ExitOther, "%v", err)
 		}
-		var notes map[string]string
+		var notes map[string]map[string]string
 		if provenance {
 			if notes, err = l.AnswerNotes(ctx, ident.ID); err != nil {
 				return fail(ExitOther, "%v", err)
@@ -189,8 +189,10 @@ func renderFields(rec ledger.Record, provenance bool) map[string]any {
 
 // renderFieldsWithNotes is renderFields with the participant notes a run left
 // (SPEC §8, ADR-049): a value written by a human/* or agent/* step carries the
-// note its answer came with, and the referent it was about (ADR-048).
-func renderFieldsWithNotes(rec ledger.Record, provenance bool, notes map[string]string) map[string]any {
+// note its answer came with, and the referent it was about (ADR-048). The
+// note is looked up by run and field, so a value another step wrote in the
+// same run carries nothing.
+func renderFieldsWithNotes(rec ledger.Record, provenance bool, notes map[string]map[string]string) map[string]any {
 	names := make([]string, 0, len(rec.Values))
 	for f := range rec.Values {
 		names = append(names, f)
@@ -214,7 +216,7 @@ func renderFieldsWithNotes(rec ledger.Record, provenance bool, notes map[string]
 		if v.Referent != "" {
 			entry["referent"] = v.Referent
 		}
-		if note := notes[v.RunID]; note != "" {
+		if note := notes[v.RunID][f]; note != "" {
 			entry["note"] = note
 		}
 		out[f] = entry

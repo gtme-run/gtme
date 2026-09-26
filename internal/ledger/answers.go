@@ -110,11 +110,13 @@ func (l *Ledger) PendingSteps(ctx context.Context, runID string) ([]string, map[
 	return out, counts, nil
 }
 
-// AnswerNotes returns the note a participant left with its answer for one
-// identity, keyed by run (SPEC §8, ADR-049): `gtme show --provenance` prints
-// it beside the values that answer wrote. The latest answer in a run wins,
-// matching collection's own rule.
-func (l *Ledger) AnswerNotes(ctx context.Context, identityID string) (map[string]string, error) {
+// AnswerNotes returns the notes participants left with their answers for one
+// identity, keyed by run and then by the field the answer wrote (SPEC §8,
+// ADR-049): `gtme show --provenance` prints a note beside the values that
+// answer wrote and beside nothing else the run wrote. The latest answer in a
+// run wins, matching collection's own rule. A filter's `pass` and `reason`
+// are a verdict, not fields, so a filter's note lands on no value.
+func (l *Ledger) AnswerNotes(ctx context.Context, identityID string) (map[string]map[string]string, error) {
 	rows, err := l.db.QueryContext(ctx,
 		`SELECT run_id, detail FROM step_events
 		 WHERE identity_id = ? AND event = ? ORDER BY created_at, id`, identityID, EventAnswered)
@@ -122,7 +124,7 @@ func (l *Ledger) AnswerNotes(ctx context.Context, identityID string) (map[string
 		return nil, fmt.Errorf("ledger: reading answer notes: %w", err)
 	}
 	defer rows.Close()
-	out := map[string]string{}
+	out := map[string]map[string]string{}
 	for rows.Next() {
 		var runID sql.NullString
 		var detail sql.NullString
@@ -133,7 +135,14 @@ func (l *Ledger) AnswerNotes(ctx context.Context, identityID string) (map[string
 		if err := json.Unmarshal([]byte(detail.String), &d); err != nil || d.Note == "" {
 			continue
 		}
-		out[runID.String] = d.Note
+		byField := out[runID.String]
+		if byField == nil {
+			byField = map[string]string{}
+			out[runID.String] = byField
+		}
+		for field := range d.Fields {
+			byField[field] = d.Note
+		}
 	}
 	return out, rows.Err()
 }
