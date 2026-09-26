@@ -64,12 +64,12 @@ gtme query "SELECT DISTINCT field, source FROM current_values ORDER BY field"
 The output is the following:
 
 ```
-{"field":"hello.first_line","source":"text/compose @ #fa5f59e6f6ac"}
 {"field":"company_domain","source":"csv/source@1"}
 {"field":"demo.note","source":"demo/enrich@1"}
 {"field":"demo.score","source":"demo/enrich@1"}
 {"field":"email","source":"csv/source@1"}
 {"field":"full_name","source":"csv/source@1"}
+{"field":"hello.first_line","source":"text/compose @ #87df8586701c"}
 {"field":"title","source":"csv/source@1"}
 7 rows
 ```
@@ -134,7 +134,7 @@ Every entry fixes a type and a normalization rule, the function that puts a valu
      reads:     full_name, title
      requires:  full_name, title
      provides:  hello.first_line
-     note:      provides: "first_line" lands as "hello.first_line" (per-campaign, ADR-033); the canonical person field "first_line" is untouched — add canonical: true to write it instead
+     note:      provides: "first_line" lands as "hello.first_line" (per-campaign); the canonical person field "first_line" is untouched — add canonical: true to write it instead
      est/record: ?
 ```
 
@@ -173,13 +173,13 @@ Plan again, and the `out` block carries three notes:
 ```
 5. out [deliver] — csv/deliver@1
 ...
-     note:      needs this pipeline's own judgment field "hello.first_line" (declared by an earlier AI step, ADR-033)
      note:      needs vendor-namespaced field "demo.note" — this pipeline is coupled to that vendor
      note:      needs vendor-namespaced field "demo.score" — this pipeline is coupled to that vendor
+     note:      needs this pipeline's own judgment field "hello.first_line" (declared by an earlier AI step)
 ...
 ```
 
-None is an error, and plan still passes. The first says the file writes that field itself. The other two say the file works only while `demo/enrich` is in it. Swap it for another scorer and plan fails at `out`, naming `demo.note` and `demo.score`.
+None is an error, and plan still passes. The first two say the file works only while `demo/enrich` is in it. The third says the file writes that field itself. Swap it for another scorer and plan fails at `out`, naming `demo.note` and `demo.score`.
 
 A canonical `title` can come from the CSV today and `apollo/enrich` next month, and `out` still plans. Plan notes a namespaced need on any step whose needs come from `uses:` or `variables:`: an AI or compose step, or a deliver step. Each note is a line you'd edit to change vendors.
 

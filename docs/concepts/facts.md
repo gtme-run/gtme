@@ -115,9 +115,9 @@ gtme query "SELECT value, source, confidence, created_at, rank
 ```
 
 ```
-{"confidence":1,"created_at":"2026-09-26T01:09:40.928Z","rank":1,"source":"sql/transform @ 87a73c20aceb","value":"\"CMO\""}
-{"confidence":1,"created_at":"2026-09-26T01:09:40.923Z","rank":2,"source":"csv/source@1","value":"\"VP Marketing\""}
-{"confidence":1,"created_at":"2026-09-26T01:09:32.997Z","rank":3,"source":"csv/source@1","value":"\"VP Marketing\""}
+{"confidence":1,"created_at":"2026-09-26T17:14:39.416Z","rank":1,"source":"sql/transform @ 87a73c20aceb","value":"\"CMO\""}
+{"confidence":1,"created_at":"2026-09-26T17:14:39.413Z","rank":2,"source":"csv/source@1","value":"\"VP Marketing\""}
+{"confidence":1,"created_at":"2026-09-26T17:14:39.384Z","rank":3,"source":"csv/source@1","value":"\"VP Marketing\""}
 3 rows
 ```
 
@@ -148,13 +148,14 @@ gtme show jane.doe@acme.com --provenance --fields title
   "fields": {
     "title": {
       "confidence": 1,
-      "created_at": "2026-09-26T01:09:40.928Z",
-      "run_id": "01M3DM5GXTPA05M1BJAXVDS42S",
+      "created_at": "2026-09-26T17:14:39.416Z",
+      "run_id": "01M3FBCEDNG29WPGMFDNQ2N9FD",
       "source": "sql/transform @ 87a73c20aceb",
       "value": "CMO"
     }
   },
-  "identity_key": "jane.doe@acme.com"
+  "identity_key": "jane.doe@acme.com",
+  "identity_key_tier": "email"
 }
 ```
 

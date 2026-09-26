@@ -60,9 +60,9 @@ gtme run hello.yaml
 The output is similar to the following:
 
 ```
-run 01M3DJG0795V0Y98M7KXHRPTEZ (hello)
+run 01M3FBB6SRKX0B7GMSF2WMBJVW (hello)
 ...
-run 01M3DJG0795V0Y98M7KXHRPTEZ — done
+run 01M3FBB6SRKX0B7GMSF2WMBJVW — done
 step    adapter      in  out  empty  cached  filtered  failed  cost     avoided
 source  csv/source   0   3    -      0       -         -       $0       -
 score   demo/enrich  3   3    -      0       -         -       $0.0300  -
@@ -153,7 +153,7 @@ gtme runs
 
 ```
 run                         pipeline  status  started                   records  in flight
-01M3DJG0795V0Y98M7KXHRPTEZ  cache     done    2026-09-26T00:40:27.113Z  3        -
+01M3FBB6SRKX0B7GMSF2WMBJVW  hello     done    2026-09-26T17:13:58.840Z  3        -
 ```
 
 `gtme runs last` prints the same run from the ledger's side, totaled across resumes, and `gtme show --run last` prints its records as JSON, one per line.
@@ -202,9 +202,9 @@ gtme run hello.yaml
 The output is similar to the following:
 
 ```
-run 01M3DJG3J1BYGRYMCPNP7A2EEZ (hello)
+run 01M3FBBGVWXNYMVJEQRT9039NM (hello)
 ...
-run 01M3DJG3J1BYGRYMCPNP7A2EEZ — failed
+run 01M3FBBGVWXNYMVJEQRT9039NM — failed
 step    adapter      in  out  empty  cached  filtered  failed  cost     avoided
 source  csv/source   0   3    -      0       -         -       $0       -
 score   demo/enrich  3   3    -      0       -         -       $0.0300  -
@@ -212,6 +212,7 @@ keep    sql/filter   3   1    -      0       2         -       $0       -
 out     csv/deliver  1   0    -      0       -         1       $0       -
 out: 1 failed — csv/deliver: open sent/out.csv: no such file or directory
 total: $0.0300 (estimated) spent
+gtme: runner: out: csv/deliver: open sent/out.csv: no such file or directory
 ```
 
 Jane's `run_records` state is `keep`, the last step she completed. Make the folder and resume:
@@ -224,9 +225,9 @@ gtme run hello.yaml --resume last
 The output is similar to the following:
 
 ```
-resuming run 01M3DJG3J1BYGRYMCPNP7A2EEZ (hello)
+resuming run 01M3FBBGVWXNYMVJEQRT9039NM (hello)
 ...
-run 01M3DJG3J1BYGRYMCPNP7A2EEZ — done
+run 01M3FBBGVWXNYMVJEQRT9039NM — done
 step    adapter      in  out  empty  cached  filtered  failed  cost  avoided
 source  csv/source   0   3    -      0       -         -       $0    -
 score   demo/enrich  0   0    -      0       -         -       $0    -

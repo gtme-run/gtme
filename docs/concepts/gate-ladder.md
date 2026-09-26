@@ -39,7 +39,7 @@ links:
     description: Dry-run holds deliver steps and prints their resolved variables as the approval artifact
   - to: /decisions#adr-028
     type: decided-by
-    description: Simulate runs the whole pipeline offline from fixtures and persists nothing
+    description: Simulate runs the whole pipeline offline from recorded responses and persists nothing
   - to: /decisions#adr-040
     type: decided-by
     description: Preflight reads the delivery target at dry-run and at the start of an armed run
@@ -72,9 +72,9 @@ The output is similar to the following:
 
 ```
 simulate: recorded responses only — no network, no spend, nothing sends, nothing persists
-run 01M3DJMCH37P7QHXT7NNVCC0E3 (hello)
+run 01M3FBAV6FH7P7FKQVVJGP6W6G (hello)
 ...
-run 01M3DJMCH37P7QHXT7NNVCC0E3 — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
+run 01M3FBAV6FH7P7FKQVVJGP6W6G — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
 step    adapter      in  out  empty  cached  filtered  failed  cost     avoided
 source  csv/source   0   3    -      0       -         -       $0       -
 score   demo/enrich  3   3    -      0       -         -       $0.0300  -
@@ -87,7 +87,7 @@ out: resolved variables for 1 record(s) — review, then run again without --dry
 total: $0.0300 (estimated) spent
 ```
 
-Every vendor [adapter](/concepts/adapter-tiers) answers from its fixtures (recorded sample responses). An AI step replays a recorded fixture response when one exists and otherwise returns synthetic text marked as such. `demo/enrich` isn't an AI step, and its `synthetic` note is its own.
+Every vendor [adapter](/concepts/adapter-tiers) answers from its recorded responses, the adapter's fixtures. An AI step replays a recorded fixture response when one exists and otherwise returns synthetic text marked as such. `demo/enrich` isn't an AI step, and its `synthetic` note is its own.
 
 `(estimated)` on the total means a rate was multiplied out, with nothing paid (the decision record, [ADR-046](/decisions#adr-046)). The ledger copy is discarded afterward, so the run leaves no history:
 
@@ -144,9 +144,9 @@ The output is similar to the following:
 
 ```
 dry run: deliver steps will resolve and receipt their variables, but nothing sends
-run 01M3DJMCKEX7Y2DKB61K2QZE08 (hello)
+run 01M3FBAYQ5TJ3ENQXW6E3JZF26 (hello)
 ...
-run 01M3DJMCKEX7Y2DKB61K2QZE08 — done (dry run — nothing sent)
+run 01M3FBAYQ5TJ3ENQXW6E3JZF26 — done (dry run — nothing sent)
 step    adapter      in  out  empty  cached  filtered  failed  cost     avoided
 source  csv/source   0   3    -      0       -         -       $0       -
 score   demo/enrich  3   3    -      0       -         -       $0.0300  -
@@ -169,7 +169,7 @@ The output is similar to the following:
 
 ```
 run                         pipeline  status      started                   records  in flight
-01M3DJMCKEX7Y2DKB61K2QZE08  cache     done (dry)  2026-09-26T00:42:50.862Z  3        -
+01M3FBAYQ5TJ3ENQXW6E3JZF26  hello     done (dry)  2026-09-26T17:13:50.565Z  3        -
 ```
 
 **Preflight reads the delivery target before anything sends.** Plan never touches the network, so it can't know whether a campaign is paused, and preflight reads the target so it can. Each deliver adapter that supports preflight checks the live target, read-only, against what the step will send. `instantly/add-to-campaign` checks that the campaign is active and that its copy uses every variable the step sends. A dry-run prints the checks, and a blocked one fails its step before any record sends. `csv/deliver` doesn't preflight, so this run printed none.
@@ -185,12 +185,12 @@ gtme run hello.yaml
 The output is similar to the following:
 
 ```
-run 01M3DJMCMTTCDTS8CP3SGYG6VN (hello)
+run 01M3FBAYRRFZXMRP3FHVYQYRVK (hello)
 ...
 out [info]: csv/deliver: wrote 1 row(s) to out.csv
 ...
 
-run 01M3DJMCMTTCDTS8CP3SGYG6VN — done
+run 01M3FBAYRRFZXMRP3FHVYQYRVK — done
 step    adapter      in  out  empty  cached  filtered  failed  cost  avoided
 source  csv/source   0   3    -      0       -         -       $0    -
 score   demo/enrich  3   0    -      3       -         -       $0    $0.0300

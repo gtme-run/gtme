@@ -60,7 +60,7 @@ gtme freeze last --bundle ./hello-bundle
 The last line of output is similar to the following:
 
 ```
-froze run 01M3DMF30S6SRZF1B1G1QEETQQ into bundle ./hello-bundle (4 steps) — self-contained except credentials and input files
+froze run 01M3FBDQ11PD7C2NFS42DN24G7 into bundle ./hello-bundle (4 steps) — self-contained except credentials and input files
 ```
 
 Here's what landed:
@@ -85,11 +85,11 @@ cat hello-bundle/manifest.json
 {
   "bundle_format_version": 1,
   "name": "hello",
-  "source_run_id": "01M3DMF30S6SRZF1B1G1QEETQQ",
-  "created_at": "2026-09-26T01:14:54.404Z",
-  "gtm_version": "v0.6.1",
+  "source_run_id": "01M3FBDQ11PD7C2NFS42DN24G7",
+  "created_at": "2026-09-26T17:15:21.032Z",
+  "gtm_version": "v0.6.2-0.20260926171205-74078a28d320",
   "contents": {
-    "pipeline.yaml": "da6d163c163ea60dd0f4b9ce890ef2541528c1d654010f4ee0d6b91e209d30f8",
+    "pipeline.yaml": "c3dd12fe876050d84d4332a8a34073f04c1218af26be31fc52309c0b6f3289f5",
     "registry/company.json": "56a4a6434fbb77bd24e2fc7f013abb28129a23f2d88d367ae591b9f7230814b5",
     "registry/person.json": "2666a0850834b1542364a8c5deb7ce27e6033f931fb0fbe74397cb858f3457bc",
     "registry/post.json": "53962867ce1614f937a16b50dddf736045271d7d6f44d4253d989ac571d63508"
@@ -103,7 +103,7 @@ That folder is a campaign bundle: everything the run was configured with, as tex
 
 **A bundle is a run's configuration written out as files.** `pipeline.yaml` is the config that run stored, rebuilt as YAML. `registry/` is the whole [canonical field](/concepts/canonical-fields) vocabulary, one file per kind of record, packed for review. Every bundle gets all three files, so `post.json` is there though this pipeline has no posts. Nothing in the folder executes.
 
-This pipeline uses only adapters built into the binary, so there's nothing else to pack. An installed [binding](/concepts/adapter-tiers), a vendor adapter written as YAML, lands in `adapters/` with its fixtures (recorded sample responses) and the version it was installed at. While the bundle runs, its copies win over whatever the machine has installed. A template kept in a file (`template: {file: ...}`) travels too. A process adapter runs as its own program, so it doesn't travel, and the machine needs the same one.
+This pipeline uses only adapters built into the binary, so there's nothing else to pack. An installed [binding](/concepts/adapter-tiers), a vendor adapter written as YAML, lands in `adapters/` with its fixtures (recorded responses) and the version it was installed at. While the bundle runs, its copies win over whatever the machine has installed. A template kept in a file (`template: {file: ...}`) travels too. A process adapter runs as its own program, so it doesn't travel, and the machine needs the same one.
 
 **The manifest is a list of hashes.** `bundle_format_version` versions the folder layout, and `name` is the pipeline's. `source_run_id` is the run you froze, the id its [receipt](/concepts/runs-and-receipts) carries. `created_at` and `gtm_version` record when and with which `gtme` binary. `contents` lists every other file with its SHA-256 hash, a fingerprint that changes if one byte does.
 
@@ -119,10 +119,10 @@ gtme run . --simulate
 The output is similar to the following:
 
 ```
-bundle hello (frozen from run 01M3DMF30S6SRZF1B1G1QEETQQ) — hashes verified
+bundle hello (frozen from run 01M3FBDQ11PD7C2NFS42DN24G7) — hashes verified
 simulate: recorded responses only — no network, no spend, nothing sends, nothing persists
 ...
-run 01M3DMF6PKWB4237S4F4WW2ND9 — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
+run 01M3FBDX5990D9H3RK0RKJB5WW — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
 ...
 ```
 
@@ -150,7 +150,7 @@ gtme: bundle: pipeline.yaml does not match its manifest hash — the bundle has 
 
 The run stops before it reads a record. To change a bundle, copy `pipeline.yaml` out, edit and run the copy, then freeze that run into a new folder. Your own CSV under the same file name still verifies, because the manifest lists only frozen files.
 
-In v0.6.1, `gtme plan` doesn't accept a bundle folder, and only `gtme run` does. Check a bundle with `gtme run . --simulate` from inside its folder, then `--dry-run` on the next rung.
+`gtme plan` doesn't accept a bundle folder yet, and only `gtme run` does. Check a bundle with `gtme run . --simulate` from inside its folder, then `--dry-run` on the next rung.
 
 A [group](/concepts/groups) named in a bundled pipeline resolves against the ledger the bundle runs on. A bundle that reads its people from another campaign's group stops on a fresh ledger until that campaign has run there.
 

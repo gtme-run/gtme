@@ -46,8 +46,16 @@ gtme show jane.doe@acme.com
 
 ```json
 {
+  "deliveries": [
+    {
+      "created_at": "2026-09-26T17:14:11.355Z",
+      "run_id": "01M3FBBK0M8B0DSG8T6Z4CWQ8Q",
+      "scope": "out.csv",
+      "status": "accepted",
+      "target": "csv/deliver"
+    }
+  ],
   "entity_type": "person",
-  "identity_key": "jane.doe@acme.com",
   "fields": {
     "company_domain": "acme.com",
     "demo.note": "synthetic — demo/enrich called no vendor",
@@ -56,19 +64,12 @@ gtme show jane.doe@acme.com
     "full_name": "Jane Doe",
     "title": "VP Marketing"
   },
-  "deliveries": [
-    {
-      "target": "csv/deliver",
-      "scope": "out.csv",
-      "status": "accepted",
-      "run_id": "01M3CNWQWEYGN7C6G0Q9CDH7E3",
-      "created_at": "2026-09-25T16:20:35.864Z"
-    }
-  ]
+  "identity_key": "jane.doe@acme.com",
+  "identity_key_tier": "email"
 }
 ```
 
-That's the ledger, seen through one record. Four fields came from the CSV, two came from an enrichment step, and one delivery went out. The [receipt](/concepts/runs-and-receipts) you saw when the run finished is a summary of the same rows. Every one of those is a row in a SQLite file at `~/.gtme/ledger.db`, and the file is what a pipeline reads from and writes to.
+That's the ledger, seen through one record. Four fields came from the CSV, two came from an enrichment step, and one delivery went out. `identity_key_tier` says which kind of key the record is filed under. The [receipt](/concepts/runs-and-receipts) you saw when the run finished is a summary of the same rows. Every one of those is a row in a SQLite file at `~/.gtme/ledger.db`, and the file is what a pipeline reads from and writes to.
 
 ## What you just saw
 
@@ -107,12 +108,12 @@ gtme query "SELECT field, value, source, confidence FROM current_values
 ```
 
 ```
-{"field":"company_domain","value":"acme.com","source":"csv/source@1","confidence":1}
-{"field":"demo.note","value":"synthetic — demo/enrich called no vendor","source":"demo/enrich@1","confidence":1}
-{"field":"demo.score","value":100,"source":"demo/enrich@1","confidence":1}
-{"field":"email","value":"jane.doe@acme.com","source":"csv/source@1","confidence":1}
-{"field":"full_name","value":"Jane Doe","source":"csv/source@1","confidence":1}
-{"field":"title","value":"VP Marketing","source":"csv/source@1","confidence":1}
+{"confidence":1,"field":"company_domain","source":"csv/source@1","value":"acme.com"}
+{"confidence":1,"field":"demo.note","source":"demo/enrich@1","value":"synthetic — demo/enrich called no vendor"}
+{"confidence":1,"field":"demo.score","source":"demo/enrich@1","value":100}
+{"confidence":1,"field":"email","source":"csv/source@1","value":"jane.doe@acme.com"}
+{"confidence":1,"field":"full_name","source":"csv/source@1","value":"Jane Doe"}
+{"confidence":1,"field":"title","source":"csv/source@1","value":"VP Marketing"}
 ```
 
 `source` is the adapter that wrote the fact, with its version. `run_id` (not shown) is the run it happened in. When two vendors disagree about someone's title, you can see both rows, which one won, and why.
@@ -132,7 +133,7 @@ Plus `payloads`, which holds raw vendor responses as a purgeable cache. A payloa
 Run the same pipeline a second time, against the same CSV:
 
 ```
-run 01M3CNWQXCNSQXNZ3HF7Y7GM6P — done
+run 01M3FBBK2S1DDWKWTW6WY02YK7 — done
 step    adapter      in  out  empty  cached  filtered  failed  cost  avoided
 source  csv/source   0   3    -      0       -         -       $0    -
 score   demo/enrich  3   0    -      3       -         -       $0    $0.0300
@@ -157,7 +158,7 @@ That's it. That's the ledger, and everything else in gtme is built on top of it.
 
 **What it costs.** Every step reads and writes SQLite, which caps per-record throughput below what a streaming design could do. For outbound, where the vendor call is the slow part and a big run is a few thousand records, we haven't hit that cap. If you need to push millions of rows through, gtme is the wrong tool.
 
-**What it doesn't do yet.** The ledger is one file on one machine. That's the right default for one operator or one agent working a campaign, and it's why there's nothing to set up. It also means two people can't share a ledger without sharing the file. Sharing a ledger between people isn't something gtme does today.
+**What it doesn't do yet.** The ledger is one file on one machine. That's the right default for one operator or one agent working a campaign, and it's why there's nothing to set up. It also means two people can't share a ledger without sharing the file.
 
 ## Where it shows up
 

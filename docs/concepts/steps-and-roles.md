@@ -173,7 +173,7 @@ A fail already stops a record at `fit`. `when: fit.passed` also holds the ones `
 A review writes a grade and never gates, so the planner refuses a gate on one. Add `when: grade.passed` to `out` and plan again:
 
 ```
-gtme: step "out": when: grade.passed reads the filter role only — "grade" is a review and never gates (ADR-048); add a sql/filter on its labels and gate on that
+gtme: step "out": when: grade.passed reads the filter role only — "grade" is a review and never gates; add a sql/filter on its labels and gate on that
 ```
 
 So gate with a filter. This `sql/filter` goes after `grade`, keeps only A and B grades, and runs no model:
