@@ -152,3 +152,44 @@ func TestIsGenerated(t *testing.T) {
 		t.Error("body text mistaken for frontmatter")
 	}
 }
+
+// The CLI index lists each verb once, linking its own page; the verb page
+// carries the forms and flags, and points at the shared exit codes
+// instead of repeating them.
+func TestCLIPagesDoNotRepeatEachOther(t *testing.T) {
+	s := &site{
+		agent: &agentDoc{
+			Verbs: []agentVerb{
+				{Usage: "gtme plan FILE", Does: "resolve adapters and print the plan"},
+				{Usage: "gtme plan FILE --json", Does: "print the plan as JSON"},
+				{Usage: "gtme run FILE", Does: "execute a pipeline"},
+			},
+			ExitCodes: []agentExit{{Code: 0, Means: "ok"}, {Code: 2, Means: "refused"}},
+		},
+		backlinks: map[string][]backlink{},
+	}
+	pages := s.cliPages()
+	if len(pages) != 3 {
+		t.Fatalf("want index + 2 verb pages, got %d", len(pages))
+	}
+	index := pages[0].body
+	for _, want := range []string{"[`gtme plan`](/reference/cli/plan)", "[`gtme run`](/reference/cli/run)", "## Exit codes", "| 2 | refused |"} {
+		if !strings.Contains(index, want) {
+			t.Errorf("index lacks %q:\n%s", want, index)
+		}
+	}
+	for _, no := range []string{"## gtme plan", "## gtme run", "| Form |"} {
+		if strings.Contains(index, no) {
+			t.Errorf("index still carries %q:\n%s", no, index)
+		}
+	}
+	plan := pages[1].body
+	for _, want := range []string{"## Forms", "gtme plan FILE --json", "| Form |", "(/reference/cli#exit-codes)"} {
+		if !strings.Contains(plan, want) {
+			t.Errorf("plan page lacks %q:\n%s", want, plan)
+		}
+	}
+	if strings.Contains(plan, "## Exit codes") || strings.Contains(plan, "| 2 | refused |") {
+		t.Errorf("plan page repeats the exit codes:\n%s", plan)
+	}
+}
