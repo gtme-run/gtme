@@ -36,15 +36,15 @@ var httpEnrichManifest = []byte(`{
     "required": ["url", "freshness_days"],
     "additionalProperties": false,
     "properties": {
-      "url": {"type": "string", "minLength": 1, "description": "Request URL, templated from {{record.<field>}} placeholders — which are also the step's derived needs (SPEC §10a)"},
+      "url": {"type": "string", "minLength": 1, "description": "Request URL, templated from {{record.<field>}} placeholders — which are also the step's derived needs"},
       "method": {"enum": ["GET", "POST"], "description": "Default GET"},
       "query": {"type": "object", "additionalProperties": {"type": "string"}},
       "headers": {"type": "object", "additionalProperties": {"type": "string"}},
       "markdown": {"type": "boolean", "description": "Fetch a page and store it as markdown under field:"},
-      "field": {"type": "string", "description": "The declared content field (markdown mode) — canonical or namespaced (§4a)"},
+      "field": {"type": "string", "description": "The declared content field (markdown mode) — canonical or namespaced"},
       "extract": {"type": "object", "additionalProperties": {"type": "string"}, "description": "Inline JSON mode: field → dotted response path"},
       "freshness_days": {"type": "integer", "minimum": 1, "description": "REQUIRED, no default: web content rots. Doubles as the step's cache window."},
-      "max_bytes": {"type": "integer", "minimum": 1, "description": "Response size cap (default 262144). An oversized response stores no field — the record advances counted empty, never truncated silently — and is still retained as a payload under the ADR-030 window (ADR-053)."},
+      "max_bytes": {"type": "integer", "minimum": 1, "description": "Response size cap (default 262144). An oversized response stores no field — the record advances counted empty, never truncated silently — and is still retained as a payload for the retention window."},
       "auth": {
         "type": "object",
         "required": ["type", "env"],
@@ -56,7 +56,7 @@ var httpEnrichManifest = []byte(`{
           "prefix": {"type": "string"}
         }
       },
-      "keep_payloads": {"type": "boolean", "description": "ADR-030 per-step override"},
+      "keep_payloads": {"type": "boolean", "description": "per-step override of payload retention"},
       "entity_type": {"type": "string"}
     }
   }

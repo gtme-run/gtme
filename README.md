@@ -318,8 +318,8 @@ identical, because a simulated run persists nothing.
 **The zero-key top-up** — the second receipt, on a ledger that persists:
 
 ```sh
-gtme run examples/cache.yaml        # three people scored at $0.01 each, one kept, out.csv written
-gtme run examples/cache.yaml        # again: 3 cached, $0.0300 avoided, nothing delivered twice
+gtme run examples/hello.yaml        # three people scored at $0.01 each, one kept, out.csv written
+gtme run examples/hello.yaml        # again: 3 cached, $0.0300 avoided, nothing delivered twice
 ```
 
 `demo/enrich` is the binary's own synthetic enrichment: no vendor, no key,

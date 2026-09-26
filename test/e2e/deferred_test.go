@@ -213,7 +213,7 @@ steps:
 	if eng.code != 2 {
 		t.Fatalf("engine: exit = %d, want 2\nstderr:\n%s", eng.code, eng.stderr)
 	}
-	contains(t, eng.stderr, "engine: is not a key (ADR-050)", "engine refusal")
+	contains(t, eng.stderr, "engine: is not a key", "engine refusal")
 	contains(t, eng.stderr, "make this an agent/* step", "engine refusal names agent/*")
 	env := h.fixtureScript("ai.json", "$auto")
 	dry := h.runWithEnv(env, "", "run", "cc.yaml", "--dry-run")

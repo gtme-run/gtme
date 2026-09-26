@@ -115,8 +115,8 @@ func groupsEdit(ctx context.Context, env Env, args []string, event string) error
 	fs.SetOutput(env.Stderr)
 	fromSegment := fs.String("from-segment", "", "snapshot a saved segment's identity_id column into membership")
 	query := fs.String("query", "", "snapshot a read-only SELECT's identity_id column into membership")
-	entityType := fs.String("type", "", "the group's entity type (ADR-054): required when a key matches more than one type or no key is given; sets an untyped group's type once")
-	note := fs.String("note", "", "remove only: the reason, recorded in the event's detail (ADR-032)")
+	entityType := fs.String("type", "", "the group's entity type: required when a key matches more than one type or no key is given; sets an untyped group's type once")
+	note := fs.String("note", "", "remove only: the reason, recorded in the event's detail")
 	positional, err := parseFlags(fs, args)
 	if err != nil {
 		return err
@@ -132,7 +132,7 @@ func groupsEdit(ctx context.Context, env Env, args []string, event string) error
 		return fail(ExitValidation, "snapshots only add; remove takes identity keys")
 	}
 	if event == ledger.GroupAdded && *note != "" {
-		return fail(ExitValidation, "--note records why a record was removed; add has no reason to record (SPEC §8)")
+		return fail(ExitValidation, "--note records why a record was removed; add has no reason to record")
 	}
 	typed := strings.TrimSpace(*entityType)
 	if len(keys) == 0 && *fromSegment == "" && *query == "" && !(event == ledger.GroupAdded && typed != "") {
@@ -217,7 +217,7 @@ func groupsEdit(ctx context.Context, env Env, args []string, event string) error
 		return fail(ExitValidation, "%v", err)
 	}
 	if g.EntityType != "" && memberType != "" && memberType != g.EntityType {
-		return fail(ExitValidation, "group %s holds %s records; a %s cannot join it (SPEC §8, ADR-054)", g.Name, g.EntityType, memberType)
+		return fail(ExitValidation, "group %s holds %s records; a %s cannot join it", g.Name, g.EntityType, memberType)
 	}
 	members, err := l.GroupMembership(ctx, g.ID)
 	if err != nil {
@@ -253,7 +253,7 @@ func identityTypeOf(ctx context.Context, l *ledger.Ledger, ids []string) (string
 		case seen == "":
 			seen = ident.EntityType
 		case seen != ident.EntityType:
-			return "", fmt.Errorf("the records to add mix %s and %s; a group holds one type (SPEC §8, ADR-054)", seen, ident.EntityType)
+			return "", fmt.Errorf("the records to add mix %s and %s; a group holds one type", seen, ident.EntityType)
 		}
 	}
 	return seen, nil

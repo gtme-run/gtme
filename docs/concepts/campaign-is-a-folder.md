@@ -53,38 +53,38 @@ links:
 Take the three-person example from [A pipeline is a YAML file](/concepts/pipeline). Run it once so there's a run to freeze, then freeze it. `last` names your most recent run:
 
 ```sh
-gtme run cache.yaml
-gtme freeze last --bundle ./cache-bundle
+gtme run hello.yaml
+gtme freeze last --bundle ./hello-bundle
 ```
 
 The last line of output is similar to the following:
 
 ```
-froze run 01M3DMF30S6SRZF1B1G1QEETQQ into bundle ./cache-bundle (4 steps) — self-contained except credentials and input files
+froze run 01M3DMF30S6SRZF1B1G1QEETQQ into bundle ./hello-bundle (4 steps) — self-contained except credentials and input files
 ```
 
 Here's what landed:
 
 ```sh
-find cache-bundle -type f | sort
+find hello-bundle -type f | sort
 ```
 
 ```
-cache-bundle/manifest.json
-cache-bundle/pipeline.yaml
-cache-bundle/registry/company.json
-cache-bundle/registry/person.json
-cache-bundle/registry/post.json
+hello-bundle/manifest.json
+hello-bundle/pipeline.yaml
+hello-bundle/registry/company.json
+hello-bundle/registry/person.json
+hello-bundle/registry/post.json
 ```
 
 ```sh
-cat cache-bundle/manifest.json
+cat hello-bundle/manifest.json
 ```
 
 ```json
 {
   "bundle_format_version": 1,
-  "name": "cache",
+  "name": "hello",
   "source_run_id": "01M3DMF30S6SRZF1B1G1QEETQQ",
   "created_at": "2026-09-26T01:14:54.404Z",
   "gtm_version": "v0.6.1",
@@ -110,8 +110,8 @@ This pipeline uses only adapters built into the binary, so there's nothing else 
 **Your CSV isn't in it.** The freeze line said so, because the input is yours to replace. Copy it in, point `GTME_LEDGER` at a fresh, empty [ledger](/concepts/ledger), and run the folder:
 
 ```sh
-cp contacts.csv cache-bundle/
-cd cache-bundle
+cp contacts.csv hello-bundle/
+cd hello-bundle
 export GTME_LEDGER=$(mktemp -d)/ledger.db
 gtme run . --simulate
 ```
@@ -119,14 +119,14 @@ gtme run . --simulate
 The output is similar to the following:
 
 ```
-bundle cache (frozen from run 01M3DMF30S6SRZF1B1G1QEETQQ) — hashes verified
-simulate: fixtures only — no network, no spend, nothing sends, nothing persists
+bundle hello (frozen from run 01M3DMF30S6SRZF1B1G1QEETQQ) — hashes verified
+simulate: recorded responses only — no network, no spend, nothing sends, nothing persists
 ...
-run 01M3DMF6PKWB4237S4F4WW2ND9 — done (SIMULATED — fixtures only; nothing sent, nothing persisted)
+run 01M3DMF6PKWB4237S4F4WW2ND9 — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
 ...
 ```
 
-`gtme run` takes the folder wherever it takes a pipeline file, and checks every hash first: the `hashes verified` line. Under [simulate](/concepts/gate-ladder), each binding answers from the fixtures packed inside the bundle, so the run needs no network and no key. The rest is the receipt `cache.yaml` prints on its own.
+`gtme run` takes the folder wherever it takes a pipeline file, and checks every hash first: the `hashes verified` line. Under [simulate](/concepts/gate-ladder), each binding answers from the fixtures packed inside the bundle, so the run needs no network and no key. The rest is the receipt `hello.yaml` prints on its own.
 
 That folder and that last block are what you'd hand your agent. It can check the whole campaign offline before a person reads it.
 
@@ -162,7 +162,7 @@ That's it. A campaign is a folder you can diff, commit, and run anywhere the bin
 
 **The configuration travels, and state stays with the machine.** Your teammate adds their own keys with `gtme secret set`. Then they climb to armed, the rung that spends and sends, as [Connect your stack](/guides/connect-your-stack) shows.
 
-**What it costs.** Freeze rebuilds the YAML from the run's stored config, so the comments in `cache.yaml` are gone from the frozen copy. The shipped bundles keep theirs in a README the manifest doesn't list, so editing it doesn't break a hash. A bundle can't carry the people it selected either, because a list of people is ledger state and belongs to whoever ran the campaign.
+**What it costs.** Freeze rebuilds the YAML from the run's stored config, so the comments in `hello.yaml` are gone from the frozen copy. The shipped bundles keep theirs in a README the manifest doesn't list, so editing it doesn't break a hash. A bundle can't carry the people it selected either, because a list of people is ledger state and belongs to whoever ran the campaign.
 
 ## Where it shows up
 

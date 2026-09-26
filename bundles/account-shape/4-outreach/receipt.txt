@@ -1,13 +1,13 @@
 $ gtme run . --simulate
 bundle outreach (frozen from run 01M2EPQYPRCGKT0ATDWMVE6ZJA) — hashes verified
 simulate: ignoring missing credentials (step "send": missing credential INSTANTLY_API_KEY (set it in the environment or run `gtme secret set INSTANTLY_API_KEY`))
-simulate: fixtures only — no network, no spend, nothing sends, nothing persists
+simulate: recorded responses only — no network, no spend, nothing sends, nothing persists
 run 01M2EPQZ79V9X8CP4JVK1CFDRD (outreach)
 source: sourced 6 members of group "selected-people" (limit 10, oldest first)
 lines: 6 in, 6 out, 0 cached, 0 filtered, 0 failed
 send: 6 in, 0 out, 0 cached, 0 filtered, 0 failed, 6 held (dry run)
 
-run 01M2EPQZ79V9X8CP4JVK1CFDRD — done (SIMULATED — fixtures only; nothing sent, nothing persisted)
+run 01M2EPQZ79V9X8CP4JVK1CFDRD — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
 step    adapter                    in  out  empty  cached  filtered  failed  cost  avoided
 source  group:selected-people      0   6    -      0       -         -       $0    -
 lines   ai/compose                 6   6    -      0       -         -       $0    -

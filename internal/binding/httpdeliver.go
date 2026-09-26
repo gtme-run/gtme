@@ -52,7 +52,7 @@ var httpDeliverManifest = []byte(`{
       "variables": {
         "type": "object",
         "additionalProperties": {"type": "string", "minLength": 1},
-        "description": "Egress mapping, injected by the runner from the step-level variables: key (ADR-018)."
+        "description": "Egress mapping, injected by the runner from the step-level variables: key."
       },
       "keep_payloads": {"type": "boolean"},
       "entity_type": {"type": "string"}

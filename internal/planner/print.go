@@ -91,7 +91,7 @@ func Print(w io.Writer, p *Plan) {
 			if s.NeedsAll {
 				projects = "(every field known about the record)"
 			}
-			fmt.Fprintf(w, "     projects:  %s\n", projects)
+			fmt.Fprintf(w, "     reads:     %s\n", projects)
 			if len(s.Required) > 0 {
 				fmt.Fprintf(w, "     requires:  %s\n", list(s.Required))
 			}
@@ -146,10 +146,10 @@ func Print(w io.Writer, p *Plan) {
 			}
 		}
 		if !s.IsDeliver && s.OnMissing != "" && s.OnMissing != "run" && len(s.Uses) > 0 {
-			fmt.Fprintf(w, "     on_missing: %s (a declared uses: field absent at run time — ADR-053)\n", s.OnMissing)
+			fmt.Fprintf(w, "     on_missing: %s (a declared uses: field absent at run time)\n", s.OnMissing)
 		}
 		if s.Of != "" {
-			fmt.Fprintf(w, "     of:        %s (the referent — its value joins the cache key, its id the provenance; ADR-048)\n", s.Of)
+			fmt.Fprintf(w, "     of:        %s (the value under review)\n", s.Of)
 		}
 		if s.RunnerOwned() {
 			surface := "the uses: fields"
@@ -164,16 +164,16 @@ func Print(w io.Writer, p *Plan) {
 			fmt.Fprintf(w, "     render:    %s\n", surface)
 			switch s.Prompt {
 			case "never":
-				fmt.Fprintf(w, "     prompt:    never — records wait in the ledger; `gtme answer` records, the next `gtme run` collects (ADR-049)\n")
+				fmt.Fprintf(w, "     prompt:    never — records wait in the ledger; `gtme answer` records, the next `gtme run` collects\n")
 			default:
-				fmt.Fprintf(w, "     prompt:    tty — at a terminal the run asks; otherwise records wait for `gtme answer` (ADR-049)\n")
+				fmt.Fprintf(w, "     prompt:    tty — at a terminal the run asks; otherwise records wait for `gtme answer`\n")
 			}
 		}
 		if s.TemplateFile != "" {
-			fmt.Fprintf(w, "     template:  %s (loaded; its bytes join the judgment signature — ADR-057)\n", s.TemplateFile)
+			fmt.Fprintf(w, "     template:  %s (loaded; its bytes join the judgment signature)\n", s.TemplateFile)
 		}
 		if s.Deferred {
-			fmt.Fprintf(w, "     deferred:  the run ends in flight here; the next `gtme run` of this pipeline collects (ADR-038)\n")
+			fmt.Fprintf(w, "     deferred:  the run ends in flight here; the next `gtme run` of this pipeline collects\n")
 		}
 		for _, note := range s.Notes {
 			fmt.Fprintf(w, "     note:      %s\n", note)
@@ -209,7 +209,7 @@ func Print(w io.Writer, p *Plan) {
 		}
 	}
 	if len(delivers) > 0 {
-		fmt.Fprintf(w, "\nsend surface: %d deliver step(s) (ADR-031)\n", len(delivers))
+		fmt.Fprintf(w, "\nsend surface: %d deliver step(s)\n", len(delivers))
 		for _, s := range delivers {
 			target := s.Use
 			if s.IsGroupDeliver {
@@ -227,9 +227,9 @@ func Print(w io.Writer, p *Plan) {
 
 	if p.Pipeline.Group != "" {
 		if p.FinalType != "" {
-			fmt.Fprintf(w, "\nterminus: records completing the run are added to group %q as %s (ADR-021, ADR-054)\n", p.Pipeline.Group, p.FinalType)
+			fmt.Fprintf(w, "\nends in group %q as %s (records that complete the run are added)\n", p.Pipeline.Group, p.FinalType)
 		} else {
-			fmt.Fprintf(w, "\nterminus: records completing the run are added to group %q (ADR-021)\n", p.Pipeline.Group)
+			fmt.Fprintf(w, "\nends in group %q (records that complete the run are added)\n", p.Pipeline.Group)
 		}
 	}
 	fmt.Fprintf(w, "\navailable fields after the last step: %s\n", list(p.Available))

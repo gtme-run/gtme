@@ -18,7 +18,7 @@ func PrintReceipt(w io.Writer, res *Result) {
 	title := res.Status
 	switch {
 	case res.Simulated:
-		title += " (SIMULATED — fixtures only; nothing sent, nothing persisted)"
+		title += " (SIMULATED — recorded responses only; nothing sent, nothing persisted)"
 	case res.DryRun:
 		title += " (dry run — nothing sent)"
 	}
@@ -32,11 +32,11 @@ func PrintReceipt(w io.Writer, res *Result) {
 		}
 		switch {
 		case awaiting != "" && res.Interrupted:
-			title += fmt.Sprintf(" — interrupted; the rest awaits %s: `gtme answer %s` records, the next `gtme run %s` collects (ADR-049)", awaiting, res.Pipeline, res.Pipeline)
+			title += fmt.Sprintf(" — interrupted; the rest awaits %s: `gtme answer %s` records, the next `gtme run %s` collects", awaiting, res.Pipeline, res.Pipeline)
 		case awaiting != "":
-			title += fmt.Sprintf(" — ended awaiting %s: `gtme answer %s` records, the next `gtme run %s` collects (ADR-049)", awaiting, res.Pipeline, res.Pipeline)
+			title += fmt.Sprintf(" — ended awaiting %s: `gtme answer %s` records, the next `gtme run %s` collects", awaiting, res.Pipeline, res.Pipeline)
 		default:
-			title += " — ended with a step in flight; the next `gtme run` of this pipeline collects (ADR-038)"
+			title += " — ended with a step in flight; the next `gtme run` of this pipeline collects"
 		}
 	}
 	// A paid run that produced no records says so (SPEC §8, ADR-053) —
@@ -117,10 +117,10 @@ func PrintReceipt(w io.Writer, res *Result) {
 			continue
 		}
 		if s.SimGapRecords > 0 {
-			fmt.Fprintf(w, "simulation gap: %s (%s) — %d record(s) passed through untouched (no fixtures to serve)\n",
+			fmt.Fprintf(w, "simulation gap: %s (%s) — %d record(s) passed through untouched (no recorded responses to serve)\n",
 				s.ID, s.Use, s.SimGapRecords)
 		} else {
-			fmt.Fprintf(w, "simulation gap: %s (%s) — no fixtures to serve\n", s.ID, s.Use)
+			fmt.Fprintf(w, "simulation gap: %s (%s) — no recorded responses to serve\n", s.ID, s.Use)
 		}
 	}
 
@@ -150,7 +150,7 @@ func PrintReceipt(w io.Writer, res *Result) {
 		if s.Role != adapters.RoleTraverse {
 			continue
 		}
-		fmt.Fprintf(w, "%s: %d parent(s) in, %d out, %d empty — %d traversed (%s), %d coalesced\n",
+		fmt.Fprintf(w, "%s: %d parent(s) in, %d out, %d empty — %d traversed (%s), %d already in this run\n",
 			s.ID, s.In, s.Out, s.Empty, s.Traversed, s.ChildType, s.Coalesced)
 	}
 	// Handoffs (SPEC §8, ADR-032): what each group/deliver step committed to

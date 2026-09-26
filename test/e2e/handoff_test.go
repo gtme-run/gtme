@@ -236,7 +236,7 @@ steps:
     idempotency: email
 `)
 	plan := h.mustRun("plan", "both.yaml")
-	contains(t, plan.stderr, `warning: one commit point (ADR-032): this pipeline both hands off — stage (→ group "stage-2") — and sends — send (→ mock/deliver).`, "plan warning")
+	contains(t, plan.stderr, `warning: one commit point: this pipeline both hands off — stage (→ group "stage-2") — and sends — send (→ mock/deliver).`, "plan warning")
 	contains(t, plan.stderr, "approving the handoff approves the send", "plan warning")
 
 	// group/deliver config is exactly with.group; the deliver-only keys are

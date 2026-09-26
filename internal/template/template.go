@@ -73,7 +73,7 @@ func Load(with map[string]any, dir string) (source, file string, present bool, e
 	case map[string]any:
 		f, _ := t["file"].(string)
 		if strings.TrimSpace(f) == "" || len(t) != 1 {
-			return "", "", true, fmt.Errorf("template: the file form is {file: <path>} (SPEC §9, ADR-057)")
+			return "", "", true, fmt.Errorf("template: the file form is {file: <path>}")
 		}
 		if dir == "" {
 			return "", f, true, fmt.Errorf("template: {file: %s} resolves relative to the pipeline file, which is not known here", f)
@@ -255,17 +255,17 @@ func (s *scanner) walk(n render.Node, loops []string) {
 		}
 	case *render.BlockNode:
 		if s.scope == Binding {
-			s.problem(fmt.Sprintf("template: {%% %s %%} — a request template is an object ({{ … }}), not a block (SPEC §10a)", t.Name))
+			s.problem(fmt.Sprintf("template: {%% %s %%} — a request template is an object ({{ … }}), not a block", t.Name))
 			return
 		}
 		s.block(t, loops)
 	case *render.TagNode:
 		if s.scope == Binding {
-			s.problem(fmt.Sprintf("template: {%% %s %%} — a request template is an object ({{ … }}), not a block (SPEC §10a)", t.Name))
+			s.problem(fmt.Sprintf("template: {%% %s %%} — a request template is an object ({{ … }}), not a block", t.Name))
 			return
 		}
 		if !Tags[t.Name] {
-			s.problem(fmt.Sprintf("template: {%% %s %%} is not in the dialect — the tags are if/elsif/else/unless/case/when, for, comment, raw (SPEC §10 item 10, ADR-057)", t.Name))
+			s.problem(fmt.Sprintf("template: {%% %s %%} is not in the dialect — the tags are if/elsif/else/unless/case/when, for, comment, raw", t.Name))
 			return
 		}
 		s.expr(t.Args, loops)
@@ -276,7 +276,7 @@ func (s *scanner) walk(n render.Node, loops []string) {
 
 func (s *scanner) block(b *render.BlockNode, loops []string) {
 	if !Tags[b.Name] {
-		s.problem(fmt.Sprintf("template: {%% %s %%} is not in the dialect — the tags are if/elsif/else/unless/case/when, for, comment, raw (SPEC §10 item 10, ADR-057)", b.Name))
+		s.problem(fmt.Sprintf("template: {%% %s %%} is not in the dialect — the tags are if/elsif/else/unless/case/when, for, comment, raw", b.Name))
 		return
 	}
 	inner := loops
@@ -343,11 +343,11 @@ func (s *scanner) expr(src string, loops []string) {
 				if roots[name] {
 					// The retired `{{a|b}}` alternatives (M31): a variable in
 					// filter position is the old fallback, not a filter.
-					s.problem(fmt.Sprintf("template: `{{ a | %s }}` — alternatives are Liquid's default filter now: write `{{ a | default: %s }}` (ADR-057, M31)", strings.Join(chain, "."), strings.Join(chain, ".")))
+					s.problem(fmt.Sprintf("template: `{{ a | %s }}` — alternatives are Liquid's default filter now: write `{{ a | default: %s }}`", strings.Join(chain, "."), strings.Join(chain, ".")))
 					continue
 				}
 				if !Filters[name] {
-					s.problem(fmt.Sprintf("template: filter %q is not in the dialect — the filters are %s (SPEC §10 item 10, ADR-057)", name, strings.Join(sortedKeys(Filters), ", ")))
+					s.problem(fmt.Sprintf("template: filter %q is not in the dialect — the filters are %s", name, strings.Join(sortedKeys(Filters), ", ")))
 				}
 				continue
 			}
@@ -379,39 +379,39 @@ func (s *scanner) ref(chain []string, loops []string) {
 	path := strings.Join(chain[1:], ".")
 	if s.scope == Binding {
 		if !roots[root] {
-			s.problem(fmt.Sprintf("template: %q is not a variable here — a request template reads record.<field>, config.<key>, variables.<name> or session (SPEC §10a)", strings.Join(chain, ".")))
+			s.problem(fmt.Sprintf("template: %q is not a variable here — a request template reads record.<field>, config.<key>, variables.<name> or session", strings.Join(chain, ".")))
 		}
 		return
 	}
 	switch root {
 	case "config":
 		if path == "" {
-			s.problem("template: config needs a key — config.<key> names one of the step's with: keys (ADR-057)")
+			s.problem("template: config needs a key — config.<key> names one of the step's with: keys")
 			return
 		}
 		key := chain[1]
 		if _, ok := s.config[key]; !ok || key == Key {
-			s.problem(fmt.Sprintf("template: config.%s names no key of this step's with: (ADR-057)", key))
+			s.problem(fmt.Sprintf("template: config.%s names no key of this step's with:", key))
 			return
 		}
 		s.seenConfig[key] = true
 	case "record":
 		if s.scope == Batch {
-			s.problem(fmt.Sprintf("template: record.%s — records are not in scope for a batch step: an ai/* template renders once over config.* and the records arrive as the fenced payload (ADR-035, ADR-057); render per record with text/compose and pass the field through uses:", path))
+			s.problem(fmt.Sprintf("template: record.%s — records are not in scope for a batch step: an ai/* template renders once over config.* and the records arrive as the fenced payload; render per record with text/compose and pass the field through uses:", path))
 			return
 		}
 		if path == "" {
-			s.problem("template: record needs a field — record.<field> names one of the step's uses: fields (ADR-057)")
+			s.problem("template: record needs a field — record.<field> names one of the step's uses: fields")
 			return
 		}
 		field, ok := s.match(path)
 		if !ok {
-			s.problem(fmt.Sprintf("template: record.%s is not in this step's uses: (or of:) — declare it there first (SPEC §7, ADR-057)", path))
+			s.problem(fmt.Sprintf("template: record.%s is not in this step's uses: (or of:) — declare it there first", path))
 			return
 		}
 		s.seenRecord[field] = true
 	default:
-		s.problem(fmt.Sprintf("template: %q is not a variable here — write record.<field> or config.<key> (ADR-057)", strings.Join(chain, ".")))
+		s.problem(fmt.Sprintf("template: %q is not a variable here — write record.<field> or config.<key>", strings.Join(chain, ".")))
 	}
 }
 
@@ -504,7 +504,7 @@ func retiredAlternatives(source string) string {
 		for i := range parts {
 			parts[i] = strings.TrimSpace(parts[i])
 		}
-		return fmt.Sprintf("template: `{{ %s }}` — alternatives are Liquid's default filter now (ADR-057, M31): write `{{ %s }}`", expr, strings.Join(parts, " | default: "))
+		return fmt.Sprintf("template: `{{ %s }}` — alternatives are Liquid's default filter now: write `{{ %s }}`", expr, strings.Join(parts, " | default: "))
 	}
 	return ""
 }

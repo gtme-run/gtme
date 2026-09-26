@@ -232,7 +232,7 @@ steps:
 	if res.code != 2 {
 		t.Fatalf("sql/enrich: plan exit = %d, want 2\nstderr:\n%s", res.code, res.stderr)
 	}
-	contains(t, res.stderr, "sql/enrich was renamed sql/transform (ADR-037)", "plan error names the rename")
+	contains(t, res.stderr, "sql/enrich was renamed sql/transform", "plan error names the rename")
 
 	// sql/transform without declared provides.
 	h.write("p.yaml", strings.Replace(base, "%s", `  - id: derive

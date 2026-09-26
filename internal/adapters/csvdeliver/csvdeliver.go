@@ -41,7 +41,7 @@ var manifestJSON = []byte(`{
       "variables": {
         "type": "object",
         "additionalProperties": {"type": "string", "minLength": 1},
-        "description": "Egress mapping, injected by the runner from the step-level variables: key (ADR-018). Its targets are the columns."
+        "description": "Egress mapping, injected by the runner from the step-level variables: key. Its targets are the columns."
       },
       "entity_type": {"type": "string"}
     }

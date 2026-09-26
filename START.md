@@ -89,10 +89,10 @@ enrichment at a stated pretend price of $0.01 each (its values say
 `demo/enrich`), a SQL filter, and a CSV delivery to a file beside it.
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/cache.yaml
+curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/hello.yaml
 curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/contacts.csv
-gtme run cache.yaml            # 3 scored at $0.01 each, 1 kept, out.csv written
-gtme run cache.yaml            # again: 3 cached, $0.0300 avoided, 0 delivered
+gtme run hello.yaml            # 3 scored at $0.01 each, 1 kept, out.csv written
+gtme run hello.yaml            # again: 3 cached, $0.0300 avoided, 0 delivered
 ```
 
 The second run's receipt reads `cached 3` and `avoided $0.0300` on the
@@ -111,7 +111,7 @@ gtme runs last
 ```
 
 Done when: a `SIMULATED` receipt from `demo.yaml`, then two receipts
-from `cache.yaml` where the second shows `cached 3` and a dollar amount
+from `hello.yaml` where the second shows `cached 3` and a dollar amount
 in `avoided`, exit code 0 each time.
 
 ### Your CSV (one model key)

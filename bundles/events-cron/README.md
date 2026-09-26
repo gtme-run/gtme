@@ -22,7 +22,7 @@ cd bundles/events-cron
 gtme run . --simulate         # $0: 5 rows, 4 people, 2 paid trials, 2 held
 ```
 
-`receipt.txt` is that run. `source: sourced 4 records (1 coalesced into
+`receipt.txt` is that run. `source: sourced 4 records (1 already in this run into
 known identities)` is the receiver's retry: the file holds Jane's
 `trial_started` twice and the ledger holds Jane once. `paid-trial: 4 in, 2
 out, 2 filtered` drops the free trial and the teammate invite. `welcome: 2
