@@ -9,6 +9,13 @@ learn:
   - "why an edited bundle refuses to run"
 order: 12
 roles: [builder, operator]
+defines:
+  - term: "bundle"
+    definition: "A folder holding a run's exact configuration as text, with a manifest of hashes, which gtme run accepts anywhere it accepts a pipeline file."
+  - term: "freeze"
+    definition: "gtme freeze, which prints the pipeline a run stored or, with --bundle, writes the whole campaign bundle."
+  - term: "bundle manifest"
+    definition: "The manifest.json in a bundle that lists every frozen file with its SHA-256 hash, which gtme run verifies before it reads a record."
 links:
   - to: /concepts/pipeline
     type: depends-on

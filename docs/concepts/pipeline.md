@@ -8,6 +8,13 @@ learn:
   - "why a vendor's field names appear only at the two ends of a file"
 order: 1
 roles: [builder]
+defines:
+  - term: "pipeline"
+    definition: "A YAML file with a source that brings records in and a list of steps the runner executes in order, each naming an adapter."
+  - term: "step"
+    definition: "One entry in a pipeline's steps list, named by its id, that runs one adapter in one role and reads and writes the ledger."
+  - term: "source"
+    definition: "The top of a pipeline file, which brings records in from a file, an API, or a group before any step runs."
 links:
   - to: /concepts/steps-and-roles
     type: relates-to

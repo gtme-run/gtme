@@ -2747,6 +2747,54 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-26 — The docs reference generator is a Go command, `cmd/docsgen`
+
+**Question:** The reference collection under `docs/` (CLI verbs, the
+adapter catalog, the canonical field registry, the ledger schema) and the
+glossary are generated, never hand-edited (docs/DESIGN.md). Where does the
+generator live and in what language? A Go command under `cmd/` and a
+Python script under `docs/_gen/` were both defensible.
+**Choice:** Go: `internal/docsgen` (the parsers and renderers, unit-tested)
+and `cmd/docsgen` (the command), run by `make docs-reference`. Its inputs
+are surfaces that already exist: `gtme help --agent` captured from a clean
+home, `docs/_adapters.json`, `spec/fields/*.json`, `spec/ledger.sql`, and
+every concept page's frontmatter. It writes two shapes from each source —
+an index page and one node per item — plus `docs/glossary.md`, and it
+owns two blocks of `docs/_outline.yaml`: the reference children and the
+`terms:` map. `test/e2e/docs_reference_test.go` regenerates from the built
+binary and fails when the committed pages drift, so `make check` is the
+gate and a verb, adapter, field, table, or definition cannot change
+without the pages following.
+**Why Go:** the repo's one toolchain (§2) already carries the YAML and
+JSON parsing the generator needs, so no dependency is added, where a
+Python script would have needed PyYAML for frontmatter in a repo whose
+fixtures promise stdlib-only Python. `go test` covers the parsers and CI
+runs the drift test with no second runtime. The generator does not import
+`internal/cli`; it reads the agent document as JSON, so it is a pure
+function of files and the e2e can feed it the live binary's output.
+**Also decided here:**
+- `gtme help --agent` gains `exit_codes` (SPEC §8's table as data,
+  mirrored from the `Exit*` constants). Additive, like the `files` key
+  on examples; an agent branching on an exit reads it here, and every
+  generated verb page prints it.
+- Each concept page carries `defines:`, a list of `{term, definition}`
+  it owns, one sentence each; the glossary and the outline's `terms:`
+  map are derived from it, and two pages defining one term is a
+  generator error. A generated page's `links:` are derived the same way:
+  one link per concept page whose terms its prose mentions, so the
+  lint's "mentioned but not linked" check is satisfied by construction.
+- Four source strings lost "e.g." (a word the docs lint bans) so the
+  generated tables pass the same lint as authored pages: the `relations`
+  note in `help --agent`, two `config_schema` descriptions in
+  `spec/bindings/apollo-search/binding.yaml`, and `linkedin_internal_url`'s
+  description in `spec/fields/person.json`. Wording only; no field,
+  key, or behavior changed.
+- ADR-058's word: docs/concepts/types-and-traverse.md now says *leg* for
+  a typed stretch of a run, where it had said *segment*.
+**Spec impact:** None. §8's help surface is additive; the field registry
+and the reference binding changed a description string each, which no
+second implementation reads.
+
 ### 2026-09-14 — `help --agent` examples carry their template files
 
 **Question:** How does an agent-help example show `template: {file: …}`

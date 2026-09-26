@@ -8,6 +8,23 @@ learn:
   - "why a relation is a fact and group membership is a decision"
 order: 10
 roles: [builder]
+defines:
+  - term: "type"
+    definition: "A file that says what kind of record something is, how it is keyed, and which fields it has; person, company, and post ship built in."
+  - term: "subject"
+    definition: "A type a pipeline delivers to, like person or company, marked kind subject in its file."
+  - term: "signal"
+    definition: "A type a pipeline finds and traverses from and can never deliver to, like post, marked kind signal in its file."
+  - term: "traverse"
+    definition: "The step role that takes records of one type in and emits related records of another type, after which only the children move forward."
+  - term: "relation"
+    definition: "A typed link between two identities the ledger holds as a fact, like works_at from a person to a company."
+  - term: "leg"
+    definition: "The stretch of a run between type changes, where every record is of one type."
+  - term: "mint"
+    definition: "To create a new identity in the ledger, which a source or a vendor traverse does and sql/traverse never does."
+  - term: "coalesce"
+    definition: "What a sourced or traversed row does when it resolves to an identity already in the ledger or the run, so it stays one record."
 links:
   - to: /concepts/identity-keys
     type: depends-on

@@ -2,7 +2,7 @@ BINARY := bin/gtme
 PKG    := ./...
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo 0.0.0-dev)
 
-.PHONY: check fmt vet test build install clean tidy live live-deliver docs-adapters
+.PHONY: check fmt vet test build install clean tidy live live-deliver docs-adapters docs-reference
 
 check: fmt vet test
 
@@ -48,3 +48,15 @@ docs-adapters:
 	HOME=$$tmp/home GTME_ADAPTER_PATH=$$tmp/empty $$tmp/gtme help --agent > $$tmp/agent.json; \
 	python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); out={"generated_by":"make docs-adapters: gtme help --agent from a clean home, built-ins only","adapters":d["adapters"]}; f=open("docs/_adapters.json","w"); json.dump(out,f,indent=2); f.write("\n")' $$tmp/agent.json; \
 	rm -rf $$tmp; echo "wrote docs/_adapters.json"
+
+# docs-reference regenerates the generated half of docs/: reference/cli,
+# reference/adapters, reference/fields, reference/ledger-schema (an index
+# page plus one node per item) and glossary.md, from `gtme help --agent`
+# captured from a clean home, docs/_adapters.json, spec/fields/*.json,
+# spec/ledger.sql, and each concept page's `defines:`. It also rewrites the
+# reference children and the terms map in docs/_outline.yaml. The e2e suite
+# fails when the committed pages drift (test/e2e/docs_reference_test.go).
+docs-reference: docs-adapters
+	@tmp=$$(mktemp -d); go build -o $$tmp/gtme ./cmd/gtme; \
+	HOME=$$tmp/home GTME_ADAPTER_PATH=$$tmp/empty $$tmp/gtme help --agent > $$tmp/agent.json; \
+	go run ./cmd/docsgen -agent $$tmp/agent.json; rm -rf $$tmp

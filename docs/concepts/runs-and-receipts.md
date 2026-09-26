@@ -9,6 +9,19 @@ learn:
   - "where --resume picks up a run that stopped"
 order: 4
 roles: [operator]
+defines:
+  - term: "run"
+    definition: "One execution of a pipeline, identified by a ULID, plus every ledger row written under that id."
+  - term: "receipt"
+    definition: "The table a run ends with, one row per step, counting records in, out, empty, cached, filtered, and failed, with the dollars each step spent and avoided."
+  - term: "delivery"
+    definition: "The row a deliver step writes when a record is sent or handed off, carrying its target, scope, idempotency key, and status."
+  - term: "idempotency"
+    definition: "The rule that a delivery with the same key, target, and scope as an existing row is not made again."
+  - term: "resume"
+    definition: "gtme run --resume, which continues a stopped run under the same id from each record's last completed step."
+  - term: "ULID"
+    definition: "An id that sorts by the time it was made; every run and most ledger rows have one."
 links:
   - to: /concepts/ledger
     type: relates-to

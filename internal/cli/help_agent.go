@@ -26,6 +26,7 @@ func cmdHelpAgent(env Env) error {
 		Ledger:       agentLedger(),
 		Bindings:     agentBindingsPointer,
 		Participants: agentParticipantDoc,
+		ExitCodes:    agentExitCodes,
 	}
 	enc := json.NewEncoder(env.Stdout)
 	if err := enc.Encode(doc); err != nil {
@@ -54,6 +55,26 @@ type agentDoc struct {
 	// Participants is the answer rhythm and its consequences (ADR-049) —
 	// the one part of the surface an agent drives rather than declares.
 	Participants agentParticipants `json:"participants"`
+	// ExitCodes is SPEC §8's scripting contract, so an agent branching on a
+	// verb's exit reads the numbers here rather than in the spec; the docs
+	// reference generator (cmd/docsgen) prints the same table on every verb page.
+	ExitCodes []agentExit `json:"exit_codes"`
+}
+
+// agentExit is one exit code and what it means (SPEC §8).
+type agentExit struct {
+	Code  int    `json:"code"`
+	Means string `json:"means"`
+}
+
+// agentExitCodes mirrors the Exit* constants in cli.go, in code order.
+var agentExitCodes = []agentExit{
+	{ExitOK, "ok"},
+	{ExitOther, "other error"},
+	{ExitValidation, "validation or contract error: the plan, the file, or a value was refused"},
+	{ExitAuth, "auth or credential error"},
+	{ExitRateLimit, "rate-limited by a vendor"},
+	{ExitNetwork, "network error"},
 }
 
 // agentParticipants documents how an agent answers a step addressed to it.
@@ -429,7 +450,7 @@ type agentConfigValue struct {
 var ledgerObjectNotes = map[string]string{
 	"identities":        "one row per person/company; identity_key per SPEC §4",
 	"field_values":      "append-only facts: (identity_id, field, value JSON, source, confidence, run_id, created_at)",
-	"relations":         "typed edges between identities, e.g. works_at (person → company)",
+	"relations":         "typed edges between identities, such as works_at (person → company)",
 	"runs":              "one row per gtme run; config_json is the resolved pipeline",
 	"run_records":       "a run's membership: state = last completed step id, verdicts = {step_id: pass|fail}",
 	"step_events":       "per-record trail: claimed|done|failed|skipped_cache|dry_run|simulated, detail JSON",

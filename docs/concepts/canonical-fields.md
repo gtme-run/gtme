@@ -8,6 +8,15 @@ learn:
   - "what plan's coupling note means, and when to act on it"
 order: 7
 roles: [builder]
+defines:
+  - term: "canonical field"
+    definition: "A field name with one meaning across every adapter, listed in the registry for its record type with a type and a normalization rule."
+  - term: "namespaced field"
+    definition: "A field whose name carries a prefix and a dot, a vendor's like apollo.id or a pipeline's like cache.first_line, for a fact only that vendor or that campaign has."
+  - term: "field registry"
+    definition: "The file per record type under spec/fields that lists its canonical fields with their tier, type, and normalization rule."
+  - term: "normalization"
+    definition: "The rule that puts a value in its stored form before it is compared or keyed, such as lowercasing an email or reducing a domain to its registrable part."
 links:
   - to: /concepts/pipeline
     type: depends-on

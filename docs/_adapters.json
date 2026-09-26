@@ -527,7 +527,7 @@
             "type": "array"
           },
           "employee_ranges": {
-            "description": "organization_num_employees_ranges, e.g. \"50,200\"",
+            "description": "organization_num_employees_ranges, such as \"50,200\"",
             "items": {
               "type": "string"
             },
@@ -552,7 +552,7 @@
             "type": "integer"
           },
           "query": {
-            "description": "Free-text search, e.g. \"vp marketing, saas, 50-200 employees\"",
+            "description": "Free-text search, such as \"vp marketing, saas, 50-200 employees\"",
             "type": "string"
           },
           "seniorities": {

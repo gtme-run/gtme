@@ -61,7 +61,7 @@
       "type": "string",
       "format": "uri",
       "normalization": "trim",
-      "description": "Internal-form LinkedIn profile URL (opaque token in the /in/ path, e.g. linkedin.com/in/ACwAA…). Stored as the URL, case preserved — gtme distinguishes observable URL shapes and does not reinterpret them as identifiers. NOT key material in v0 (SPEC.md §4, ADR-020): an enrichment that resolves it to the public profile writes linkedin_url, and the ordinary key upgrade applies.",
+      "description": "Internal-form LinkedIn profile URL (opaque token in the /in/ path, such as linkedin.com/in/ACwAA…). Stored as the URL, case preserved — gtme distinguishes observable URL shapes and does not reinterpret them as identifiers. NOT key material in v0 (SPEC.md §4, ADR-020): an enrichment that resolves it to the public profile writes linkedin_url, and the ordinary key upgrade applies.",
       "example": "https://www.linkedin.com/in/ACwAAAbQ2xKB9…"
     },
     {
