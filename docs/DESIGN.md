@@ -342,11 +342,34 @@ keeps it out of the graph), with a full-sentence alt text.
 A diagram shows a mechanism. If it would still be correct with the
 labels removed, it is decoration and is cut.
 
-`gtme plan` already knows every pipeline's DAG. A `--vis` flag that emits
-Mermaid would let the docs embed generated pipeline diagrams instead
-of hand-drawn ones. That is a CLI surface change and needs an ADR before
-it exists; until then, pipeline diagrams are hand-written Mermaid that
-matches the YAML on the page.
+### Pipeline figures are generated from the YAML on the page
+
+The site draws a figure beside any YAML block that is a whole pipeline:
+a `source:` with a `use:` and a `steps:` list where every step has an
+`id` and a `use`. Source at the top, one box per step labeled with its
+id and adapter, `when:` drawn as a gate on the hop it guards, the ledger
+as a bus alongside with a tap for every step that reads it (`cache:`,
+`idempotency:`, an `ai/*` judgment). GitHub and MCP readers get the YAML,
+which is the source of the figure and complete without it. The rules
+this puts on a page:
+
+- Show the whole file. A pipeline block trimmed with `...`, or shown as
+  `steps:` without its `source:`, gets no figure. Fragments (`limit: 5`,
+  a single step) are fine as fragments; they are not pipelines.
+- Name a step by its id in code font when the prose talks about it: "the
+  `reveal` step", "read the `score` row". The id is the figure's label
+  and the receipt's first column, so one token names all three.
+- Don't hand-draw the same pipeline in Mermaid. Two drawings of one file
+  drift. Mermaid stays for structure that isn't one pipeline file: the
+  ledger between steps, a group feeding a second stage, the adapter
+  tiers.
+- One pipeline file per page where the page is about a file. A page that
+  shows two whole pipelines gets two figures, which is rarely what the
+  reader needs.
+
+`gtme plan --viz` is the long-term source for this figure and needs an
+ADR before the docs depend on it; the site parses the YAML itself until
+then.
 
 ### 3. Motion is Remotion
 
