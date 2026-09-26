@@ -48,7 +48,7 @@ config_schema:
   properties:
     query:
       type: string
-      description: Free-text search, e.g. "vp marketing, saas, 50-200 employees"
+      description: Free-text search, such as "vp marketing, saas, 50-200 employees"
     limit:
       type: integer
       minimum: 1
@@ -68,7 +68,7 @@ config_schema:
     employee_ranges:
       type: array
       items: { type: string }
-      description: organization_num_employees_ranges, e.g. "50,200"
+      description: organization_num_employees_ranges, such as "50,200"
     domains:
       type: array
       items: { type: string }
