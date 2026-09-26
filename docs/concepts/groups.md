@@ -125,7 +125,7 @@ gtme run send.yaml
 The output is similar to the following:
 
 ```
-run 01M3DM6VQQEK7NECNRSZN6DCNT (send)
+run 01M3FBCT5TRJBD1MTJ0PKVG09G (send)
 source: sourced 1 members of group "qualified" (2 of 2 not yet worked; limit 1, oldest first)
 ...
 step    adapter          in  out  empty  cached  filtered  failed  cost  avoided
@@ -175,8 +175,8 @@ group qualified (person) — 2 member(s)
 written by:  qualify
 sourced by:  send
 recent events:
-  2026-09-26 01:10  added    carol@initech.dev  {"pipeline":"qualify"}
-  2026-09-26 01:10  added    jane.doe@acme.com  {"pipeline":"qualify"}
+  2026-09-26 17:14  added    carol@initech.dev  {"pipeline":"qualify"}
+  2026-09-26 17:14  added    jane.doe@acme.com  {"pipeline":"qualify"}
 ```
 
 The first lines are the members by [identity key](/concepts/identity-keys). `written by` and `sourced by` are the pipelines that added to the group and read from it.
@@ -257,8 +257,8 @@ The output is similar to the following:
 ```
 ...
 nudge: 2 record(s) suppressed:
-  jane.doe@acme.com: touched in "contacted" 6s ago
-  carol@initech.dev: touched in "contacted" 6s ago
+  jane.doe@acme.com: touched in "contacted" 15s ago
+  carol@initech.dev: touched in "contacted" 15s ago
 total: $0 spent
 ```
 
@@ -276,8 +276,8 @@ gtme query --save marketers "SELECT v.identity_id, i.identity_key \
 
 ```
 saved segment "marketers"
-{"identity_id":"01M3DKR62VCD0KGYYKVJD8BRNT","identity_key":"jane.doe@acme.com"}
-{"identity_id":"01M3DKR62W69R3SEB4T0ZJ1CTR","identity_key":"carol@initech.dev"}
+{"identity_id":"01M3FBCP00C754EHAPF8RF0H0N","identity_key":"jane.doe@acme.com"}
+{"identity_id":"01M3FBCP02TGBGEKJWSMHX63BJ","identity_key":"carol@initech.dev"}
 2 rows
 ```
 

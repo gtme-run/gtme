@@ -125,7 +125,7 @@ pipeline hello (version 1)
      est/record: ?
 
 4. out [deliver] — csv/deliver@1
-     record:    touched → cache
+     record:    touched → hello
      entity:    person
      reads:     demo.note, demo.score
      requires:  demo.note, demo.score
@@ -146,7 +146,7 @@ plan ok — nothing has been spent
 
 Each entry is a step, with its role in brackets and its adapter's version after `@`. `reads:` is what the step reads, its *projection*: the current value of each field it asked for. `requires:` must already exist, and `provides:` is what the step writes. `est/record:` is the adapter's price per record, and `?` means it publishes none. `sql/filter` and `csv/source` cost nothing, and an AI step's spend shows on the [receipt](/concepts/runs-and-receipts).
 
-`writes:` is a relation the source records between each person and their company. `touched → cache` scopes a delivery to this pipeline, so another pipeline can still deliver the same person. `send surface` lists every step that sends. The two `note:` lines aren't a problem to fix. `demo.score` is namespaced, its name prefixed with the vendor's, and plan is telling you this file depends on `demo/enrich`.
+`writes:` is a relation the source records between each person and their company. `touched → hello` scopes a delivery to this pipeline, so another pipeline can still deliver the same person. `send surface` lists every step that sends. The two `note:` lines aren't a problem to fix. `demo.score` is namespaced, its name prefixed with the vendor's, and plan is telling you this file depends on `demo/enrich`.
 
 ## What you just saw
 
@@ -163,7 +163,7 @@ A deliver step like `out` is an ordinary entry, so a pipeline can have none, one
 | Key | Valid on | What it does |
 |---|---|---|
 | `uses:` | Filter, compose, and review steps, as [Steps and roles](/concepts/steps-and-roles) defines them | Lists the fields the step reads. Plan checks that an earlier step provides each one, and the step sees only these. |
-| `provides:` | The same steps | Declares the fields the step writes. A bare name like `subject` lands as `cache.subject`. |
+| `provides:` | The same steps | Declares the fields the step writes. A bare name like `subject` lands as `hello.subject`, prefixed with the pipeline's `name`. |
 | `template:` under `with:` | The same steps | Holds the step's text: a prompt for an `ai/*` step, or copy rendered per record for `text/compose`. It's a string or `{file: path}`. |
 | `when:` | Any step after the source | Takes `STEP_ID.passed`, where `STEP_ID` is an earlier filter step. A fail verdict already stops a record at the filter, so `when:` holds the records it never judged, like one skipped for a missing field. It also shows a reviewer that the paid step comes after the judgment. |
 | `cache:` | Enrich, verify, and AI steps | Sets a freshness window like `30d`, overriding the adapter's default. Enrich and verify steps skip a record whose value is still current, and an AI step reuses a judgment only that long. |
@@ -200,11 +200,11 @@ The CSV has a company domain and no company name, so nothing upstream provides i
      entity:    person
      reads:     full_name, company_domain
      requires:  full_name, company_domain
-     provides:  cache.subject
+     provides:  hello.subject
      est/record: ?
 ```
 
-`provides: [subject]` became `cache.subject`. To write it to the file, add `subject: cache.subject` under the `out` step's `variables:`. That step and that `variables:` line are what you'd hand your agent.
+`provides: [subject]` became `hello.subject`. To write it to the file, add `subject: hello.subject` under the `out` step's `variables:`. That step and that `variables:` line are what you'd hand your agent.
 
 Running the edited file again doesn't write Jane a second time, because `out.csv` isn't a target that updates in place. `gtme help --agent` prints every installed adapter's keys and fields, the same list as the [Adapter catalog](/reference/adapters).
 

@@ -3,7 +3,7 @@ name: See it run
 description: Run a whole outbound pipeline offline with no keys, then run a keyless pipeline twice and watch the second run skip what the first one paid for
 for: "Your first run. You have gtme and no API keys, and you want to see a whole pipeline work before connecting anything."
 learn:
-  - "run an outbound pipeline offline from recorded samples"
+  - "run an outbound pipeline offline from recorded responses"
   - "read a receipt"
   - "why a second run costs less and delivers nobody twice"
 order: 2
@@ -53,9 +53,9 @@ simulate: ignoring missing credentials (3 plan problems:
   - step "reveal": missing credential APOLLO_API_KEY (set it in the environment or run `gtme secret set APOLLO_API_KEY`)
   - step "send": missing credential INSTANTLY_API_KEY (set it in the environment or run `gtme secret set INSTANTLY_API_KEY`))
 simulate: recorded responses only — no network, no spend, nothing sends, nothing persists
-run 01M3CWQATKY6BTBKFTKE8RM81J (demo)
+run 01M3FBEHWBNKYCDXYHPW1WNMX1 (demo)
 ...
-run 01M3CWQATKY6BTBKFTKE8RM81J — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
+run 01M3FBEHWBNKYCDXYHPW1WNMX1 — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
 step    adapter                    in  out  empty  cached  filtered  failed  cost     avoided
 source  apollo/search              0   1    -      0       -         -       $0       -
 fit     ai/filter                  1   1    -      0       -         -       $0       -
@@ -70,7 +70,7 @@ send: resolved variables for 1 record(s) — review, then run again without --dr
 total: $0.0100 (estimated) spent
 ```
 
-**That's a [receipt](/concepts/runs-and-receipts): one row per step, with what went in, what came out, and what it cost.** The three "missing credential" lines aren't an error; they're the keys a real run would need. [Simulate](/concepts/gate-ladder) never touches the network: vendor steps answer from recorded samples, and AI steps return canned text that says so. The `$0.0100` on the reveal row is what a real run would have paid, and `1 held` on the send row means the email variables were printed and nothing was sent. A simulated run writes nothing down, so running it again gives the same receipt.
+**That's a [receipt](/concepts/runs-and-receipts): one row per step, with what went in, what came out, and what it cost.** The three "missing credential" lines aren't an error; they're the keys a real run would need. [Simulate](/concepts/gate-ladder) never touches the network: vendor steps answer from recorded responses, and AI steps return canned text that says so. The `$0.0100` on the reveal row is what a real run would have paid, and `1 held` on the send row means the email variables were printed and nothing was sent. A simulated run writes nothing down, so running it again gives the same receipt.
 
 ## The file you just ran
 
@@ -136,7 +136,7 @@ Search Apollo, keep the people an AI judge says own outbound tooling, and pay fo
     ```
 
     ```
-    run 01M3CWQDPB13EJGJVM8FSN38HK (hello)
+    run 01M3FBESW58AW0AZHNBDV97VFX (hello)
     ...
     step    adapter      in  out  empty  cached  filtered  failed  cost     avoided
     source  csv/source   0   3    -      0       -         -       $0       -
@@ -153,7 +153,7 @@ Search Apollo, keep the people an AI judge says own outbound tooling, and pay fo
     ```
 
     ```
-    run 01M3CWQDQ9N9W3XTC922W5S569 (hello)
+    run 01M3FBESX4GP5SGBR0BAEKSWF6 (hello)
     ...
     step    adapter      in  out  empty  cached  filtered  failed  cost  avoided
     source  csv/source   0   3    -      0       -         -       $0    -
@@ -177,8 +177,8 @@ The counter is real and the dollars are pretend. With your own rows and a real p
     {
       "deliveries": [
         {
-          "created_at": "2026-09-25T18:20:01.620Z",
-          "run_id": "01M3CWQDPB13EJGJVM8FSN38HK",
+          "created_at": "2026-09-26T17:15:56.685Z",
+          "run_id": "01M3FBESW58AW0AZHNBDV97VFX",
           "scope": "out.csv",
           "status": "accepted",
           "target": "csv/deliver"
@@ -193,7 +193,8 @@ The counter is real and the dollars are pretend. With your own rows and a real p
         "full_name": "Jane Doe",
         "title": "VP Marketing"
       },
-      "identity_key": "jane.doe@acme.com"
+      "identity_key": "jane.doe@acme.com",
+      "identity_key_tier": "email"
     }
     ```
 
