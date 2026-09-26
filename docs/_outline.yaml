@@ -97,3 +97,4 @@ terms:
   bundle: /concepts/campaign-is-a-folder
   freeze: /concepts/campaign-is-a-folder
   idempotency: /concepts/runs-and-receipts
+  leg: /concepts/types-and-traverse
