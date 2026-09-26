@@ -2747,6 +2747,23 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-26 — The CLI index lists verbs; the verb pages carry the forms
+
+**Question:** The generated `docs/reference/cli/index.md` printed a
+forms table per verb, and every verb page printed the same forms table
+again plus the shared exit-code table, so the two shapes repeated each
+other and a verb page added only its example and its "Used in" list.
+**Choice:** One place for each thing. The index is the verb table (each
+verb linking its own page) and the exit codes, and nothing per verb. A
+verb page is its forms, its flags, one line linking the index's exit
+codes, its example, and where the docs use it. The site shows the verb
+pages under the index in the sidebar only while the reader is inside
+the CLI reference, so the index no longer has to stand in for them.
+**Why:** a table that appears twice is read once and skimmed once, and
+the generator's job is to make the reference the shortest true thing.
+**Spec impact:** None; generated docs only. `internal/docsgen/cli.go`
+plus a test that the index and a verb page do not repeat each other.
+
 ### 2026-09-26 — The docs reference generator is a Go command, `cmd/docsgen`
 
 **Question:** The reference collection under `docs/` (CLI verbs, the
@@ -2775,8 +2792,8 @@ function of files and the e2e can feed it the live binary's output.
 **Also decided here:**
 - `gtme help --agent` gains `exit_codes` (SPEC §8's table as data,
   mirrored from the `Exit*` constants). Additive, like the `files` key
-  on examples; an agent branching on an exit reads it here, and every
-  generated verb page prints it.
+  on examples; an agent branching on an exit reads it here, and the
+  generated CLI index prints it (once; see 2026-09-26, the CLI index).
 - Each concept page carries `defines:`, a list of `{term, definition}`
   it owns, one sentence each; the glossary and the outline's `terms:`
   map are derived from it, and two pages defining one term is a

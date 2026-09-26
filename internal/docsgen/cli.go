@@ -26,30 +26,21 @@ func (s *site) exitCodeTable() string {
 func (s *site) cliIndex(verbs []verb) *page {
 	var b strings.Builder
 	b.WriteString("# CLI\n\n")
-	fmt.Fprintf(&b, "gtme has %d verbs, in the order `gtme help --agent` prints them. Each verb's own page adds its flags, an example from the docs, and where the docs use it. Everything a verb prints for a person goes to stderr; stdout carries data, so a script or an agent can read it.\n\n", len(verbs))
+	fmt.Fprintf(&b, "gtme has %d verbs, in the order `gtme help --agent` prints them. Each verb's own page has its forms, its flags, an example from the docs, and where the docs use it. Everything a verb prints for a person goes to stderr; stdout carries data, so a script or an agent can read it.\n\n", len(verbs))
 	var rows [][]string
 	for _, v := range verbs {
-		rows = append(rows, []string{fmt.Sprintf("[%s](#gtme-%s)", code("gtme "+v.Name), v.Name), cell(prose(short(v.Forms[0].Does)))})
+		rows = append(rows, []string{fmt.Sprintf("[%s](/reference/cli/%s)", code("gtme "+v.Name), v.Name), cell(prose(short(v.Forms[0].Does)))})
 	}
 	b.WriteString(table([]string{"Verb", "Does"}, rows))
 	b.WriteString("\n## Exit codes\n\nEvery verb exits with one of these, so a script can branch on the number.\n\n")
 	b.WriteString(s.exitCodeTable())
-	for _, v := range verbs {
-		fmt.Fprintf(&b, "\n## gtme %s\n\n", v.Name)
-		var rows [][]string
-		for _, f := range v.Forms {
-			rows = append(rows, []string{code(f.Usage), cell(prose(f.Does))})
-		}
-		b.WriteString(table([]string{"Form", "Does"}, rows))
-		fmt.Fprintf(&b, "\n[Flags, an example, and where it's used](/reference/cli/%s).\n", v.Name)
-	}
 	return &page{
 		path:        "reference/cli/index.md",
 		node:        "/reference/cli",
 		name:        "CLI",
-		description: "Every gtme verb with each of its forms, one table per verb, generated from gtme help --agent",
-		audience:    "You know what you want gtme to do and need the exact verb, its forms, and the exit code a script can branch on.",
-		learn:       []string{"every verb and each form it takes", "the exit codes every verb shares", "where each verb's own page is"},
+		description: "Every gtme verb in one table, each linking its own page, with the exit codes they all share, generated from gtme help --agent",
+		audience:    "You know what you want gtme to do and need the verb, or a script needs the exit code to branch on.",
+		learn:       []string{"every verb and what it does", "the exit codes every verb shares", "where each verb's own page is"},
 		roles:       []string{"operator", "builder", "agent"},
 		body:        b.String(),
 	}
@@ -102,9 +93,8 @@ func (s *site) cliNode(v verb) *page {
 		b.WriteString("\n")
 	}
 
-	b.WriteString("## Exit codes\n\n")
-	b.WriteString(s.exitCodeTable())
-	b.WriteString("\n## Example\n\n")
+	b.WriteString("It exits with one of the [exit codes](/reference/cli#exit-codes) every verb shares.\n\n")
+	b.WriteString("## Example\n\n")
 	if ex, from := shellExample(s.pages, v.Name); ex != "" {
 		fmt.Fprintf(&b, "From [%s](%s):\n\n```sh\n%s\n```\n", from.Name, from.Node, ex)
 	} else {
@@ -117,8 +107,8 @@ func (s *site) cliNode(v verb) *page {
 		node:        node,
 		name:        "gtme " + v.Name,
 		description: short(v.Forms[0].Does),
-		audience:    fmt.Sprintf("You're about to type `gtme %s` and want its forms, its flags, and the exit codes it can return.", v.Name),
-		learn:       []string{fmt.Sprintf("every form of `gtme %s` and what each does", v.Name), "each flag and what it changes", "the exit codes a script can rely on", "where the docs use it"},
+		audience:    fmt.Sprintf("You're about to type `gtme %s` and want its forms and its flags.", v.Name),
+		learn:       []string{fmt.Sprintf("every form of `gtme %s` and what each does", v.Name), "each flag and what it changes", "where the docs use it"},
 		roles:       []string{"operator", "builder", "agent"},
 		body:        b.String(),
 	}
