@@ -1,7 +1,7 @@
 ---
 name: Canonical fields
 description: A canonical field is one name with one meaning across every adapter, and any other field name carries a vendor's or a pipeline's prefix
-for: "You've seen `demo.score` or `cache.first_line` beside `email` in the ledger and want to know who writes which, or `gtme plan` just said your pipeline is coupled to a vendor."
+for: "You've seen `demo.score` or `hello.first_line` beside `email` in the ledger and want to know who writes which, or `gtme plan` just said your pipeline is coupled to a vendor."
 learn:
   - "the three kinds of field name, and who writes each"
   - "how `canonical: true` lands a step's output on a canonical field"
@@ -55,7 +55,7 @@ links:
 
 # Canonical fields
 
-After you add one `text/compose` step to `cache.yaml` from [See it run](/start/show-me) and run it, here's every field name the [ledger](/concepts/ledger) holds and what wrote it:
+After you add one `text/compose` step to `hello.yaml` from [See it run](/start/show-me) and run it, here's every field name the [ledger](/concepts/ledger) holds and what wrote it:
 
 ```sh
 gtme query "SELECT DISTINCT field, source FROM current_values ORDER BY field"
@@ -64,19 +64,19 @@ gtme query "SELECT DISTINCT field, source FROM current_values ORDER BY field"
 The output is the following:
 
 ```
-{"field":"cache.first_line","source":"text/compose @ #fa5f59e6f6ac"}
 {"field":"company_domain","source":"csv/source@1"}
 {"field":"demo.note","source":"demo/enrich@1"}
 {"field":"demo.score","source":"demo/enrich@1"}
 {"field":"email","source":"csv/source@1"}
 {"field":"full_name","source":"csv/source@1"}
+{"field":"hello.first_line","source":"text/compose @ #87df8586701c"}
 {"field":"title","source":"csv/source@1"}
 7 rows
 ```
 
 `current_values` is the ledger's view of each field's winning value. `field` is the name a fact is stored under. `source` is what wrote it, an adapter with its version after `@`. For `text/compose`, it's a signature after `#`, a fingerprint of the step's template and settings, so a changed template counts as a new source.
 
-`cache.first_line` came from this step between `keep` and `out`, which writes an opening line from a template:
+`hello.first_line` came from this step between `keep` and `out`, which writes an opening line from a template:
 
 ```yaml
   - id: line
@@ -90,7 +90,7 @@ The output is the following:
 Add it and run the file. It needs no keys, calls no vendor, and writes only to `out.csv`:
 
 ```sh
-gtme run cache.yaml
+gtme run hello.yaml
 ```
 
 ## What you just saw
@@ -101,7 +101,7 @@ gtme run cache.yaml
 |---|---|---|
 | Canonical | `email`, `title`, `company_domain` | Any adapter, in the registry's form, and a step's output marked `canonical: true` |
 | Vendor-namespaced | `demo.score`, `apollo.id` | The vendor's adapter, for a fact only that vendor has (a convention plan doesn't check) |
-| Pipeline-namespaced | `cache.first_line` | A step in the pipeline named `cache` that declares `provides:` |
+| Pipeline-namespaced | `hello.first_line` | A step in the pipeline named `hello` that declares `provides:` |
 
 **A canonical field is one name with one meaning, whichever [adapter](/concepts/adapter-tiers) wrote it.** Two adapters can write the same canonical field, like `title` from your CSV and from Apollo's enrich step. The ledger keeps both rows, and at equal confidence a step reads the newest. The opening query's `source` column shows who wrote the winner, and [Facts have provenance](/concepts/facts) covers which value wins and how to change it. Two vendors can still write different words for the same `seniority`, and the registry only lowercases them.
 
@@ -122,19 +122,19 @@ Every entry fixes a type and a normalization rule, the function that puts a valu
 
 **One adapter can write both kinds.** `apollo/search` writes `title` under its canonical name and `apollo.id` under Apollo's, because no other vendor has Apollo's record id.
 
-**A pipeline-namespaced field is a judgment one campaign made.** `first_line` is in the registry, yet the step's output landed as `cache.first_line`. A bare name in a step's `provides:` always takes the pipeline's name as its prefix, so two campaigns can each write Jane an opening line without overwriting each other.
+**A pipeline-namespaced field is a judgment one campaign made.** `first_line` is in the registry, yet the step's output landed as `hello.first_line`. A bare name in a step's `provides:` always takes the pipeline's name as its prefix, so two campaigns can each write Jane an opening line without overwriting each other.
 
 ## The canonical flag
 
-**Plan tells you when a declared name matches a canonical one.** Run `gtme plan cache.yaml`, and the `line` block reads:
+**Plan tells you when a declared name matches a canonical one.** Run `gtme plan hello.yaml`, and the `line` block reads:
 
 ```
 4. line [compose] — text/compose@1
      entity:    person
-     projects:  full_name, title
+     reads:     full_name, title
      requires:  full_name, title
-     provides:  cache.first_line
-     note:      provides: "first_line" lands as "cache.first_line" (per-campaign, ADR-033); the canonical person field "first_line" is untouched — add canonical: true to write it instead
+     provides:  hello.first_line
+     note:      provides: "first_line" lands as "hello.first_line" (per-campaign); the canonical person field "first_line" is untouched — add canonical: true to write it instead
      est/record: ?
 ```
 
@@ -165,7 +165,7 @@ We recommend `canonical: true` for a fact every campaign should share, and the d
     variables:
       score: demo.score
       note: demo.note
-      line: cache.first_line
+      line: hello.first_line
 ```
 
 Plan again, and the `out` block carries three notes:
@@ -173,13 +173,13 @@ Plan again, and the `out` block carries three notes:
 ```
 5. out [deliver] — csv/deliver@1
 ...
-     note:      needs this pipeline's own judgment field "cache.first_line" (declared by an earlier AI step, ADR-033)
      note:      needs vendor-namespaced field "demo.note" — this pipeline is coupled to that vendor
      note:      needs vendor-namespaced field "demo.score" — this pipeline is coupled to that vendor
+     note:      needs this pipeline's own judgment field "hello.first_line" (declared by an earlier AI step)
 ...
 ```
 
-None is an error, and plan still passes. The first says the file writes that field itself. The other two say the file works only while `demo/enrich` is in it. Swap it for another scorer and plan fails at `out`, naming `demo.note` and `demo.score`.
+None is an error, and plan still passes. The first two say the file works only while `demo/enrich` is in it. The third says the file writes that field itself. Swap it for another scorer and plan fails at `out`, naming `demo.note` and `demo.score`.
 
 A canonical `title` can come from the CSV today and `apollo/enrich` next month, and `out` still plans. Plan notes a namespaced need on any step whose needs come from `uses:` or `variables:`: an AI or compose step, or a deliver step. Each note is a line you'd edit to change vendors.
 

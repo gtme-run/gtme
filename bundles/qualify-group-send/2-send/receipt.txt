@@ -1,13 +1,13 @@
 $ gtme run . --simulate
 bundle send (frozen from run 01M2EPQW22W25MDB9RNP8E9DTC) — hashes verified
 simulate: ignoring missing credentials (step "send": missing credential INSTANTLY_API_KEY (set it in the environment or run `gtme secret set INSTANTLY_API_KEY`))
-simulate: fixtures only — no network, no spend, nothing sends, nothing persists
+simulate: recorded responses only — no network, no spend, nothing sends, nothing persists
 run 01M2EPQWJK6EQ601P0XJ6T5S3V (send)
 source: sourced 5 members of group "qualified"
 lines: 5 in, 5 out, 0 cached, 0 filtered, 0 failed
 send: 5 in, 0 out, 0 cached, 0 filtered, 0 failed, 5 held (dry run)
 
-run 01M2EPQWJK6EQ601P0XJ6T5S3V — done (SIMULATED — fixtures only; nothing sent, nothing persisted)
+run 01M2EPQWJK6EQ601P0XJ6T5S3V — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
 step    adapter                    in  out  empty  cached  filtered  failed  cost  avoided
 source  group:qualified            0   5    -      0       -         -       $0    -
 lines   ai/compose                 5   5    -      0       -         -       $0    -

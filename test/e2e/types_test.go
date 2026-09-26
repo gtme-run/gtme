@@ -159,7 +159,7 @@ group: posts-found
 	// Every parent gets the same two fixture posts: the first parent mints
 	// them, the rest coalesce (SPEC §8) — the crossing rehearsed from
 	// fixtures with no network.
-	contains(t, sim.stderr, "posts: 3 in, 3 out, 0 cached, 0 filtered, 0 failed — 2 traversed (post), 4 coalesced", "simulated traverse line")
+	contains(t, sim.stderr, "posts: 3 in, 3 out, 0 cached, 0 filtered, 0 failed — 2 traversed (post), 4 already in this run", "simulated traverse line")
 	contains(t, sim.stderr, `group "posts-found": 2 record(s) would be added (held back — simulated run)`, "simulated terminus")
 	if n := h.queryInt(`SELECT count(*) FROM identities WHERE entity_type = 'post'`); n != 0 {
 		t.Errorf("a simulated run persisted %d posts", n)
@@ -178,7 +178,7 @@ func TestTraverseBindingWithoutAKeyFailsPlanAndVerify(t *testing.T) {
 	if verify.code != 2 {
 		t.Fatalf("verify exit = %d, want 2\n%s", verify.code, verify.stderr)
 	}
-	contains(t, verify.stderr, "no identity-key path: none of the fields it provides (text) can key a post (SPEC §4 tiers: url)", "verify names the missing tier")
+	contains(t, verify.stderr, "no identity-key path: none of the fields it provides (text) can key a post (key tiers: url)", "verify names the missing tier")
 
 	h.write("unkeyed.yaml", `name: unkeyed
 source:
@@ -231,7 +231,7 @@ group: openings
 `)
 	plan := h.mustRun("plan", "jobs.yaml")
 	contains(t, plan.stderr, "traverse:  company → job_posting via jobs/a (posted_by)", "the type resolves in place, under the binding")
-	contains(t, plan.stderr, `added to group "openings" as job_posting`, "the terminus takes the binding's type")
+	contains(t, plan.stderr, `ends in group "openings" as job_posting`, "the terminus takes the binding's type")
 
 	// A second binding shipping a different job_posting.json: the name no
 	// longer resolves to exactly one file, and the plan names both paths.

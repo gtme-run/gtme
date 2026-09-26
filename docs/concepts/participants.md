@@ -96,13 +96,13 @@ The output is the following, trimmed with `...`:
 2. grade [review] — human/review@1
 ...
      provides:  grading.grade
-     of:        title (the referent — its value joins the cache key, its id the provenance; ADR-048)
+     of:        title (the value under review)
      render:    the of: value
-     prompt:    never — records wait in the ledger; `gtme answer` records, the next `gtme run` collects (ADR-049)
+     prompt:    never — records wait in the ledger; `gtme answer` records, the next `gtme run` collects
 ...
 ```
 
-`[review]` is the step's role and `@1` the adapter's version. `provides:` is the field the step writes, prefixed with the pipeline's name. `of:` is the value under review, which [Steps and roles](/concepts/steps-and-roles) calls the referent. `render:` is what the person sees, and `prompt:` says whether the run asks. Run it:
+`[review]` is the step's role and `@1` the adapter's version. `provides:` is the field the step writes, prefixed with the pipeline's name. `of:` is the value under review. `render:` is what the person sees, and `prompt:` says whether the run asks. Run it:
 
 ```sh
 gtme run grading.yaml
@@ -112,11 +112,11 @@ The output is similar to the following, trimmed with `...`:
 
 ```
 ...
-run 01M3DMZC4W2WEB21SG8EWYBRV2 — pending — ended awaiting human/review: `gtme answer grading` records, the next `gtme run grading` collects (ADR-049)
+run 01M3FBDG4ZB2THFN1DB7ZM6AEB — pending — ended awaiting human/review: `gtme answer grading` records, the next `gtme run grading` collects
 step    adapter       in  out  empty  cached  filtered  failed  cost  avoided
 source  csv/source    0   3    -      0       -         -       $0    -
 grade   human/review  3   0    -      0       -         -       $0    -
-grade: 3 in, 0 out — 3 awaiting human/review; `gtme answer grading` records, the next `gtme run grading` collects (or `gtme show --run 01M3DMZC4W2WEB21SG8EWYBRV2 --pending grade` to read them)
+grade: 3 in, 0 out — 3 awaiting human/review; `gtme answer grading` records, the next `gtme run grading` collects (or `gtme show --run 01M3FBDG4ZB2THFN1DB7ZM6AEB --pending grade` to read them)
 total: $0 spent
 ```
 
@@ -144,7 +144,7 @@ grade: 3 awaiting human/review — `gtme answer grading grade <identity-key> --s
   jane.doe@acme.com
     title (the value under review): "VP Marketing"
     full_name: "Jane Doe"
-{"adapter":"human/review","identity_key":"jane.doe@acme.com","outputs":["grading.grade=A|B|C"],"role":"review","run_id":"01M3DMZC4W2WEB21SG8EWYBRV2","step":"grade","surface":"title (the value under review): \"VP Marketing\"\nfull_name: \"Jane Doe\"\n","token":"01M3DMZC4W2WEB21SG8EWYBRV2/grade"}
+{"adapter":"human/review","identity_key":"jane.doe@acme.com","outputs":["grading.grade=A|B|C"],"role":"review","run_id":"01M3FBDG4ZB2THFN1DB7ZM6AEB","step":"grade","surface":"title (the value under review): \"VP Marketing\"\nfull_name: \"Jane Doe\"\n","token":"01M3FBDG4ZB2THFN1DB7ZM6AEB/grade"}
 ...
 ```
 
@@ -174,7 +174,7 @@ A filter step takes `pass=true|false` and a `reason` instead. The answer is save
 ```
 ...
 grade   human/review  3   1    -      0       -         -       $0    -
-grade: 3 in, 1 out — 2 awaiting human/review; `gtme answer grading` records, the next `gtme run grading` collects (or `gtme show --run 01M3DMZC4W2WEB21SG8EWYBRV2 --pending grade` to read them)
+grade: 3 in, 1 out — 2 awaiting human/review; `gtme answer grading` records, the next `gtme run grading` collects (or `gtme show --run 01M3FBDG4ZB2THFN1DB7ZM6AEB --pending grade` to read them)
 ...
 ```
 
@@ -184,10 +184,10 @@ Jane's grade is now a fact, with this row in `gtme show jane.doe@acme.com --prov
 ...
     "grading.grade": {
       "confidence": 1,
-      "created_at": "2026-09-26T01:23:48.130Z",
+      "created_at": "2026-09-26T17:15:14.075Z",
       "note": "owns the budget",
-      "referent": "01M3DMZC55HF41SHM5H8VEG202",
-      "run_id": "01M3DMZC4W2WEB21SG8EWYBRV2",
+      "referent": "01M3FBDG50QFV6HXF0VFG2EMJV",
+      "run_id": "01M3FBDG4ZB2THFN1DB7ZM6AEB",
       "source": "human/review @ trevor#9638bda88be1",
       "value": "A"
     },
@@ -202,7 +202,7 @@ That's it. That's how a participant answers.
 
 ## So what?
 
-**A person's answer is cached like a model's.** The cache key is the step's definition plus the referent's value. The participant's name isn't in it, because the cache is checked before anyone answers. After all 3 were answered, a fresh run showed `grade` with 3 cached and asked nobody. A changed title is asked again, and `cache: 0d` on the step asks everyone.
+**A person's answer is cached like a model's.** The cache key is the step's definition plus the value under review. The participant's name isn't in it, because the cache is checked before anyone answers. After all 3 were answered, a fresh run showed `grade` with 3 cached and asked nobody. A changed title is asked again, and `cache: 0d` on the step asks everyone.
 
 **Under cron, a human step waits for its person.** A pending run resumes and reads no new rows, so a scheduled pipeline with a human step picks up nothing new until someone answers. The fix is two pipelines: one a person runs that ends in a [group](/concepts/groups), and a scheduled one that sources from that group, as [Run on cron and events](/guides/cron-and-events) shows.
 

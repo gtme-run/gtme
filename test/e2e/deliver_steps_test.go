@@ -73,7 +73,7 @@ func TestDeliverStepsMidAndFinal(t *testing.T) {
 	// Plan calls out the full send surface — every deliver step, target and
 	// touch scope, in one place (SPEC §7, ADR-031).
 	res := h.mustRun("plan", "two-sends.yaml")
-	contains(t, res.stderr, "send surface: 2 deliver step(s) (ADR-031)", "plan output")
+	contains(t, res.stderr, "send surface: 2 deliver step(s)", "plan output")
 	contains(t, res.stderr, "send-a → mock/deliver (touch scope: two-sends)", "plan output")
 	contains(t, res.stderr, "send-b → csv/deliver (touch scope: two-sends)", "plan output")
 

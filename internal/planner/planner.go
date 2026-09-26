@@ -431,10 +431,10 @@ func Build(ctx context.Context, p *pipeline.Pipeline, l *ledger.Ledger) (*Plan, 
 			switch {
 			case ps.IsTraverse && ps.From != scope.EntityType:
 				problems = append(problems, Problem{Step: s.ID, Kind: KindContract,
-					Msg: fmt.Sprintf("%s traverses from %s, but the records here are %s (SPEC §7, ADR-054)", ps.Use, ps.From, scope.EntityType)})
+					Msg: fmt.Sprintf("%s traverses from %s, but the records here are %s", ps.Use, ps.From, scope.EntityType)})
 			case !ps.IsTraverse && ps.EntityType != "" && ps.EntityType != scope.EntityType:
 				problems = append(problems, Problem{Step: s.ID, Kind: KindContract,
-					Msg: fmt.Sprintf("%s is a %s adapter, but the records here are %s (SPEC §7, ADR-054) — its manifest's entity_type must equal the segment's type or be \"*\"", ps.Use, ps.EntityType, scope.EntityType)})
+					Msg: fmt.Sprintf("%s is a %s adapter, but the records here are %s — its manifest's entity_type must equal the leg's type or be \"*\"", ps.Use, ps.EntityType, scope.EntityType)})
 			}
 		}
 		if !isSource && ps.IsTraverse && scope.EntityType == "" {
@@ -443,14 +443,14 @@ func Build(ctx context.Context, p *pipeline.Pipeline, l *ledger.Ledger) (*Plan, 
 				group = plan.Steps[0].SourceGroup
 			}
 			problems = append(problems, Problem{Step: s.ID, Kind: KindContract,
-				Msg: fmt.Sprintf("a traverse needs a typed segment to traverse from — this pipeline is entity-blind (an untyped group source); set the group's type with `gtme groups add %s --type %s` (SPEC §7, ADR-054)", group, ps.From)})
+				Msg: fmt.Sprintf("a traverse needs a typed leg to traverse from — this pipeline is entity-blind (an untyped group source); set the group's type with `gtme groups add %s --type %s`", group, ps.From)})
 		}
 		// A deliver adapter naming a signal type is a plan error (SPEC §4a):
 		// a signal is found and traversed from, never delivered to.
 		if ps.IsDeliver && ps.Manifest != nil && reg != nil {
 			if t, err := reg.Resolve(ps.Manifest.EntityType); err == nil && t.IsSignal() {
 				problems = append(problems, Problem{Step: s.ID, Kind: KindContract,
-					Msg: fmt.Sprintf("%s delivers %s records, but %s is a signal type — found and traversed from, never delivered to (SPEC §4a, ADR-054)", ps.Use, t.EntityType, t.EntityType)})
+					Msg: fmt.Sprintf("%s delivers %s records, but %s is a signal type — found and traversed from, never delivered to", ps.Use, t.EntityType, t.EntityType)})
 			}
 		}
 		// when: names a step in the current segment only (SPEC §7): a verdict
@@ -458,7 +458,7 @@ func Build(ctx context.Context, p *pipeline.Pipeline, l *ledger.Ledger) (*Plan, 
 		if ps.WhenStep != "" {
 			if ref := plan.StepByID(ps.WhenStep); ref != nil && ref.Segment != segment {
 				problems = append(problems, Problem{Step: s.ID, Kind: KindContract,
-					Msg: fmt.Sprintf("when: %s.passed names a step before the traverse %q — a verdict is a fact about the parent, not the child (SPEC §7, ADR-054); gate at the traverse instead (when: %s.passed on %q mints only children of passing parents)",
+					Msg: fmt.Sprintf("when: %s.passed names a step before the traverse %q — a verdict is a fact about the parent, not the child; gate at the traverse instead (when: %s.passed on %q mints only children of passing parents)",
 						ps.WhenStep, lastTraverse, ps.WhenStep, lastTraverse)})
 			}
 		}
@@ -563,7 +563,7 @@ func Build(ctx context.Context, p *pipeline.Pipeline, l *ledger.Ledger) (*Plan, 
 		// A deferred step is the pipeline's last step (SPEC §8, ADR-038).
 		if ps.Deferred && i != len(steps)-1 {
 			problems = append(problems, Problem{Step: s.ID, Kind: KindContract,
-				Msg: "deferred: true is valid only on the pipeline's last step — land this step's output in a group (group: terminus, or its declared provides:) and let a consumer pipeline pull it (SPEC §8, ADR-038)"})
+				Msg: "deferred: true is valid only on the pipeline's last step — land this step's output in a group (group: terminus, or its declared provides:) and let a consumer pipeline pull it"})
 		}
 
 		plan.Steps = append(plan.Steps, ps)
@@ -591,7 +591,7 @@ func Build(ctx context.Context, p *pipeline.Pipeline, l *ledger.Ledger) (*Plan, 
 		if (st.Role == adapters.RoleEnrich || st.Role == adapters.RoleVerify) && !st.Manifest.IsParticipant() && st.Cache <= 0 &&
 			(len(st.Manifest.Credentials) > 0 || (st.CostEstimate != nil && *st.CostEstimate > 0)) {
 			st.Warnings = append(st.Warnings,
-				"respend: this paid step has no freshness window, so every run pays for every record again — set cache: Nd, or say respend: true (SPEC §7, ADR-038)")
+				"respend: this paid step has no freshness window, so every run pays for every record again — set cache: Nd, or say respend: true")
 		}
 	}
 	_ = writes
@@ -605,7 +605,7 @@ func Build(ctx context.Context, p *pipeline.Pipeline, l *ledger.Ledger) (*Plan, 
 		}
 		if ref := plan.StepByID(st.WhenStep); ref != nil && ref.Role == adapters.RoleReview {
 			problems = append(problems, Problem{Step: st.ID, Kind: KindContract,
-				Msg: fmt.Sprintf("when: %s.passed reads the filter role only — %q is a review and never gates (ADR-048); add a sql/filter on its labels and gate on that", st.WhenStep, st.WhenStep)})
+				Msg: fmt.Sprintf("when: %s.passed reads the filter role only — %q is a review and never gates; add a sql/filter on its labels and gate on that", st.WhenStep, st.WhenStep)})
 		}
 	}
 
@@ -622,7 +622,7 @@ func Build(ctx context.Context, p *pipeline.Pipeline, l *ledger.Ledger) (*Plan, 
 		}
 		if st.IsDeliver && person != nil {
 			plan.Notes = append(plan.Notes, fmt.Sprintf(
-				"under cron this pipeline waits for a person: %q follows the %s step %q, and a pending run is resumed, not re-sourced, until every record is answered (ADR-049). The pattern: review into a group in one pipeline, send from the group in another (SPEC §8).",
+				"under cron this pipeline waits for a person: %q follows the %s step %q, and a pending run is resumed, not re-sourced, until every record is answered. The pattern: review into a group in one pipeline, send from the group in another.",
 				st.ID, person.Use, person.ID))
 			break
 		}
@@ -646,7 +646,7 @@ func Build(ctx context.Context, p *pipeline.Pipeline, l *ledger.Ledger) (*Plan, 
 	}
 	if len(handoffs) > 0 && len(sends) > 0 {
 		plan.Warnings = append(plan.Warnings, fmt.Sprintf(
-			"one commit point (ADR-032): this pipeline both hands off — %s — and sends — %s. Arming approves every deliver step at once, so approving the handoff approves the send; keep the handoff in its own pipeline and let the send consume the group.",
+			"one commit point: this pipeline both hands off — %s — and sends — %s. Arming approves every deliver step at once, so approving the handoff approves the send; keep the handoff in its own pipeline and let the send consume the group.",
 			strings.Join(handoffs, ", "), strings.Join(sends, ", ")))
 	}
 
@@ -709,12 +709,12 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 		} {
 			if k.set && k.key == "on_missing:" {
 				problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-					Msg: fmt.Sprintf("on_missing: is only valid on deliver steps and participant steps (ai/*, human/*, agent/*, text/*); %s has role %q — ADR-031, ADR-053", ps.Use, ps.Role)})
+					Msg: fmt.Sprintf("on_missing: is only valid on deliver steps and participant steps (ai/*, human/*, agent/*, text/*); %s has role %q", ps.Use, ps.Role)})
 				continue
 			}
 			if k.set {
 				problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-					Msg: fmt.Sprintf("%s is only valid on deliver steps (%s has role %q) — ADR-031", k.key, ps.Use, ps.Role)})
+					Msg: fmt.Sprintf("%s is only valid on deliver steps (%s has role %q)", k.key, ps.Use, ps.Role)})
 			}
 		}
 	}
@@ -724,7 +724,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 	gateOnMissingRun := func() {
 		if s.OnMissing == "run" {
 			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-				Msg: "on_missing: run is not valid on a deliver step — blank merge fields never send; use skip or fail (SPEC §8)"})
+				Msg: "on_missing: run is not valid on a deliver step — blank merge fields never send; use skip or fail"})
 		}
 	}
 
@@ -738,10 +738,10 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 		switch {
 		case !adapters.ParticipantRole(ps.Role):
 			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-				Msg: fmt.Sprintf("provides: is only valid on filter/compose/review steps (%s has role %q) — ADR-033", ps.Use, ps.Role)})
+				Msg: fmt.Sprintf("provides: is only valid on filter/compose/review steps (%s has role %q)", ps.Use, ps.Role)})
 		case !participant:
 			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-				Msg: fmt.Sprintf("provides: is only valid on participant steps (ai/*, human/*, agent/*, text/*); %s takes its outputs from its own contract, not from a step-level declaration — ADR-033", ps.Use)})
+				Msg: fmt.Sprintf("provides: is only valid on participant steps (ai/*, human/*, agent/*, text/*); %s takes its outputs from its own contract, not from a step-level declaration", ps.Use)})
 		}
 	}
 	// gateOf rejects of: on a step that is neither a compose nor a review
@@ -749,7 +749,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 	gateOf := func() {
 		if strings.TrimSpace(s.Of) != "" {
 			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-				Msg: fmt.Sprintf("of: is only valid on compose and review steps of a participant adapter (%s has role %q) — ADR-048", ps.Use, ps.Role)})
+				Msg: fmt.Sprintf("of: is only valid on compose and review steps of a participant adapter (%s has role %q)", ps.Use, ps.Role)})
 		}
 	}
 
@@ -767,7 +767,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 		ps.TargetGroup = strings.TrimSpace(group)
 		if ps.TargetGroup == "" {
 			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-				Msg: GroupDeliverID + " needs with.group — the group records are handed off to (SPEC §8)"})
+				Msg: GroupDeliverID + " needs with.group — the group records are handed off to"})
 		}
 		for k := range ps.Config {
 			if k != "group" {
@@ -816,7 +816,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 	// uses:/provides: in config — never parsed from the SQL.
 	if s.Use == SQLEnrichID {
 		problems = append(problems, Problem{Step: s.ID, Kind: KindAdapter,
-			Msg: fmt.Sprintf("%s was renamed %s (ADR-037) — a transform is a per-record derivation or a cross-record aggregate, not a provider lookup; change use: to %s", SQLEnrichID, SQLTransformID, SQLTransformID)})
+			Msg: fmt.Sprintf("%s was renamed %s — a transform is a per-record derivation or a cross-record aggregate, not a provider lookup; change use: to %s", SQLEnrichID, SQLTransformID, SQLTransformID)})
 		gateDeliverKeys(false)
 		return ps, problems
 	}
@@ -845,7 +845,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 			ps.Wildcard = true // children are ledger identities, projected whole
 			if ps.EntityType == "" {
 				problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-					Msg: SQLTraverseID + " needs config.entity_type — the output type (SPEC §10a, ADR-054)"})
+					Msg: SQLTraverseID + " needs config.entity_type — the output type"})
 			} else if reg, err := registry.Load(); err == nil {
 				if _, err := reg.Resolve(ps.EntityType); err != nil {
 					problems = append(problems, Problem{Step: s.ID, Kind: KindContract, Msg: err.Error()})
@@ -876,7 +876,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 			}
 			if refs := crossRecordRefs(ps.Query); len(refs) > 0 {
 				ps.Notes = append(ps.Notes,
-					fmt.Sprintf("cross-record: this query reads %s — it may read any identity in the ledger; only its results are scoped to the run, and it recomputes every run (SPEC §10a)", strings.Join(refs, " and ")))
+					fmt.Sprintf("cross-record: this query reads %s — it may read any identity in the ledger; only its results are scoped to the run, and it recomputes every run", strings.Join(refs, " and ")))
 			}
 		}
 		ps.Needs = configStrings(ps.Config["uses"])
@@ -893,7 +893,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 		provides := configStrings(ps.Config["provides"])
 		if s.Use == SQLTransformID && len(provides) == 0 {
 			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-				Msg: SQLTransformID + " needs config.provides — the declared output fields (SPEC §10a)"})
+				Msg: SQLTransformID + " needs config.provides — the declared output fields"})
 		}
 		if s.Use == SQLFilterID && len(provides) > 0 {
 			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
@@ -937,7 +937,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 				ps.EntityType = g.EntityType
 				if g.EntityType == "" {
 					ps.Notes = append(ps.Notes, fmt.Sprintf(
-						"group %q has no entity type (created before ADR-054), so this plan is entity-blind: field names are not validated until run time — set it once with `gtme groups add %s --type <type>`",
+						"group %q has no entity type (created before groups were typed), so this plan is entity-blind: field names are not validated until run time — set it once with `gtme groups add %s --type <type>`",
 						ps.SourceGroup, ps.SourceGroup))
 				}
 			}
@@ -967,11 +967,11 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 		ps.Limit = s.Limit
 		if isSource {
 			problems = append(problems, Problem{Step: s.ID, Kind: KindContract,
-				Msg: fmt.Sprintf("%s is a traverse and cannot be the source — it traverses from the records a source (or a group) provides (SPEC §6)", s.Use)})
+				Msg: fmt.Sprintf("%s is a traverse and cannot be the source — it traverses from the records a source (or a group) provides", s.Use)})
 		}
 	} else if s.Limit > 0 && !isSource {
 		problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-			Msg: fmt.Sprintf("limit: is only valid on a group source or a traverse step (%s has role %q) — SPEC §9", s.Use, ps.Role)})
+			Msg: fmt.Sprintf("limit: is only valid on a group source or a traverse step (%s has role %q)", s.Use, ps.Role)})
 	}
 	// An entity-agnostic manifest (SPEC §6, ADR-033 — the participant steps)
 	// takes the pipeline's entity type, so uses:/provides: and its static
@@ -983,7 +983,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 	if resolved.Manifest.EntityAgnostic() {
 		if isSource {
 			problems = append(problems, Problem{Step: s.ID, Kind: KindContract,
-				Msg: fmt.Sprintf("%s declares entity_type \"*\" and cannot be the source — a source names the entity type its records are (SPEC §6)", s.Use)})
+				Msg: fmt.Sprintf("%s declares entity_type \"*\" and cannot be the source — a source names the entity type its records are", s.Use)})
 		}
 		ps.EntityType = scope.EntityType
 	}
@@ -1058,17 +1058,17 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 	}
 	if _, ok := ps.Config["provides"]; ok && participant {
 		problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-			Msg: "provides: is a step-level key, not a with: key — move it out of with: (SPEC §9, ADR-033)"})
+			Msg: "provides: is a step-level key, not a with: key — move it out of with:"})
 	}
 	if _, ok := ps.Config[adapters.OfConfigKey]; ok && participant {
 		problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-			Msg: "of: is a step-level key, not a with: key — move it out of with: (SPEC §9, ADR-048)"})
+			Msg: "of: is a step-level key, not a with: key — move it out of with:"})
 	}
 	// A review declares its labels (SPEC §10.3a, ADR-048): there is no
 	// default shape for "what is true of this value".
 	if participant && ps.Role == adapters.RoleReview && s.Provides == nil {
 		problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-			Msg: fmt.Sprintf("%s is a review and declares its labels — add provides: (a grade enum, a yes/no, notes; ADR-048)", s.Use)})
+			Msg: fmt.Sprintf("%s is a review and declares its labels — add provides: (a grade enum, a yes/no, notes)", s.Use)})
 	}
 
 	// uses: (ADR-004) narrows an AI-backed step's needs-all wildcard to an
@@ -1103,7 +1103,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 		switch {
 		case !participant || (ps.Role != adapters.RoleCompose && ps.Role != adapters.RoleReview):
 			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-				Msg: fmt.Sprintf("of: is only valid on compose and review steps of a participant adapter (%s has role %q) — ADR-048", ps.Use, ps.Role)})
+				Msg: fmt.Sprintf("of: is only valid on compose and review steps of a participant adapter (%s has role %q)", ps.Use, ps.Role)})
 		default:
 			ps.Of = of
 			ps.Needs = appendMissing(ps.Needs, of)
@@ -1111,14 +1111,14 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 		}
 	} else if participant && ps.Role == adapters.RoleReview {
 		problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-			Msg: fmt.Sprintf("%s is a review and needs of: — the field whose value it judges (ADR-048)", s.Use)})
+			Msg: fmt.Sprintf("%s is a review and needs of: — the field whose value it judges", s.Use)})
 	}
 	if resolved.Manifest.RunnerOwned() {
 		if render, ok := ps.Config["render"].(map[string]any); ok {
 			ps.RenderFields = configStrings(render["fields"])
 			if _, moved := render["template"]; moved {
 				problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-					Msg: "render.template: moved — the participant's surface is the step's template: (with: {template: ..}), over record.<field> for the uses:/of: fields (ADR-057)"})
+					Msg: "render.template: moved — the participant's surface is the step's template: (with: {template: ..}), over record.<field> for the uses:/of: fields"})
 			}
 			for _, f := range ps.RenderFields {
 				ps.Needs = appendMissing(ps.Needs, f)
@@ -1146,10 +1146,10 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 	if ps.Participant == adapters.KindText {
 		if s.Provides == nil {
 			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-				Msg: fmt.Sprintf("%s renders one field — declare it with provides: [<name>] (ADR-057)", s.Use)})
+				Msg: fmt.Sprintf("%s renders one field — declare it with provides: [<name>]", s.Use)})
 		} else if decl, err := s.ProvidesFields(); err == nil && len(decl) != 1 {
 			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-				Msg: fmt.Sprintf("%s provides exactly one field, the rendered text (got %d) — a second field is a second step (ADR-057)", s.Use, len(decl))})
+				Msg: fmt.Sprintf("%s provides exactly one field, the rendered text (got %d) — a second field is a second step", s.Use, len(decl))})
 		}
 	}
 	// A dynamic enrich step (http/enrich, SPEC §10a) derives its needs from
@@ -1163,7 +1163,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 	if ps.IsDeliver && len(s.Variables) > 0 {
 		if !dynamic {
 			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-				Msg: fmt.Sprintf("%s does not declare dynamic needs, so variables: has nothing to derive (SPEC §6)", s.Use)})
+				Msg: fmt.Sprintf("%s does not declare dynamic needs, so variables: has nothing to derive", s.Use)})
 		} else {
 			ps.Variables = s.Variables
 			for _, field := range variableFields(s.Variables) {
@@ -1219,7 +1219,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 				// This pipeline's own declared AI output (ADR-033): per-campaign
 				// by design, not a vendor coupling.
 				ps.Notes = append(ps.Notes,
-					fmt.Sprintf("needs this pipeline's own judgment field %q (declared by an earlier AI step, ADR-033)", name))
+					fmt.Sprintf("needs this pipeline's own judgment field %q (declared by an earlier AI step)", name))
 				continue
 			}
 			ps.Notes = append(ps.Notes,
@@ -1245,7 +1245,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 				if err := reg.ValidateName(ps.EntityType, name); err != nil {
 					msg := fmt.Sprintf("manifest provides: %v", err)
 					if isAI {
-						msg += " — or declare provides: on this step (ADR-033)"
+						msg += " — or declare provides: on this step"
 					}
 					problems = append(problems, Problem{Step: s.ID, Kind: KindAdapter, Msg: msg})
 				}
@@ -1273,14 +1273,14 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 	drop := map[string]bool{}
 	if _, ok := ps.Config["engine"]; ok && participant {
 		problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-			Msg: "engine: is not a key (ADR-050) — the API is the only model engine (the fixture engine is selected by GTME_AI_ENGINE, never in YAML); for engine: claude-code, make this an agent/* step (agent/filter, agent/compose, agent/review) and answer it with `gtme answer --as claude-code`"})
+			Msg: "engine: is not a key — the API is the only model engine (the fixture engine is selected by GTME_AI_ENGINE, never in YAML); for engine: claude-code, make this an agent/* step (agent/filter, agent/compose, agent/review) and answer it with `gtme answer --as claude-code`"})
 		drop["engine"] = true
 	}
 	// prompt: retired as the text key (ADR-057): on an ai/* step the text is
 	// template:, and the fix is named rather than "additional property".
 	if _, ok := ps.Config["prompt"]; ok && isAI {
 		problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-			Msg: "prompt: is not the text key — write template: (a string, or {file: <path>}; ADR-057). prompt: tty|never is the human/* step's mode and never text"})
+			Msg: "prompt: is not the text key — write template: (a string, or {file: <path>}). prompt: tty|never is the human/* step's mode and never text"})
 		drop["prompt"] = true
 	}
 	// A with: key the template references is the template's, not the
@@ -1445,11 +1445,11 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 		// even the trivial case cannot infer delivery semantics.
 		if resolved.Manifest.ID == "http/deliver" && strings.TrimSpace(s.Idempotency) == "" {
 			problems = append(problems, Problem{Step: s.ID, Kind: KindContract,
-				Msg: "http/deliver requires idempotency: — a generic target cannot infer delivery semantics, it must be told (ADR-023)"})
+				Msg: "http/deliver requires idempotency: — a generic target cannot infer delivery semantics, it must be told"})
 		}
 		if ps.RedeliverMode != "never" && (ps.Manifest == nil || ps.Manifest.Idempotency != "native") {
 			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
-				Msg: fmt.Sprintf("redeliver: %s needs a natively idempotent target — %s does not declare idempotency: native (§6, ADR-045), so repeats could duplicate; only `never` is safe here", ps.RedeliverMode, s.Use)})
+				Msg: fmt.Sprintf("redeliver: %s needs a natively idempotent target — %s does not declare idempotency: native, so repeats could duplicate; only `never` is safe here", ps.RedeliverMode, s.Use)})
 		}
 	}
 	return ps, problems
@@ -1477,7 +1477,7 @@ func deriveAIProvides(decl []pipeline.ProvidesField, role, pipelineName, entityT
 	required := make([]string, 0, len(decl))
 	for _, f := range decl {
 		if owner, ok := reservedOutputNames[f.Name]; ok && (owner == "every AI role" || owner == role) {
-			problems = append(problems, fmt.Sprintf("provides: %q is reserved by the AI output shape (SPEC §10.3) — choose another name", f.Name))
+			problems = append(problems, fmt.Sprintf("provides: %q is reserved by the AI output shape — choose another name", f.Name))
 			continue
 		}
 		name := f.Name
@@ -1516,7 +1516,7 @@ func deriveAIProvides(decl []pipeline.ProvidesField, role, pipelineName, entityT
 			name = pipelineName + "." + f.Name
 			if reg != nil {
 				if _, canonical := reg.Lookup(entityType, f.Name); canonical {
-					notes = append(notes, fmt.Sprintf("provides: %q lands as %q (per-campaign, ADR-033); the canonical %s field %q is untouched — add canonical: true to write it instead",
+					notes = append(notes, fmt.Sprintf("provides: %q lands as %q (per-campaign); the canonical %s field %q is untouched — add canonical: true to write it instead",
 						f.Name, name, entityType, f.Name))
 				}
 			}
@@ -1603,7 +1603,7 @@ func (p *Plan) CheckGroups(ctx context.Context, l *ledger.Ledger) error {
 		}
 		if g.EntityType != "" && entityType != "" && g.EntityType != entityType {
 			problems = append(problems, Problem{Step: step, Kind: KindContract,
-				Msg: fmt.Sprintf("group %q holds %s records, but this pipeline would add %s records to it (SPEC §7, ADR-054) — end in a group of the pipeline's type, or traverse to %s first",
+				Msg: fmt.Sprintf("group %q holds %s records, but this pipeline would add %s records to it — end in a group of the pipeline's type, or traverse to %s first",
 					name, g.EntityType, entityType, g.EntityType)})
 		}
 		return nil
@@ -1877,7 +1877,7 @@ func resolveConfigValues(scope Scope, path string, v any) (any, []string, []stri
 	switch t := v.(type) {
 	case map[string]any:
 		if kind, text, ok, malformed := configQuery(t); malformed {
-			return v, nil, []string{fmt.Sprintf("%s: {%s: …} must carry a non-empty string (SPEC §9)", path, kind)}
+			return v, nil, []string{fmt.Sprintf("%s: {%s: …} must carry a non-empty string", path, kind)}
 		} else if ok {
 			value, note, err := resolveConfigQuery(scope, path, kind, text)
 			if err != nil {
@@ -1975,7 +1975,7 @@ func resolveConfigQuery(scope Scope, path, kind, text string) (any, string, erro
 		return nil, "", fmt.Errorf("%s: %v", path, err)
 	}
 	if len(cols) != 1 {
-		return nil, "", fmt.Errorf("%s: a config query must yield exactly one column (got %s) — one column is a list, one row and one column a scalar (SPEC §7)", path, strings.Join(cols, ", "))
+		return nil, "", fmt.Errorf("%s: a config query must yield exactly one column (got %s) — one column is a list, one row and one column a scalar", path, strings.Join(cols, ", "))
 	}
 	var values []any
 	for rows.Next() {
@@ -1992,7 +1992,7 @@ func resolveConfigQuery(scope Scope, path, kind, text string) (any, string, erro
 		return nil, "", fmt.Errorf("%s: %v", path, err)
 	}
 	if len(values) == 0 {
-		return nil, "", fmt.Errorf("%s: the %s yielded zero rows — an empty value handed to an adapter is the shape that matches everything; fix the %s or snapshot a group first (SPEC §7)", path, kind, kind)
+		return nil, "", fmt.Errorf("%s: the %s yielded zero rows — an empty value handed to an adapter is the shape that matches everything; fix the %s or snapshot a group first", path, kind, kind)
 	}
 	shown := make([]string, 0, len(values))
 	for i, v := range values {

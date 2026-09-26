@@ -111,7 +111,7 @@ steps:
     The output is similar to the following:
 
     ```
-    simulate: fixtures only — no network, no spend, nothing sends, nothing persists
+    simulate: recorded responses only — no network, no spend, nothing sends, nothing persists
     ...
     out: 3 in, 0 out, 0 cached, 0 filtered, 0 failed, 3 held (dry run)
     ...

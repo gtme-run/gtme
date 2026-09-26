@@ -122,7 +122,7 @@ Mia got a name hash, the weakest tier. A hash is a fixed-length fingerprint of t
 **Only the public LinkedIn URL is a key.** LinkedIn also hands out internal URLs with an opaque token in the path, and a source drops that shape with a warning:
 
 ```
-source [warn]: row 2: dropped field "linkedin_url": "https://www.linkedin.com/in/ACwAAAbQ2xKB9xyz" is not a valid value (rule linkedin_url)
+source [warn]: row 3: dropped field "linkedin_url": "https://www.linkedin.com/in/ACwAAAbQ2xKB9xyz" is not a valid value (rule linkedin_url)
 ```
 
 That person falls to a weaker tier until an enrichment writes the public URL.
@@ -151,7 +151,7 @@ gtme query "SELECT step_id, detail FROM step_events
 1 rows
 ```
 
-Mia's row matched her name hash and carried an email, so her record kept its id and facts and took the email as its key. `detail` holds both keys, and the old one still finds her:
+Mia's row matched her name hash and carried an email, so her record kept its id and facts and took the email as its key. `identity_key_tier` names the tier the key came from, so a record still on a bare `nh:` hash says so where the key prints. The old key still finds her:
 
 ```sh
 gtme show nh:89bce7747a81c7c91c0c518e75f05d78aacde6d9366fdc77d00f103f226ddefc
@@ -165,7 +165,8 @@ gtme show nh:89bce7747a81c7c91c0c518e75f05d78aacde6d9366fdc77d00f103f226ddefc
     "email": "mia@initech.dev",
     "full_name": "Mia Chen"
   },
-  "identity_key": "mia@initech.dev"
+  "identity_key": "mia@initech.dev",
+  "identity_key_tier": "email"
 }
 ```
 
@@ -182,7 +183,8 @@ gtme show in/jane-doe --fields email,full_name
     "email": "jane.doe@acme.com",
     "full_name": "Jane Doe"
   },
-  "identity_key": "jane.doe@acme.com"
+  "identity_key": "jane.doe@acme.com",
+  "identity_key_tier": "email"
 }
 ```
 

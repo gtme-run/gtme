@@ -184,7 +184,7 @@ func TestAIPlanShowsBatchingAndCredentialWarning(t *testing.T) {
 
 	res := h.mustRun("plan", "pipeline.yaml")
 	contains(t, res.stderr, "batch:     25 records per invocation", "plan output")
-	contains(t, res.stderr, "projects:  (every field known about the record)", "plan output")
+	contains(t, res.stderr, "reads:     (every field known about the record)", "plan output")
 	contains(t, res.stderr, "optional credential ANTHROPIC_API_KEY is not set", "plan output")
 	contains(t, res.stderr, "idempotency: email", "plan output")
 	contains(t, res.stderr, "when:      icp-filter.passed", "plan output")

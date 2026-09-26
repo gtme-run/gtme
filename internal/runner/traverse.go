@@ -27,7 +27,7 @@ import (
 func (r *runner) applyTraverseRecord(ctx context.Context, st *planner.Step, parent *item, m protocol.Message) error {
 	parent.output = true
 	if m.Key != nil && m.Key.EntityType != "" && m.Key.EntityType != st.EntityType {
-		return r.failChild(ctx, st, parent, fmt.Sprintf("a %s RECORD from a traverse to %s (SPEC §5)", m.Key.EntityType, st.EntityType))
+		return r.failChild(ctx, st, parent, fmt.Sprintf("a %s RECORD from a traverse to %s", m.Key.EntityType, st.EntityType))
 	}
 	if len(m.Fields) == 0 && (m.Key == nil || m.Key.IdentityKey == "") {
 		return r.failChild(ctx, st, parent, "a child record with neither fields nor a key")
@@ -232,7 +232,7 @@ func (r *runner) sqlTraversePairs(ctx context.Context, st *planner.Step, eligibl
 		}
 	}
 	if idCol < 0 || parentCol < 0 {
-		return nil, 0, fmt.Errorf("the query must yield identity_id and parent_id columns (got: %s) — SPEC §10a", strings.Join(cols, ", "))
+		return nil, 0, fmt.Errorf("the query must yield identity_id and parent_id columns (got: %s)", strings.Join(cols, ", "))
 	}
 	var out []traversePair
 	dropped := 0

@@ -46,5 +46,5 @@ func init() {
 type neverOpened struct{}
 
 func (neverOpened) Run(ctx context.Context, p adapters.Ports) error {
-	return fmt.Errorf("participants: human/* and agent/* steps are runner-owned and never open a session (ADR-049)")
+	return fmt.Errorf("participants: human/* and agent/* steps are runner-owned and never open a session")
 }

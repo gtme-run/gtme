@@ -30,5 +30,5 @@ func init() {
 type neverOpened struct{}
 
 func (neverOpened) Run(ctx context.Context, p adapters.Ports) error {
-	return fmt.Errorf("textsteps: text/compose is runner-owned and never opens a session (ADR-057)")
+	return fmt.Errorf("textsteps: text/compose is runner-owned and never opens a session")
 }

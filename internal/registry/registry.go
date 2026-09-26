@@ -302,11 +302,11 @@ func (t *Type) checkIdentity() error {
 				return fmt.Errorf("identity tier %d names %q, which is not a field of this type", i+1, tier.Field)
 			}
 			if !identity.KeyRules[f.Normalization] {
-				return fmt.Errorf("identity tier %d: %q normalizes with %s, which is not a public-identifier rule (email, domain, linkedin_url, handle, url — SPEC §4a)", i+1, tier.Field, f.Normalization)
+				return fmt.Errorf("identity tier %d: %q normalizes with %s, which is not a public-identifier rule (email, domain, linkedin_url, handle, url)", i+1, tier.Field, f.Normalization)
 			}
 		default:
 			if t.Kind == KindSignal {
-				return fmt.Errorf("identity tier %d: a signal type declares no hash tier — a %s without a public identifier is not one the ledger can hold (SPEC §4)", i+1, t.EntityType)
+				return fmt.Errorf("identity tier %d: a signal type declares no hash tier — a %s without a public identifier is not one the ledger can hold", i+1, t.EntityType)
 			}
 			for _, c := range tier.Hash {
 				for _, name := range c.fields() {
@@ -329,7 +329,7 @@ func (r *Registry) Resolve(entityType string) (*Type, error) {
 	}
 	t, ok := r.byEntity[entityType]
 	if !ok {
-		return nil, fmt.Errorf("type %q has no type file — this build embeds %s; a binding ships its own as types/%s.json, or place one in ~/.gtme/types/ (SPEC §4a)",
+		return nil, fmt.Errorf("type %q has no type file — this build embeds %s; a binding ships its own as types/%s.json, or place one in ~/.gtme/types/",
 			entityType, strings.Join(r.Types(), ", "), entityType)
 	}
 	return t, nil

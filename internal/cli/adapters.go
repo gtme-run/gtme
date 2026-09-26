@@ -318,7 +318,7 @@ func verifyBindingDir(env Env, dir string) (*binding.Binding, error) {
 	// the prefix that says so.
 	if strings.HasPrefix(b.ID, "demo/") {
 		return nil, fail(ExitValidation,
-			"adapters: %s: the demo/ prefix is reserved for the binary's own synthetic adapters (SPEC §10 item 9); name the binding after its vendor — refusing to install", b.ID)
+			"adapters: %s: the demo/ prefix is reserved for the binary's own synthetic adapters; name the binding after its vendor — refusing to install", b.ID)
 	}
 	// The adapter–type contract (SPEC §4a, ADR-054): the type resolves to
 	// one file, provides is canonical for it, and a source or traverse can
@@ -411,7 +411,7 @@ func shippedTypes(id, dir string) ([]*registry.Type, error) {
 		rel := filepath.Join(registry.TypesDir, filepath.Base(path))
 		if registry.Reserved(name) {
 			return nil, fail(ExitValidation,
-				"adapters: %s ships %s, but %q is a type this build embeds — embedded names are reserved so no binding can redefine how a %s is keyed (SPEC §4a); refusing to install",
+				"adapters: %s ships %s, but %q is a type this build embeds — embedded names are reserved so no binding can redefine how a %s is keyed; refusing to install",
 				id, rel, name, name)
 		}
 		raw, err := os.ReadFile(path)

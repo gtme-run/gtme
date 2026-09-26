@@ -95,12 +95,12 @@ hubspot/contact-search v1 — source (person)
   calls:       api.hubapi.com
   demands:     HUBSPOT_ACCESS_TOKEN
   needs:       none
-  provides:    company_name, email, first_name, hubspot.contact_id, hubspot.lifecycle_stage, last_name, title (* required)
+  provides:    company_name, email, first_name, hubspot.contact_id, hubspot.lifecycle_stage, last_name, title
   fixtures:    ok — 1 response(s) on file, 2 record(s) extracted
 ...
 ```
 
-`add` verified the adapter before installing it. `calls:` is every host it contacts, `demands:` is its credential, and `needs:` and `provides:` are the fields it reads and writes (a `*` marks a required one). `fixtures:` says its recorded vendor response ran offline and produced records. In the search output, `TIER` is the registry's trust level: `verified` means the registry's own tests run the fixtures. The adapter's tier is `KIND`, in the next listing.
+`add` verified the adapter before installing it. `calls:` is every host it contacts, `demands:` is its credential, and `needs:` and `provides:` are the fields it reads and writes. `fixtures:` says its recorded vendor response ran offline and produced records. In the search output, `TIER` is the registry's trust level: `verified` means the registry's own tests run the fixtures. The adapter's tier is `KIND`, in the next listing.
 
 ## What you just saw
 
@@ -211,7 +211,7 @@ gtme run tiers.yaml --simulate
 The [receipt](/concepts/runs-and-receipts) at the end is similar to the following:
 
 ```
-run 01M3DMGEKBPTQ0VJ4VK74Q8678 — done (SIMULATED — fixtures only; nothing sent, nothing persisted)
+run 01M3FBF44H1KBCN64FH9TMV50G — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
 step    adapter                 in  out  empty  cached  filtered  failed  cost  avoided
 source  hubspot/contact-search  0   2    -      0       -         -       $0    -
 score   mock-enrich-py          2   2    -      0       -         -       $0    -

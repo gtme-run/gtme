@@ -9,8 +9,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gtme-run/gtme/internal/identity"
 	"github.com/gtme-run/gtme/internal/ledger"
 	"github.com/gtme-run/gtme/internal/participant"
+	"github.com/gtme-run/gtme/internal/registry"
 )
 
 // cmdShow is the read-only projection inspector (SPEC §8, DECISIONS.md
@@ -25,7 +27,7 @@ func cmdShow(ctx context.Context, env Env, args []string) error {
 	fields := fs.String("fields", "", "comma-separated field names to print (default: every known field)")
 	provenance := fs.Bool("provenance", false, "include each field's source adapter, confidence and run")
 	limit := fs.Int("limit", 0, "cap the number of records printed in --run mode (0 = all)")
-	pending := fs.Bool("pending", false, "in --run mode, print the records awaiting a participant and the surface they are shown (ADR-049)")
+	pending := fs.Bool("pending", false, "in --run mode, print the records awaiting a participant and the surface they are shown")
 	positional, err := parseFlags(fs, args)
 	if err != nil {
 		return err
@@ -96,6 +98,9 @@ func showIdentity(ctx context.Context, env Env, l *ledger.Ledger, key string, on
 		"entity_type":  ident.EntityType,
 		"identity_key": ident.IdentityKey,
 		"fields":       renderFieldsWithNotes(rec, provenance, notes),
+	}
+	if tier := keyTier(ident.EntityType, ident.IdentityKey); tier != "" {
+		out["identity_key_tier"] = tier
 	}
 	// Deliveries with their status (SPEC §8, ADR-036): accepted is what the
 	// provider took; confirmed/contradicted what a re-read said; sent only
@@ -170,6 +175,9 @@ func showRun(ctx context.Context, env Env, l *ledger.Ledger, target string, only
 			"identity_key": ident.IdentityKey,
 			"state":        rr.State,
 			"fields":       renderFieldsWithNotes(rec, provenance, notes),
+		}
+		if tier := keyTier(ident.EntityType, ident.IdentityKey); tier != "" {
+			line["identity_key_tier"] = tier
 		}
 		if err := enc.Encode(line); err != nil {
 			return fail(ExitOther, "writing record: %v", err)
@@ -317,4 +325,47 @@ func showPending(ctx context.Context, env Env, l *ledger.Ledger, target, step st
 		}
 	}
 	return nil
+}
+
+// keyTier names the identity tier a stored key came from (SPEC §8,
+// ADR-058): the type file's identity field whose rule reproduces the key
+// unchanged — "email", "linkedin_url", "company_domain" — or "name_hash"
+// for the hash tier, recognised by its prefix. Tiers are tried in the type
+// file's order, strongest first, so a key that satisfies two rules reports
+// the stronger. Empty when the type is unknown or nothing matches; show
+// then omits the field rather than guess.
+func keyTier(entityType, key string) string {
+	reg, err := registry.Load()
+	if err != nil {
+		return ""
+	}
+	t, err := reg.Resolve(entityType)
+	if err != nil {
+		return ""
+	}
+	for _, tier := range t.Identity {
+		// A prefixed tier is recognised by its prefix alone: its rule
+		// (handle, or the hash) would reproduce almost any string, so it
+		// must never be tried against a key that lacks the prefix.
+		if tier.Prefix != "" {
+			if !strings.HasPrefix(key, tier.Prefix) {
+				continue
+			}
+			if len(tier.Hash) > 0 {
+				return "name_hash"
+			}
+			return tier.Field
+		}
+		if tier.Field == "" || len(tier.Hash) > 0 {
+			continue
+		}
+		f, ok := t.Lookup(tier.Field)
+		if !ok {
+			continue
+		}
+		if identity.KeyForm(f.Normalization, key) == key {
+			return tier.Field
+		}
+	}
+	return ""
 }

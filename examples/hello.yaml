@@ -4,11 +4,11 @@
 # labelled synthetic in the value itself, at a stated pretend price of
 # $0.01 per record so the receipt's arithmetic is real.
 #
-#   gtme run examples/cache.yaml      # 3 scored at $0.01 each; 1 kept; out.csv written
-#   gtme run examples/cache.yaml      # again: 3 cached, $0.03 avoided, nothing delivered twice
+#   gtme run examples/hello.yaml      # 3 scored at $0.01 each; 1 kept; out.csv written
+#   gtme run examples/hello.yaml      # again: 3 cached, $0.03 avoided, nothing delivered twice
 #
 # Every dollar it prints is labelled demo/enrich wherever it appears.
-name: cache
+name: hello
 version: 1
 
 source:

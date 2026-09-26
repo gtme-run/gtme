@@ -147,12 +147,12 @@ The output is similar to the following:
 ```
 simulate: ignoring missing credentials (4 plan problems:
 ...
-simulate: fixtures only — no network, no spend, nothing sends, nothing persists
+simulate: recorded responses only — no network, no spend, nothing sends, nothing persists
 run 01M3CX161QEV1CKXPXSS382TEC (apollo-to-instantly)
 ...
 send: 2 in, 0 out, 0 cached, 0 filtered, 0 failed, 2 held (dry run)
 
-run 01M3CX161QEV1CKXPXSS382TEC — done (SIMULATED — fixtures only; nothing sent, nothing persisted)
+run 01M3CX161QEV1CKXPXSS382TEC — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
 step         adapter                    in  out  empty  cached  filtered  failed  cost     avoided
 source       apollo/search              0   2    -      0       -         -       $0       -
 icp-filter   ai/filter                  2   2    -      0       -         -       $0       -

@@ -258,7 +258,7 @@ func (r *runner) preflight(ctx context.Context, st *planner.Step) error {
 		case protocol.TypeLog:
 			r.forwardLog(st, m)
 		case protocol.TypeRecord, protocol.TypeVerdict, protocol.TypeAttest:
-			return fmt.Errorf("runner: %s: preflight: the adapter sent a %s in a preflight session — it must send nothing (SPEC §5)", st.ID, m.Type)
+			return fmt.Errorf("runner: %s: preflight: the adapter sent a %s in a preflight session — it must send nothing", st.ID, m.Type)
 		}
 	}
 	if err := sess.Wait(); err != nil {
@@ -775,7 +775,7 @@ func (r *runner) printStepLine(st *planner.Step) {
 	if st.IsTraverse {
 		// Two populations (SPEC §8, ADR-054): in counts parents and
 		// reconciles as for any step; traversed and coalesced count children.
-		line += fmt.Sprintf(" — %d traversed (%s), %d coalesced", stat.Traversed, stat.ChildType, stat.Coalesced)
+		line += fmt.Sprintf(" — %d traversed (%s), %d already in this run", stat.Traversed, stat.ChildType, stat.Coalesced)
 	}
 	fmt.Fprintln(r.stderr, line)
 }
@@ -1152,7 +1152,7 @@ func (r *runner) applyAttest(ctx context.Context, st *planner.Step, byKey map[st
 		return nil
 	}
 	if !attesting(st) {
-		fmt.Fprintf(r.stderr, "%s: ignoring an ATTEST from %s, which does not declare attests (SPEC §6)\n", st.ID, st.Use)
+		fmt.Fprintf(r.stderr, "%s: ignoring an ATTEST from %s, which does not declare attests\n", st.ID, st.Use)
 		return nil
 	}
 	it, ok := byKey[m.Key.String()]

@@ -14,7 +14,7 @@ links:
     description: A type file lists its key tiers, and that page explains what a tier is and the order they're tried in
   - to: /concepts/groups
     type: relates-to
-    description: A group holds one type, set by the terminus from the run's last type; everything else about groups lives there
+    description: A group holds one type, the type of the run's last leg; everything else about groups lives there
   - to: /concepts/ledger
     type: relates-to
     description: The identities a traverse mints and the relations it follows are rows in the ledger's identity layer
@@ -35,13 +35,13 @@ links:
     description: Builds a traverse into your own pipeline, step by step
   - to: /guides/multi-stage
     type: relates-to
-    description: The two-pipeline form, for a human or a schedule between segments
+    description: The two-pipeline form, for a human or a schedule between stages
   - to: /reference/fields
     type: relates-to
     description: Every type file and its fields
   - to: /decisions#adr-054
     type: decided-by
-    description: Types as files, subjects and signals, the traverse role, typed segments, and typed groups
+    description: Types as files, subjects and signals, the traverse role, typed legs, and typed groups
   - to: /decisions#adr-037
     type: decided-by
     description: The chain of pipelines joined by groups that a traverse replaced as the default
@@ -50,7 +50,7 @@ links:
     description: What a type file declares, where types are discovered, and the three adapter-type checks
   - to: /spec#7-contract-validation--the-planner--decided
     type: decided-by
-    description: How plan walks typed segments and checks a group's type
+    description: How plan walks typed legs and checks a group's type
   - to: /spec#8-cli-surface--decided
     type: decided-by
     description: The traverse receipt line and what each of its counts means
@@ -101,12 +101,12 @@ pipeline companies (version 1)
      traverse:  person → company via sql/traverse (follows an existing relation; mints nothing)
 ...
 
-terminus: records completing the run are added to group "target-accounts" as company (ADR-021, ADR-054)
+ends in group "target-accounts" as company (records that complete the run are added)
 ...
 plan ok — nothing has been spent
 ```
 
-`entity:` is the type of record the step works on. `writes:` is a relation the step records in the [ledger](/concepts/ledger): each person `works_at` a company. `traverse:` is the type change and its adapter; to mint is to create a new identity. `terminus:` is the `group:` a finished record lands in, its type, and the decisions behind it. Now run it:
+`entity:` is the type of record the step works on. `writes:` is a relation the step records in the [ledger](/concepts/ledger): each person `works_at` a company. `traverse:` is the type change and its adapter; to mint is to create a new identity. `ends in group` names the `group:` a record that completes the run lands in, and the type it lands as. Now run it:
 
 ```sh
 gtme run companies.yaml
@@ -115,12 +115,12 @@ gtme run companies.yaml
 The output is similar to the following:
 
 ```
-run 01M3DMFJD1264GSFZP21YT6N1Q — done
+run 01M3FBD01V4PXHS9XNA0JA487M — done
 step        adapter       in  out  empty  cached  filtered  failed  cost  avoided
 source      csv/source    0   3    -      0       -         -       $0    -
 to-company  sql/traverse  3   3    -      0       -         -       $0    -
 group "target-accounts": 3 record(s) added
-to-company: 3 parent(s) in, 3 out, 0 empty — 3 traversed (company), 0 coalesced
+to-company: 3 parent(s) in, 3 out, 0 empty — 3 traversed (company), 0 already in this run
 total: $0 spent
 ```
 
@@ -160,22 +160,22 @@ The whole of `companies.yaml` is what you'd hand your agent, with the relation a
 
 **There are two kinds of type.** A subject, `person` or `company`, has `kind: subject` and is what a pipeline delivers to. A signal, like `post`, is what a pipeline finds and traverses from. Plan refuses a deliver step, one that writes to a CRM or a sequencer, aimed at a signal.
 
-**A traverse step takes records of one type in and emits related records of a type out.** It's the eighth role in [Steps and roles](/concepts/steps-and-roles). After `to-company`, only companies move forward. Each stretch between type changes is a *segment*, a different sense from the saved segments in [Groups and segments](/concepts/groups).
+**A traverse step takes records of one type in and emits related records of a type out.** It's the eighth role in [Steps and roles](/concepts/steps-and-roles). After `to-company`, only companies move forward. Each stretch between type changes is a *leg*.
 
-**The traverse line counts parents and children separately.** `in` counts parents, `out` counts parents that yielded at least one child, and `empty` counts parents that yielded none. `traversed` counts children. `coalesced` counts children that were already in the run, so each stays one record.
+**The traverse line counts parents and children separately.** `in` counts parents, `out` counts parents that yielded at least one child, and `empty` counts parents that yielded none. `traversed` counts children. `already in this run` counts children another parent brought in first, so each stays one record.
 
 The `posts-to-engagers` [bundle](/concepts/campaign-is-a-folder) goes from people to their posts to the people who reacted. Its `posts` and `engagers` steps are paid vendor calls, so these lines come from an offline `--simulate` run ([the gate ladder](/concepts/gate-ladder)):
 
 ```
-posts: 2 parent(s) in, 2 out, 0 empty — 2 traversed (post), 1 coalesced
-engagers: 2 parent(s) in, 2 out, 0 empty — 4 traversed (person), 2 coalesced
+posts: 2 parent(s) in, 2 out, 0 empty — 2 traversed (post), 1 already in this run
+engagers: 2 parent(s) in, 2 out, 0 empty — 4 traversed (person), 2 already in this run
 ```
 
-Bob's one post is a repost of Jane's, so it coalesced. Among the engagers, Bob was already in the run and Dave reacted to both posts, so each coalesced once.
+Bob's one post is a repost of Jane's, so it was already in the run. Among the engagers, Bob came in from the source and Dave reacted to both posts, so the receipt counts each as already in this run.
 
 **`sql/traverse` is the built-in traverse, and it's free.** It follows a relation the ledger already holds, mints nothing, and reruns its query every run. A vendor traverse, like the bundle's `harvest/profile-posts`, is a [binding](/concepts/adapter-tiers) shaped like a source, with a `from:` type and a `relation:` it writes, and it spends like one.
 
-That's it. A run is a list of typed segments, and a traverse is the only thing that changes the type.
+That's it. A run is a list of typed legs, and a traverse is the only thing that changes the type.
 
 ## So what?
 
@@ -183,7 +183,7 @@ That's it. A run is a list of typed segments, and a traverse is the only thing t
 
 ## Why it's this way
 
-**People to posts to engagers used to take three pipelines.** They were chained by groups (the decision record, [ADR-037](/decisions#adr-037)), with the type crossing hidden in a SQL string. [ADR-054](/decisions#adr-054) put the chain in one file, where plan prints every type change. Two pipelines still fit when a person or a schedule belongs between segments.
+**People to posts to engagers used to take three pipelines.** They were chained by groups (the decision record, [ADR-037](/decisions#adr-037)), with the type crossing hidden in a SQL string. [ADR-054](/decisions#adr-054) put the chain in one file, where plan prints every type change. Two pipelines still fit when a person or a schedule belongs between stages.
 
 **Types are discovered like adapters.** A type is built in, placed in `~/.gtme/types/`, or shipped beside a binding. No binding can redefine how a person, company, or post is keyed. Plan fails any source or traverse that can't key what it emits, before anything is billed ([SPEC §4a](/spec#4a-canonical-field-registry--decided), [§7](/spec#7-contract-validation--the-planner--decided)).
 

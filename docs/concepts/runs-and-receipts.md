@@ -50,19 +50,19 @@ links:
 
 # Runs and receipts
 
-This is `cache.yaml` from [See it run](/start/show-me), run [armed](/concepts/gate-ladder), and it spends $0 (`demo/enrich` charges a pretend $0.01 per record) and sends nothing. From the folder that has `cache.yaml` and `contacts.csv`, run it against a fresh ledger:
+This is `hello.yaml` from [See it run](/start/show-me), run [armed](/concepts/gate-ladder), and it spends $0 (`demo/enrich` charges a pretend $0.01 per record) and sends nothing. From the folder that has `hello.yaml` and `contacts.csv`, run it against a fresh ledger:
 
 ```sh
 export GTME_LEDGER=$(mktemp -d)/ledger.db
-gtme run cache.yaml
+gtme run hello.yaml
 ```
 
 The output is similar to the following:
 
 ```
-run 01M3DJG0795V0Y98M7KXHRPTEZ (cache)
+run 01M3FBB6SRKX0B7GMSF2WMBJVW (hello)
 ...
-run 01M3DJG0795V0Y98M7KXHRPTEZ — done
+run 01M3FBB6SRKX0B7GMSF2WMBJVW — done
 step    adapter      in  out  empty  cached  filtered  failed  cost     avoided
 source  csv/source   0   3    -      0       -         -       $0       -
 score   demo/enrich  3   3    -      0       -         -       $0.0300  -
@@ -78,7 +78,7 @@ The table at the end is the receipt. It and the progress lines go to the termina
 Here's the file that produced it:
 
 ```yaml
-name: cache
+name: hello
 version: 1
 
 source:
@@ -153,7 +153,7 @@ gtme runs
 
 ```
 run                         pipeline  status  started                   records  in flight
-01M3DJG0795V0Y98M7KXHRPTEZ  cache     done    2026-09-26T00:40:27.113Z  3        -
+01M3FBB6SRKX0B7GMSF2WMBJVW  hello     done    2026-09-26T17:13:58.840Z  3        -
 ```
 
 `gtme runs last` prints the same run from the ledger's side, totaled across resumes, and `gtme show --run last` prints its records as JSON, one per line.
@@ -196,15 +196,15 @@ Run it in a fresh ledger:
 
 ```sh
 export GTME_LEDGER=$(mktemp -d)/ledger.db
-gtme run cache.yaml
+gtme run hello.yaml
 ```
 
 The output is similar to the following:
 
 ```
-run 01M3DJG3J1BYGRYMCPNP7A2EEZ (cache)
+run 01M3FBBGVWXNYMVJEQRT9039NM (hello)
 ...
-run 01M3DJG3J1BYGRYMCPNP7A2EEZ — failed
+run 01M3FBBGVWXNYMVJEQRT9039NM — failed
 step    adapter      in  out  empty  cached  filtered  failed  cost     avoided
 source  csv/source   0   3    -      0       -         -       $0       -
 score   demo/enrich  3   3    -      0       -         -       $0.0300  -
@@ -212,21 +212,22 @@ keep    sql/filter   3   1    -      0       2         -       $0       -
 out     csv/deliver  1   0    -      0       -         1       $0       -
 out: 1 failed — csv/deliver: open sent/out.csv: no such file or directory
 total: $0.0300 (estimated) spent
+gtme: runner: out: csv/deliver: open sent/out.csv: no such file or directory
 ```
 
 Jane's `run_records` state is `keep`, the last step she completed. Make the folder and resume:
 
 ```sh
 mkdir sent
-gtme run cache.yaml --resume last
+gtme run hello.yaml --resume last
 ```
 
 The output is similar to the following:
 
 ```
-resuming run 01M3DJG3J1BYGRYMCPNP7A2EEZ (cache)
+resuming run 01M3FBBGVWXNYMVJEQRT9039NM (hello)
 ...
-run 01M3DJG3J1BYGRYMCPNP7A2EEZ — done
+run 01M3FBBGVWXNYMVJEQRT9039NM — done
 step    adapter      in  out  empty  cached  filtered  failed  cost  avoided
 source  csv/source   0   3    -      0       -         -       $0    -
 score   demo/enrich  0   0    -      0       -         -       $0    -

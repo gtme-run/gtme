@@ -262,16 +262,16 @@ func (m *Manifest) compile() error {
 	if m.Role == RoleTraverse {
 		switch {
 		case m.From == "":
-			return fmt.Errorf("adapters: %s: a traverse declares from — the input type (SPEC §6, ADR-054)", m.ID)
+			return fmt.Errorf("adapters: %s: a traverse declares from — the input type", m.ID)
 		case m.From == EntityAny || m.EntityType == EntityAny:
-			return fmt.Errorf("adapters: %s: a traverse names the types it crosses; neither from nor entity_type may be \"*\" (SPEC §6)", m.ID)
+			return fmt.Errorf("adapters: %s: a traverse names the types it crosses; neither from nor entity_type may be \"*\"", m.ID)
 		case m.Relation == nil || m.Relation.Name == "":
-			return fmt.Errorf("adapters: %s: a traverse declares relation: {name, from: record | parent} — the edge written between each emitted record and its parent (SPEC §6, ADR-054)", m.ID)
+			return fmt.Errorf("adapters: %s: a traverse declares relation: {name, from: record | parent} — the edge written between each emitted record and its parent", m.ID)
 		case m.Relation.From != RelationFromRecord && m.Relation.From != RelationFromParent:
 			return fmt.Errorf("adapters: %s: relation.from must be record or parent, got %q", m.ID, m.Relation.From)
 		}
 	} else if m.From != "" || m.Relation != nil {
-		return fmt.Errorf("adapters: %s: from and relation are traverse keys (role %q) — SPEC §6", m.ID, m.Role)
+		return fmt.Errorf("adapters: %s: from and relation are traverse keys (role %q)", m.ID, m.Role)
 	}
 	var err error
 	// The bare string "dynamic" declares fully config-derived needs (SPEC §6,

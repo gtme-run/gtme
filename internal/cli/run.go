@@ -22,8 +22,8 @@ func cmdRun(ctx context.Context, env Env, args []string) error {
 	fs.SetOutput(env.Stderr)
 	resume := fs.String("resume", "", "resume an existing run by id (or 'last')")
 	concurrency := fs.Int("concurrency", 0, "worker pool size per step (default 4 or $GTME_CONCURRENCY)")
-	dryRun := fs.Bool("dry-run", false, "hold deliver steps back: resolve and receipt their variables, send nothing (SPEC §8)")
-	simulate := fs.Bool("simulate", false, "execute the whole pipeline offline from fixtures: no network, no spend, nothing sends, nothing persists (SPEC §8)")
+	dryRun := fs.Bool("dry-run", false, "hold deliver steps back: resolve and receipt their variables, send nothing")
+	simulate := fs.Bool("simulate", false, "execute the whole pipeline offline from recorded responses: no network, no spend, nothing sends, nothing persists")
 	positional, err := parseFlags(fs, args)
 	if err != nil {
 		return err
@@ -107,13 +107,13 @@ func cmdRun(ctx context.Context, env Env, args []string) error {
 	if *resume == "" && !*simulate {
 		if last, err := l.LastRunForPipeline(ctx, p.Name); err == nil && last.Status == ledger.StatusPending {
 			*resume = last.ID
-			fmt.Fprintf(env.Stderr, "collecting run %s — the latest run of %q ended with a step in flight (ADR-038)\n", last.ID, p.Name)
+			fmt.Fprintf(env.Stderr, "collecting run %s — the latest run of %q ended with a step in flight\n", last.ID, p.Name)
 		}
 	}
 	if *dryRun {
 		for i := range plan.Steps {
 			if plan.Steps[i].Deferred {
-				fmt.Fprintf(env.Stderr, "warning: --dry-run has nothing to hold back here — a deferred pipeline carries no deliver step; the judgment defers as an armed run would (ADR-038)\n")
+				fmt.Fprintf(env.Stderr, "warning: --dry-run has nothing to hold back here — a deferred pipeline carries no deliver step; the judgment defers as an armed run would\n")
 				break
 			}
 		}

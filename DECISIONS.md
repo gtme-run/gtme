@@ -3816,7 +3816,7 @@ the plugin skill ride the build.
 ### ADR-058: Plain words on the operator surface
 **Status:** Accepted (2026-09-26 — from a design session reading the whole
 vocabulary against a semi-technical operator; human-approved by merging
-this packet; build queued as M32)
+this packet, PR #105; built as M32)
 **Context:** docs/DESIGN.md fixes the project's nouns and the gate-ladder
 words, and each concept page glosses its term once. A read of the full
 vocabulary against the reader the docs are for — someone who runs

@@ -179,7 +179,7 @@ Usage:
   gtme help --bindings               the binding contract: schema, discovery path, a reference binding
   gtme version
 
-This is the entire v0 verb set (SPEC.md §8, ADR-005). uses:, cache:, when:
+This is the entire v0 verb set. uses:, cache:, when:
 and every other per-step option are pipeline.yaml config, never flags.
 
 Environment:
