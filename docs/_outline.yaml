@@ -26,10 +26,10 @@ collections:
     - { slug: gate-ladder, name: The gate ladder, status: draft }
     - { slug: runs-and-receipts, name: Runs and receipts, status: draft }
     - { slug: ledger, name: The ledger, status: draft }
-    - { slug: identity-keys, name: Identity keys, status: planned }
-    - { slug: canonical-fields, name: Canonical fields, status: planned }
-    - { slug: facts, name: Facts have provenance, status: planned }
-    - { slug: groups, name: Groups and segments, status: planned }
+    - { slug: identity-keys, name: Identity keys, status: draft }
+    - { slug: canonical-fields, name: Canonical fields, status: draft }
+    - { slug: facts, name: Facts have provenance, status: draft }
+    - { slug: groups, name: Groups and segments, status: draft }
     - { slug: types-and-traverse, name: Types and traverse, status: planned }
     - { slug: participants, name: Participants, status: planned }
     - { slug: campaign-is-a-folder, name: A campaign is a folder, status: planned }
