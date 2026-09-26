@@ -1,0 +1,1299 @@
+{
+  "generated_by": "make docs-adapters: gtme help --agent from a clean home, built-ins only",
+  "adapters": [
+    {
+      "id": "agent/compose",
+      "version": 1,
+      "role": "compose",
+      "entity_type": "*",
+      "needs": "dynamic",
+      "provides": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "first_line": {
+            "type": "string"
+          },
+          "ps_line": {
+            "type": "string"
+          }
+        }
+      },
+      "config_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "template": {
+            "type": "string",
+            "description": "What the participant is shown per record (ADR-057): a template over record.* (the uses:/of: fields) and config.*, in place of the field listing. The runner loads {file:} before validation."
+          },
+          "render": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The fields shown to the participant (default: the uses: fields, or the of: value alone); validated as uses: (SPEC \u00a77)"
+              }
+            },
+            "description": "What the participant is shown per record (ADR-049): the listed fields, or the step's template: (ADR-057)"
+          },
+          "provides": {
+            "type": "object",
+            "description": "The step's derived provides schema (ADR-033) \u2014 the menu the participant answers. Injected by the runner from the step-level provides: key \u2014 never authored inside with:."
+          },
+          "of": {
+            "type": "string",
+            "description": "The referent (ADR-048): the field whose value this step is about. Injected by the runner from the step-level of: key \u2014 never authored inside with:."
+          },
+          "prompt": {
+            "type": "string",
+            "enum": [
+              "never"
+            ],
+            "description": "tty (default): at a terminal, `gtme run` walks the records and asks; never: every record waits in the ledger for `gtme answer` (ADR-049). The mode, never text \u2014 the text is template: (ADR-057)"
+          }
+        }
+      }
+    },
+    {
+      "id": "agent/filter",
+      "version": 1,
+      "role": "filter",
+      "entity_type": "*",
+      "needs": "dynamic",
+      "config_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "template": {
+            "type": "string",
+            "description": "What the participant is shown per record (ADR-057): a template over record.* (the uses:/of: fields) and config.*, in place of the field listing. The runner loads {file:} before validation."
+          },
+          "render": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The fields shown to the participant (default: the uses: fields, or the of: value alone); validated as uses: (SPEC \u00a77)"
+              }
+            },
+            "description": "What the participant is shown per record (ADR-049): the listed fields, or the step's template: (ADR-057)"
+          },
+          "provides": {
+            "type": "object",
+            "description": "The step's derived provides schema (ADR-033) \u2014 the menu the participant answers. Injected by the runner from the step-level provides: key \u2014 never authored inside with:."
+          },
+          "of": {
+            "type": "string",
+            "description": "The referent (ADR-048): the field whose value this step is about. Injected by the runner from the step-level of: key \u2014 never authored inside with:."
+          },
+          "prompt": {
+            "type": "string",
+            "enum": [
+              "never"
+            ],
+            "description": "tty (default): at a terminal, `gtme run` walks the records and asks; never: every record waits in the ledger for `gtme answer` (ADR-049). The mode, never text \u2014 the text is template: (ADR-057)"
+          }
+        }
+      }
+    },
+    {
+      "id": "agent/review",
+      "version": 1,
+      "role": "review",
+      "entity_type": "*",
+      "needs": "dynamic",
+      "config_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "template": {
+            "type": "string",
+            "description": "What the participant is shown per record (ADR-057): a template over record.* (the uses:/of: fields) and config.*, in place of the field listing. The runner loads {file:} before validation."
+          },
+          "render": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The fields shown to the participant (default: the uses: fields, or the of: value alone); validated as uses: (SPEC \u00a77)"
+              }
+            },
+            "description": "What the participant is shown per record (ADR-049): the listed fields, or the step's template: (ADR-057)"
+          },
+          "provides": {
+            "type": "object",
+            "description": "The step's derived provides schema (ADR-033) \u2014 the menu the participant answers. Injected by the runner from the step-level provides: key \u2014 never authored inside with:."
+          },
+          "of": {
+            "type": "string",
+            "description": "The referent (ADR-048): the field whose value this step is about. Injected by the runner from the step-level of: key \u2014 never authored inside with:."
+          },
+          "prompt": {
+            "type": "string",
+            "enum": [
+              "never"
+            ],
+            "description": "tty (default): at a terminal, `gtme run` walks the records and asks; never: every record waits in the ledger for `gtme answer` (ADR-049). The mode, never text \u2014 the text is template: (ADR-057)"
+          }
+        }
+      }
+    },
+    {
+      "id": "ai/compose",
+      "version": 1,
+      "role": "compose",
+      "entity_type": "*",
+      "needs": "dynamic",
+      "provides": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "first_line": {
+            "type": "string"
+          },
+          "ps_line": {
+            "type": "string"
+          }
+        }
+      },
+      "credentials_optional": [
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_WORKSPACE_ID"
+      ],
+      "config_schema": {
+        "type": "object",
+        "required": [
+          "template"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "template": {
+            "type": "string",
+            "description": "The operator's text (ADR-057): a template rendered once per step over config.* \u2014 the shared block the records follow (SPEC \u00a710.3). The runner loads {file:} and renders before OPEN; the adapter receives text."
+          },
+          "batch_size": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "model": {
+            "type": "string"
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 256
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Restrict what the model sees to these fields (default: everything known)"
+          },
+          "provides": {
+            "type": "object",
+            "description": "The step's derived provides schema (ADR-033). Injected by the runner from the step-level provides: key \u2014 never authored inside with:."
+          },
+          "of": {
+            "type": "string",
+            "description": "The referent (ADR-048): the field whose value this step is about, presented to the model as the subject. Injected by the runner from the step-level of: key \u2014 never authored inside with:."
+          },
+          "fence": {
+            "type": "boolean",
+            "description": "ADR-035: wrap externally fetched fields in a delimiter labelled as subject-supplied data (default true); false opts out"
+          },
+          "deferred": {
+            "type": "boolean",
+            "description": "ADR-038: submit the batch to the engine's batch surface (the Message Batches API, half price) and end the run in flight; the next `gtme run` of the pipeline collects. Valid only on the pipeline's last step."
+          },
+          "fetched": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The batch's externally fetched fields (ADR-035). Injected by the runner from provenance \u2014 never authored inside with:."
+          }
+        }
+      }
+    },
+    {
+      "id": "ai/filter",
+      "version": 1,
+      "role": "filter",
+      "entity_type": "*",
+      "needs": "dynamic",
+      "credentials_optional": [
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_WORKSPACE_ID"
+      ],
+      "config_schema": {
+        "type": "object",
+        "required": [
+          "template"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "template": {
+            "type": "string",
+            "description": "The operator's text (ADR-057): a template rendered once per step over config.* \u2014 the shared block the records follow (SPEC \u00a710.3). The runner loads {file:} and renders before OPEN; the adapter receives text."
+          },
+          "batch_size": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "model": {
+            "type": "string"
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 256
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Restrict what the model sees to these fields (default: everything known)"
+          },
+          "provides": {
+            "type": "object",
+            "description": "The step's derived provides schema (ADR-033). Injected by the runner from the step-level provides: key \u2014 never authored inside with:."
+          },
+          "of": {
+            "type": "string",
+            "description": "The referent (ADR-048): the field whose value this step is about, presented to the model as the subject. Injected by the runner from the step-level of: key \u2014 never authored inside with:."
+          },
+          "fence": {
+            "type": "boolean",
+            "description": "ADR-035: wrap externally fetched fields in a delimiter labelled as subject-supplied data (default true); false opts out"
+          },
+          "deferred": {
+            "type": "boolean",
+            "description": "ADR-038: submit the batch to the engine's batch surface (the Message Batches API, half price) and end the run in flight; the next `gtme run` of the pipeline collects. Valid only on the pipeline's last step."
+          },
+          "fetched": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The batch's externally fetched fields (ADR-035). Injected by the runner from provenance \u2014 never authored inside with:."
+          }
+        }
+      }
+    },
+    {
+      "id": "ai/review",
+      "version": 1,
+      "role": "review",
+      "entity_type": "*",
+      "needs": "dynamic",
+      "credentials_optional": [
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_WORKSPACE_ID"
+      ],
+      "config_schema": {
+        "type": "object",
+        "required": [
+          "template"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "template": {
+            "type": "string",
+            "description": "The operator's text (ADR-057): a template rendered once per step over config.* \u2014 the shared block the records follow (SPEC \u00a710.3). The runner loads {file:} and renders before OPEN; the adapter receives text."
+          },
+          "batch_size": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "model": {
+            "type": "string"
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 256
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Restrict what the model sees to these fields (default: everything known)"
+          },
+          "provides": {
+            "type": "object",
+            "description": "The step's derived provides schema (ADR-033). Injected by the runner from the step-level provides: key \u2014 never authored inside with:."
+          },
+          "of": {
+            "type": "string",
+            "description": "The referent (ADR-048): the field whose value this step is about, presented to the model as the subject. Injected by the runner from the step-level of: key \u2014 never authored inside with:."
+          },
+          "fence": {
+            "type": "boolean",
+            "description": "ADR-035: wrap externally fetched fields in a delimiter labelled as subject-supplied data (default true); false opts out"
+          },
+          "deferred": {
+            "type": "boolean",
+            "description": "ADR-038: submit the batch to the engine's batch surface (the Message Batches API, half price) and end the run in flight; the next `gtme run` of the pipeline collects. Valid only on the pipeline's last step."
+          },
+          "fetched": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The batch's externally fetched fields (ADR-035). Injected by the runner from provenance \u2014 never authored inside with:."
+          }
+        }
+      }
+    },
+    {
+      "id": "apollo/enrich",
+      "version": 1,
+      "role": "enrich",
+      "entity_type": "person",
+      "needs": {
+        "properties": {
+          "apollo.id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "apollo.id"
+        ],
+        "type": "object"
+      },
+      "provides": {
+        "additionalProperties": false,
+        "properties": {
+          "city": {
+            "type": "string"
+          },
+          "company_domain": {
+            "type": "string"
+          },
+          "company_employees": {
+            "type": "integer"
+          },
+          "company_industry": {
+            "type": "string"
+          },
+          "company_linkedin_url": {
+            "type": "string"
+          },
+          "company_name": {
+            "type": "string"
+          },
+          "company_website": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "email_status": {
+            "type": "string"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "full_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "linkedin_url": {
+            "type": "string"
+          },
+          "seniority": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "credentials": [
+        "APOLLO_API_KEY"
+      ],
+      "config_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "base_url": {
+            "default": "https://api.apollo.io",
+            "description": "Override the API host (testing)",
+            "type": "string"
+          },
+          "reveal_personal_emails": {
+            "description": "Ask Apollo to include personal emails (their flag; off by default)",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "freshness_days": 30,
+      "cost_estimate_usd": 0.01
+    },
+    {
+      "id": "apollo/search",
+      "version": 2,
+      "role": "source",
+      "entity_type": "person",
+      "provides": {
+        "additionalProperties": false,
+        "properties": {
+          "apollo.has_email": {
+            "type": "boolean"
+          },
+          "apollo.id": {
+            "type": "string"
+          },
+          "company_name": {
+            "type": "string"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "credentials": [
+        "APOLLO_API_KEY"
+      ],
+      "config_schema": {
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "query"
+            ]
+          },
+          {
+            "required": [
+              "titles"
+            ]
+          },
+          {
+            "required": [
+              "seniorities"
+            ]
+          },
+          {
+            "required": [
+              "locations"
+            ]
+          },
+          {
+            "required": [
+              "domains"
+            ]
+          }
+        ],
+        "properties": {
+          "base_url": {
+            "default": "https://api.apollo.io",
+            "description": "Override the API host (testing)",
+            "type": "string"
+          },
+          "domains": {
+            "description": "q_organization_domains",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "employee_ranges": {
+            "description": "organization_num_employees_ranges, e.g. \"50,200\"",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "description": "Stop after this many people",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "locations": {
+            "description": "organization_locations",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "per_page": {
+            "default": 25,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "description": "Free-text search, e.g. \"vp marketing, saas, 50-200 employees\"",
+            "type": "string"
+          },
+          "seniorities": {
+            "description": "person_seniorities",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "titles": {
+            "description": "person_titles",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "cost_estimate_usd": 0
+    },
+    {
+      "id": "attio/assert",
+      "version": 1,
+      "role": "deliver",
+      "entity_type": "person",
+      "needs": {
+        "dynamic": true,
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "type": "object"
+      },
+      "credentials": [
+        "ATTIO_API_KEY"
+      ],
+      "config_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "base_url": {
+            "default": "https://api.attio.com",
+            "description": "Override the API host (testing)",
+            "type": "string"
+          },
+          "matching_attribute": {
+            "default": "email_addresses",
+            "description": "Attribute Attio matches existing records on",
+            "type": "string"
+          },
+          "object": {
+            "default": "people",
+            "description": "Attio object slug to assert into",
+            "type": "string"
+          },
+          "variables": {
+            "additionalProperties": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "description": "Egress mapping, target attribute slug \u2192 ledger field (ADR-018). Injected by the runner from the step-level variables: key \u2014 never authored inside with:. Each resolved variable becomes an attribute value on the asserted record.",
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "cost_estimate_usd": 0
+    },
+    {
+      "id": "csv/deliver",
+      "version": 1,
+      "role": "deliver",
+      "entity_type": "person",
+      "needs": "dynamic",
+      "config_schema": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "CSV file to write; created with a header, appended across runs"
+          },
+          "variables": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Egress mapping, injected by the runner from the step-level variables: key (ADR-018). Its targets are the columns."
+          },
+          "entity_type": {
+            "type": "string"
+          }
+        }
+      },
+      "cost_estimate_usd": 0
+    },
+    {
+      "id": "csv/source",
+      "version": 1,
+      "role": "source",
+      "entity_type": "person",
+      "provides": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "config_schema": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "CSV file to read; header row names the fields"
+          },
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "person",
+              "company"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "columns": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Ingress mapping (ADR-018): canonical field name \u2192 CSV header as written. Headers already matching canonical names auto-map; unmapped non-canonical headers become csv.<normalized_header>."
+          }
+        }
+      }
+    },
+    {
+      "id": "demo/enrich",
+      "version": 1,
+      "role": "enrich",
+      "entity_type": "person",
+      "needs": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "full_name": {
+            "type": "string"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "email"
+            ]
+          },
+          {
+            "required": [
+              "full_name"
+            ]
+          }
+        ]
+      },
+      "provides": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "demo.score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "demo.note": {
+            "type": "string"
+          }
+        }
+      },
+      "config_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cost_per_record_usd": {
+            "type": "number",
+            "minimum": 0,
+            "description": "The pretend price of one enrichment, for the receipt's arithmetic (default 0.01)"
+          }
+        }
+      },
+      "freshness_days": 30,
+      "cost_estimate_usd": 0.01
+    },
+    {
+      "id": "harvest/profile",
+      "version": 1,
+      "role": "enrich",
+      "entity_type": "person",
+      "needs": {
+        "type": "object",
+        "properties": {
+          "linkedin_url": {
+            "type": "string"
+          },
+          "linkedin_internal_url": {
+            "type": "string"
+          },
+          "linkedin_sales_nav_url": {
+            "type": "string"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "linkedin_url"
+            ]
+          },
+          {
+            "required": [
+              "linkedin_internal_url"
+            ]
+          },
+          {
+            "required": [
+              "linkedin_sales_nav_url"
+            ]
+          }
+        ]
+      },
+      "provides": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "linkedin_url": {
+            "type": "string"
+          },
+          "headline": {
+            "type": "string"
+          },
+          "about": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "recent_posts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "role_history": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "current_role": {
+            "type": "string"
+          },
+          "current_company": {
+            "type": "string"
+          },
+          "follower_count": {
+            "type": "integer"
+          },
+          "open_to_work": {
+            "type": "boolean"
+          }
+        }
+      },
+      "credentials": [
+        "HARVEST_API_KEY"
+      ],
+      "config_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "posts_limit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20,
+            "description": "Recent posts to fetch (0 skips the second call and its credits)"
+          },
+          "main_only": {
+            "type": "boolean",
+            "description": "Ask for the cheaper main profile version"
+          },
+          "cost_per_profile_usd": {
+            "type": "number",
+            "minimum": 0,
+            "description": "What one lookup costs you, for the receipt"
+          },
+          "base_url": {
+            "type": "string",
+            "description": "Override the API host (testing)"
+          }
+        }
+      },
+      "freshness_days": 30,
+      "cost_estimate_usd": 0.012
+    },
+    {
+      "id": "http/deliver",
+      "version": 1,
+      "role": "deliver",
+      "entity_type": "person",
+      "needs": "dynamic",
+      "config_schema": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Target URL; may template {{record.<field>}} / {{config.*}}"
+          },
+          "method": {
+            "enum": [
+              "POST",
+              "PUT",
+              "PATCH"
+            ],
+            "description": "Default POST"
+          },
+          "query": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "body": {
+            "description": "Body template; default is the resolved variables object"
+          },
+          "auth": {
+            "type": "object",
+            "required": [
+              "type",
+              "env"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "header",
+                  "query",
+                  "bearer",
+                  "basic"
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "env": {
+                "type": "string"
+              },
+              "prefix": {
+                "type": "string"
+              }
+            }
+          },
+          "variables": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Egress mapping, injected by the runner from the step-level variables: key (ADR-018)."
+          },
+          "keep_payloads": {
+            "type": "boolean"
+          },
+          "entity_type": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "http/enrich",
+      "version": 1,
+      "role": "enrich",
+      "entity_type": "person",
+      "needs": "dynamic",
+      "provides": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "config_schema": {
+        "type": "object",
+        "required": [
+          "url",
+          "freshness_days"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Request URL, templated from {{record.<field>}} placeholders \u2014 which are also the step's derived needs (SPEC \u00a710a)"
+          },
+          "method": {
+            "enum": [
+              "GET",
+              "POST"
+            ],
+            "description": "Default GET"
+          },
+          "query": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "markdown": {
+            "type": "boolean",
+            "description": "Fetch a page and store it as markdown under field:"
+          },
+          "field": {
+            "type": "string",
+            "description": "The declared content field (markdown mode) \u2014 canonical or namespaced (\u00a74a)"
+          },
+          "extract": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Inline JSON mode: field \u2192 dotted response path"
+          },
+          "freshness_days": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "REQUIRED, no default: web content rots. Doubles as the step's cache window."
+          },
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Response size cap (default 262144). An oversized response stores no field \u2014 the record advances counted empty, never truncated silently \u2014 and is still retained as a payload under the ADR-030 window (ADR-053)."
+          },
+          "auth": {
+            "type": "object",
+            "required": [
+              "type",
+              "env"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "header",
+                  "query",
+                  "bearer"
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "env": {
+                "type": "string"
+              },
+              "prefix": {
+                "type": "string"
+              }
+            }
+          },
+          "keep_payloads": {
+            "type": "boolean",
+            "description": "ADR-030 per-step override"
+          },
+          "entity_type": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "human/compose",
+      "version": 1,
+      "role": "compose",
+      "entity_type": "*",
+      "needs": "dynamic",
+      "provides": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "first_line": {
+            "type": "string"
+          },
+          "ps_line": {
+            "type": "string"
+          }
+        }
+      },
+      "config_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "template": {
+            "type": "string",
+            "description": "What the participant is shown per record (ADR-057): a template over record.* (the uses:/of: fields) and config.*, in place of the field listing. The runner loads {file:} before validation."
+          },
+          "render": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The fields shown to the participant (default: the uses: fields, or the of: value alone); validated as uses: (SPEC \u00a77)"
+              }
+            },
+            "description": "What the participant is shown per record (ADR-049): the listed fields, or the step's template: (ADR-057)"
+          },
+          "provides": {
+            "type": "object",
+            "description": "The step's derived provides schema (ADR-033) \u2014 the menu the participant answers. Injected by the runner from the step-level provides: key \u2014 never authored inside with:."
+          },
+          "of": {
+            "type": "string",
+            "description": "The referent (ADR-048): the field whose value this step is about. Injected by the runner from the step-level of: key \u2014 never authored inside with:."
+          },
+          "prompt": {
+            "type": "string",
+            "enum": [
+              "tty",
+              "never"
+            ],
+            "description": "tty (default): at a terminal, `gtme run` walks the records and asks; never: every record waits in the ledger for `gtme answer` (ADR-049). The mode, never text \u2014 the text is template: (ADR-057)"
+          }
+        }
+      }
+    },
+    {
+      "id": "human/filter",
+      "version": 1,
+      "role": "filter",
+      "entity_type": "*",
+      "needs": "dynamic",
+      "config_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "template": {
+            "type": "string",
+            "description": "What the participant is shown per record (ADR-057): a template over record.* (the uses:/of: fields) and config.*, in place of the field listing. The runner loads {file:} before validation."
+          },
+          "render": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The fields shown to the participant (default: the uses: fields, or the of: value alone); validated as uses: (SPEC \u00a77)"
+              }
+            },
+            "description": "What the participant is shown per record (ADR-049): the listed fields, or the step's template: (ADR-057)"
+          },
+          "provides": {
+            "type": "object",
+            "description": "The step's derived provides schema (ADR-033) \u2014 the menu the participant answers. Injected by the runner from the step-level provides: key \u2014 never authored inside with:."
+          },
+          "of": {
+            "type": "string",
+            "description": "The referent (ADR-048): the field whose value this step is about. Injected by the runner from the step-level of: key \u2014 never authored inside with:."
+          },
+          "prompt": {
+            "type": "string",
+            "enum": [
+              "tty",
+              "never"
+            ],
+            "description": "tty (default): at a terminal, `gtme run` walks the records and asks; never: every record waits in the ledger for `gtme answer` (ADR-049). The mode, never text \u2014 the text is template: (ADR-057)"
+          }
+        }
+      }
+    },
+    {
+      "id": "human/review",
+      "version": 1,
+      "role": "review",
+      "entity_type": "*",
+      "needs": "dynamic",
+      "config_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "template": {
+            "type": "string",
+            "description": "What the participant is shown per record (ADR-057): a template over record.* (the uses:/of: fields) and config.*, in place of the field listing. The runner loads {file:} before validation."
+          },
+          "render": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The fields shown to the participant (default: the uses: fields, or the of: value alone); validated as uses: (SPEC \u00a77)"
+              }
+            },
+            "description": "What the participant is shown per record (ADR-049): the listed fields, or the step's template: (ADR-057)"
+          },
+          "provides": {
+            "type": "object",
+            "description": "The step's derived provides schema (ADR-033) \u2014 the menu the participant answers. Injected by the runner from the step-level provides: key \u2014 never authored inside with:."
+          },
+          "of": {
+            "type": "string",
+            "description": "The referent (ADR-048): the field whose value this step is about. Injected by the runner from the step-level of: key \u2014 never authored inside with:."
+          },
+          "prompt": {
+            "type": "string",
+            "enum": [
+              "tty",
+              "never"
+            ],
+            "description": "tty (default): at a terminal, `gtme run` walks the records and asks; never: every record waits in the ledger for `gtme answer` (ADR-049). The mode, never text \u2014 the text is template: (ADR-057)"
+          }
+        }
+      }
+    },
+    {
+      "id": "instantly/add-to-campaign",
+      "version": 1,
+      "role": "deliver",
+      "entity_type": "person",
+      "needs": {
+        "dynamic": true,
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        }
+      },
+      "credentials": [
+        "INSTANTLY_API_KEY"
+      ],
+      "config_schema": {
+        "type": "object",
+        "required": [
+          "campaign"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "campaign": {
+            "type": "string",
+            "description": "Campaign name (resolved to an id once per run) or the campaign id itself"
+          },
+          "skip_if_in_campaign": {
+            "type": "boolean",
+            "description": "Ask Instantly to ignore leads already in the campaign (default true)"
+          },
+          "variables": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Egress mapping, target merge-field name \u2192 ledger field (ADR-018). Injected by the runner from the step-level variables: key \u2014 never authored inside with:."
+          },
+          "base_url": {
+            "type": "string",
+            "description": "Override the API host (testing)"
+          },
+          "preflight": {
+            "type": "boolean",
+            "description": "ADR-040: check the live campaign before sending (default true); false skips"
+          }
+        }
+      },
+      "cost_estimate_usd": 0,
+      "attests": true
+    },
+    {
+      "id": "text/compose",
+      "version": 1,
+      "role": "compose",
+      "entity_type": "*",
+      "needs": "dynamic",
+      "provides": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "config_schema": {
+        "type": "object",
+        "required": [
+          "template"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "template": {
+            "type": "string",
+            "description": "The template rendered once per record over record.* (the uses:/of: fields) and config.* (ADR-057); the result is the one field provides: declares. The runner loads {file:} before validation."
+          },
+          "provides": {
+            "type": "object",
+            "description": "The step's derived provides schema (ADR-033): exactly one field, the rendered text. Injected by the runner from the step-level provides: key \u2014 never authored inside with:."
+          },
+          "of": {
+            "type": "string",
+            "description": "The referent (ADR-048): the field whose value this step is about. Injected by the runner from the step-level of: key \u2014 never authored inside with:."
+          }
+        }
+      }
+    }
+  ]
+}

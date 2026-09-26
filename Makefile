@@ -2,7 +2,7 @@ BINARY := bin/gtme
 PKG    := ./...
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo 0.0.0-dev)
 
-.PHONY: check fmt vet test build install clean tidy live live-deliver
+.PHONY: check fmt vet test build install clean tidy live live-deliver docs-adapters
 
 check: fmt vet test
 
@@ -38,3 +38,13 @@ tidy:
 
 clean:
 	rm -rf bin
+
+# docs-adapters regenerates docs/_adapters.json: every built-in adapter's
+# manifest as `gtme help --agent` reports it from a clean home with nothing
+# installed. gtme.run renders its connector pages from this file, and the e2e
+# suite fails when it drifts from the binary (test/e2e/docs_adapters_test.go).
+docs-adapters:
+	@tmp=$$(mktemp -d); go build -o $$tmp/gtme ./cmd/gtme; \
+	HOME=$$tmp/home GTME_ADAPTER_PATH=$$tmp/empty $$tmp/gtme help --agent > $$tmp/agent.json; \
+	python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); out={"generated_by":"make docs-adapters: gtme help --agent from a clean home, built-ins only","adapters":d["adapters"]}; f=open("docs/_adapters.json","w"); json.dump(out,f,indent=2); f.write("\n")' $$tmp/agent.json; \
+	rm -rf $$tmp; echo "wrote docs/_adapters.json"
