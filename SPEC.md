@@ -2659,7 +2659,7 @@ decided contract, not shipped behavior.
 - **M33 — vendors leave the binary (ADR-059; §6, §8, §9, §10, §10a,
   §11). Queued 2026-09-26.** The binding engine gains the `each:`
   extraction form (§10a; `spec/binding-schema.json` gains `each`).
-  `gtme-bindings` gains six verified entries: `apollo-search`,
+  `gtme-bindings` gains five verified entries: `apollo-search`,
   `apollo-enrich` and `attio-assert` moved unchanged, `harvest-profile`
   at version 2, and `harvest-recent-posts`; `index.json` is regenerated
   and the registry's CI runs their fixtures. The binary drops the three

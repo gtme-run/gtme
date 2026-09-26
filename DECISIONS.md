@@ -3895,8 +3895,8 @@ adapters." Three of those twins are not a kit for anything: `apollo/search`,
 `apollo/enrich` and `attio/assert` are the registered adapters themselves,
 compiled in. Two Go process adapters remain, `harvest/profile` and
 `instantly/add-to-campaign`, each with an unregistered binding twin that is
-narrower than it. So the binary ships five vendors and the registry ships
-one, and the line between them is historical, not principled. It will not
+narrower than it. So the binary ships five vendor adapters and the registry
+ships one, and the line between them is historical, not principled. It will not
 hold: the next Harvest adapters (the `harvest/profile-posts` traverse in
 `bundles/posts-to-engagers`, `harvest/post-reactions`) are bindings, and a
 vendor whose first adapter is compiled in while the rest install from the
@@ -3939,8 +3939,8 @@ default 3; not `limit`, which ADR-047 reserves for sources).
 It is a person's field for a compose to read, which is why it is an enrich
 and not the `harvest/profile-posts` traverse, which mints post records.
 The composition is two steps, one call each, composed in the pipeline
-rather than bundled in one adapter: a pipeline that wants posts asks for them by name, and one that
-does not stops paying the second call silently. (3) **The engine gains one
+rather than bundled in one adapter: a pipeline that wants posts asks
+for them by name, and one that does not never pays for the second call. (3) **The engine gains one
 extraction form, `each:`.** A field's extraction may be `{each: <dotted
 path to an array>, template: <a template in the ADR-057 dialect over
 item.*>, limit: <n | a config reference>}`: the engine renders the
@@ -3995,11 +3995,11 @@ call, and a pipeline that set `posts_limit` on `harvest/profile` must
 move it to a `harvest/recent-posts` step. Version 2's config schema
 refuses the key, and the plan error says so. M33
 is roughly: the `each:` form in `internal/binding` (~120 LOC with tests),
-two new registry entries plus four moved, and deletions (the Harvest Go
+one new registry entry plus four moved, and deletions (the Harvest Go
 adapter, three embedded bindings, the twin tests) that exceed the
 additions. The Instantly move is sized in its own packet.
-**Spec impact:** AMEND §8 (`adapters add` takes several references and
-bare ids; the plan error for an uninstalled id), §8's `gtme adapters`
+**Spec impact:** AMEND §6 (the plan error for an uninstalled id), §8
+(`adapters add` takes several references and bare ids), §8's `gtme adapters`
 paragraph (the binary carries the floor and no vendor), §9 (the canonical
 pipeline's `posts` step), §10 (intro; items 2, 2a and 4 served from the
 registry; new item 4a `harvest/recent-posts`; item 6 the one remaining
