@@ -51,7 +51,7 @@ func cmdAnswer(ctx context.Context, env Env, args []string) error {
 	as := fs.String("as", "", "the participant answering (default: the OS user)")
 	cost := fs.String("cost", "", "USD the participant spent on this record (estimated unless --measured)")
 	measured := fs.Bool("measured", false, "the --cost figure is vendor-reported, not a rate estimate (ADR-046)")
-	note := fs.String("note", "", "free text kept with the answer and shown by `gtme show --provenance`")
+	note := fs.String("note", "", "free `TEXT` kept with the answer and shown by gtme show --provenance")
 	positional, err := parseFlags(fs, args)
 	if err != nil {
 		return err
