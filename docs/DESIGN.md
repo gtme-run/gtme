@@ -123,8 +123,9 @@ House rules on top of Google:
   *armed*, *spends*, *sends*. No synonyms.
 - The project's nouns are fixed: adapter, binding, process adapter,
   ledger, receipt, identity key, canonical field, group, segment,
-  participant, bundle. A page that needs a new noun proposes it in
-  DECISIONS.md first.
+  participant, bundle, leg. *Segment* means a saved query only; a typed
+  stretch of a run is a *leg* (ADR-058). A page that needs a new noun
+  proposes it in DECISIONS.md first.
 
 ## Patterns to strip
 

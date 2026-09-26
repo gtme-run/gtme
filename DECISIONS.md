@@ -3811,6 +3811,76 @@ say `template:`; new item 10 `text/compose`), §10a (provenance form), §11
 the manifests, examples, bundles, README, ADAPTERS.md, VALIDATION.md and
 the plugin skill ride the build.
 
+### ADR-058: Plain words on the operator surface
+**Status:** Accepted (2026-09-26 — from a design session reading the whole
+vocabulary against a semi-technical operator; human-approved by merging
+this packet; build queued as M32)
+**Context:** docs/DESIGN.md fixes the project's nouns and the gate-ladder
+words, and each concept page glosses its term once. A read of the full
+vocabulary against the reader the docs are for — someone who runs
+go-to-market and is not a programmer — found the words an operator meets
+daily are mostly plain (pipeline, step, run, receipt, plan, dry-run,
+armed, group), and that the trouble concentrates on the two artifacts they
+read most, the plan and the receipt, where engineering vocabulary and
+process citations print by default: `projects:` for what a step reads;
+`of: … (the referent — its value joins the cache key, its id the
+provenance; ADR-048)`; `terminus:`; `coalesced` on every source and
+traverse line; `fixtures only` on every simulated run; and `ADR-nnn` /
+`SPEC §n` citations on plan lines, receipt titles and some sixty error
+messages. Two names collide with the reader's prior. *Segment* means a
+saved audience to every GTM reader (the §8 sense, ADR-021) and ADR-054
+also uses it for a typed stretch of a run. The first example pipeline,
+`examples/cache.yaml`, is named `cache`, so on the pages that teach the
+`cache:` key and the `cached` column every sentence about caching carries
+three senses of the word. And a name-hash identity key prints as a bare
+64-character string with nothing saying what it is.
+The reference surfaces are a different case. `help --agent`, `help
+--bindings`, SPEC.md and DECISIONS.md are read by agents and adapter
+authors, for whom the citations are the point; they are unchanged.
+**Decision:** (1) **The default surface speaks the docs' vocabulary and
+carries no citations.** Everything `gtme` prints for an operator by
+default — plan, receipts, progress lines, errors — names the thing and the
+fix and carries no `ADR-` or `§` reference. Citations stay on the
+reference surfaces (`help --agent`, `help --bindings`) and in the canon,
+which the docs link. Test assertions pin the plain form. (2) **Plan
+labels.** `projects:` becomes `reads:`. The `of:` line prints `of: <field>
+(the value under review)`. The `terminus:` line prints `ends in group
+"<name>"`, with `as <type>` when the run is typed. `send surface:` and the
+`deferred:` line keep their words, minus the citation. (3) **Receipt
+words.** On a source line `(N coalesced into known identities)` becomes
+`(N already in the ledger)`; on a traverse line `N coalesced` becomes `N
+already in this run`. The `step_events.event` value `coalesced` is
+unchanged: it is a ledger enum, an agent's surface, not an operator's.
+(4) **Simulate says what it does.** The banner reads `simulate: recorded
+responses only — no network, no spend, nothing sends, nothing persists`
+and the receipt title `(SIMULATED — recorded responses only; nothing sent,
+nothing persisted)`. *Fixture* stays the adapter author's word on the
+`adapters` verbs and in `help --bindings`. (5) **A typed stretch of a run
+is a leg.** §7's "typed segments" become typed legs; *segment* keeps one
+meaning, a saved query over the ledger. ADR-054's wording is amended by
+this entry, not superseded. Plan errors that said "typed segment" say
+"leg". (6) **`gtme show` names the key's tier.** The record object gains
+`identity_key_tier`: the type file's `identity` field the key was derived
+from (`email`, `linkedin_url`, `domain`, …) or `name_hash`, so a bare `nh:`
+key is explained where it prints. Additive; no other schema change.
+(7) **The first example is `examples/hello.yaml`, pipeline `hello`.** Its
+steps and fields are unchanged; only the file and the pipeline name move,
+so the docs' first pipeline no longer shares a name with the key and the
+column it teaches. `examples/cache.yaml` is removed; README, START.md,
+ADAPTERS.md, the e2e tests and the docs follow.
+**Consequences:** The plan and the receipt read in the words the concept
+pages use, so a page can print output without glossing a label. Error
+text gets shorter, and no operator has to know what an ADR is. Agents lose
+nothing: the citations they use are in `help --agent` and the canon. The
+docs pages that print plan or receipt output (Concepts 1–4, 10–12, and
+Start's show-me) are re-run after M32 so their artifacts stay real; until
+then they show the old labels. Pipelines are unaffected: no key, no
+manifest field, no wire message and no DDL changes.
+**Spec impact:** AMEND §7 (legs; plan labels), §8 (the plain-words rule,
+receipt words, simulate banner, `gtme show`), §10 item 9 and §11 M29 (the
+example's name), §11 (M32 queued), Changelog (v0.50). docs/DESIGN.md's
+noun list gains *leg*; `docs/_outline.yaml`'s terms gain `leg`.
+
 ### ADR-054: `traverse` — a run is a sequence of typed segments, and a type is a file
 **Status:** Accepted (2026-09-05 — design session; answers ADR-008's parked
 question and ROADMAP.md's "Entity types" (until this packet, "Object

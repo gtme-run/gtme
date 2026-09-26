@@ -871,6 +871,12 @@ beside it. The canonical schema for this file is
    set no rate) prints `est/record: unset`, never `$0.0000` (ADR-046) —
    the gap is visible before anything is spent.
 
+**Plan labels (ADR-058):** the projection line is `reads:`; a step's
+`of:` line prints `of: <field> (the value under review)`; the terminus
+prints `ends in group "<name>"`, with `as <type>` when the run is typed;
+and the default plan output carries no `ADR-` or `§` citation (§8's
+plain-words rule).
+
 **Plan rendering — `--viz` (ADR-051):** `gtme plan --viz` appends a diagram
 of the resolved plan to the output above; `--viz-only` prints the diagram in
 place of it. Both are renderings of the same resolved plan: same validation,
@@ -987,14 +993,14 @@ canonical name) is SUGGESTED in plan output, never silently guessed;
 tier (§4) — none at all is a plan error, and only the name-hash fallback
 tier is a plan warning.
 
-**Types, segments and traverses (ADR-054):** a run is a sequence of
-typed segments, and the planner walks them. Every step is validated
-against the type of its segment — its manifest's `entity_type` MUST equal
+**Types, legs and traverses (ADR-054; *leg* per ADR-058):** a run is a sequence of
+typed legs, and the planner walks them. Every step is validated
+against the type of its leg — its manifest's `entity_type` MUST equal
 it or be `*`. A traverse step's `from` MUST equal the current type, and
 after it only records of its `entity_type` continue: the records before
 it are finished at the traverse (terminal in ADR-052's sense, whether
 they yielded children or none), and a deliver step MAY sit in any
-segment. `when:` MAY name only a step in the current segment — a verdict
+leg. `when:` MAY name only a step in the current leg — a verdict
 is a fact about the parent, not the child — and a reference across a
 traverse is a plan error naming the traverse to gate at instead (`when:
 judge.passed` on the traverse step means only children of passing
@@ -1138,6 +1144,14 @@ groups` in M9, ADR-030's `gtme vacuum` in M11, ADR-042's `gtme adapters`
 in M19, and ADR-049's `gtme answer`). ADR-051 adds no verb: `--viz` and
 `--viz-only` are rendering options on `gtme plan`.
 
+**Plain words on the default surface (ADR-058):** everything `gtme`
+prints for an operator by default — plan, receipts, progress lines,
+errors — names the thing and the fix in the docs' vocabulary and carries
+no `ADR-` or `§` citation. The citations live in SPEC.md, DECISIONS.md
+and the reference surfaces (`help --agent`, `help --bindings`), which
+keep them. A typed stretch of a run is a *leg* (§7); *segment* means only
+a saved query over the ledger.
+
 ### Payload eviction — `gtme vacuum` (ADR-030; built in M11)
 
 `gtme vacuum` deletes payloads whose `expires_at` has passed — and nothing
@@ -1172,12 +1186,13 @@ remainder and the line names it (`N in flight`, `N held (dry run)`,
 A source MUST reconcile what it read against what it sourced, classifying
 the difference — records that coalesced into identities the ledger already
 held are the ordinary cause, and the coalescing MUST be recorded per
-record (a `step_events` row) so which row merged into which identity is
-answerable afterward, not merely counted:
+record (a `step_events` row, event `coalesced`) so which row merged into
+which identity is answerable afterward, not merely counted; the receipt
+line says `already in the ledger` (ADR-058):
 
 ```
 source [info]: read 940 rows from acquired-contacts.csv
-source: sourced 931 records (9 coalesced into known identities)
+source: sourced 931 records (9 already in the ledger)
 website: 10 in, 2 out, 8 empty
 write:   10 in, 10 out (8 missing web.homepage)
 ```
@@ -1189,13 +1204,14 @@ information, not a new outcome.
 
 A traverse step (§6, ADR-054) reports two populations: `in` counts its
 parents and reconciles exactly as any step's does (a parent that yielded
-no children counts `empty`); `traversed` and `coalesced` count the
-children it minted and the children that resolved to an identity already
-in the run (ADR-053 (3)). Spend at a traverse is spend as at a source,
+no children counts `empty`); `traversed` and `already in this run` count
+the children it minted and the children that resolved to an identity
+already in the run (ADR-053 (3); the `step_events` event stays
+`coalesced`, ADR-058). Spend at a traverse is spend as at a source,
 and a dry run executes it:
 
 ```
-posts:   10 in, 8 out, 2 empty — 84 traversed (post), 3 coalesced
+posts:   10 in, 8 out, 2 empty — 84 traversed (post), 3 already in this run
 ```
 
 **Terminal receipt** (stderr, end of run): records in/out per step, cache
@@ -1214,7 +1230,10 @@ and — with `--provenance` — the source adapter, confidence, run that
 wrote it, and, for a review's or edit's outputs, the referent (ADR-048:
 the `field_values` row it was about) and the participant's `--note`. `gtme show --run last` (or a specific `RUN_ID`) lists the records
 touched by that run instead of a single identity. `--fields a,b,c` narrows
-the printed fields; `--limit N` caps rows for `--run` mode. `gtme show` is
+the printed fields; `--limit N` caps rows for `--run` mode. The record
+object carries `identity_key_tier` (ADR-058): the type file's `identity`
+field the key was derived from — `email`, `linkedin_url`, `domain` — or
+`name_hash`, so a bare `nh:` key is explained where it prints. `gtme show` is
 strictly read-only: it MUST NOT write to the ledger, and it MUST NOT appear
 in `gtme freeze` output (it is an inspection tool, not a pipeline step).
 
@@ -1611,7 +1630,10 @@ layer: its writes are excluded from projection and cache (whether by
 ephemerality or by flagging is an implementation decision, recorded in
 DECISIONS.md at build time). With this the gate ladder is complete:
 **simulate → plan → dry-run → armed** — behavior offline, then contracts,
-then live-reads with delivery withheld, then live. An agent that authors
+then live-reads with delivery withheld, then live. The banner and the
+receipt title say `recorded responses only` (ADR-058); *fixture* is the
+adapter author's word and stays on the `adapters` verbs and in `help
+--bindings`. An agent that authors
 a pipeline can fully validate it (structure via plan, behavior via
 simulate) before a human reviews anything. A binding without fixtures
 MUST surface in the simulated receipt as a simulation gap, not silently
@@ -1984,7 +2006,7 @@ built; ADR-055 defers it to ROADMAP.md. The event recipe is in §8.)
    `demo/enrich@1`; `gtme plan` prints `est/record: $0.0100`. Never in
    the registry index; the `demo/` prefix is reserved. Exists so the
    zero-key path prints the top-up receipt — `cached`, `avoided` — on a
-   persisting ledger (`examples/cache.yaml`), which `--simulate` cannot
+   persisting ledger (`examples/hello.yaml`, ADR-058), which `--simulate` cannot
    (ADR-028).
 10. **`text/compose`** (compose, entity-agnostic; ADR-057; built in M30)
    — runner-owned, the sibling of `human/compose`: no subprocess, no
@@ -2527,7 +2549,7 @@ decided contract, not shipped behavior.
   and emits an `estimated` COST of `cost_per_record_usd` (default
   $0.01) per record under provider `demo`; `freshness_days` 30. Runs
   identically armed and under `--simulate`. Installed bindings may not
-  take the `demo/` prefix. `examples/cache.yaml` + `examples/contacts.csv`
+  take the `demo/` prefix. `examples/hello.yaml` (ADR-058) + `examples/contacts.csv`
   are the zero-key top-up demo. Acceptance, offline: the example planned
   with no environment prints `est/record: $0.0100` for the step; run
   armed twice against an empty ledger, the first receipt shows 3 in,
@@ -2569,6 +2591,26 @@ decided contract, not shipped behavior.
   produce byte-identical requests before and after; a binding still
   using the bare `|` fallback fails `adapters verify` naming the
   rewrite.
+- **M32 — plain words (ADR-058; §7, §8, §10, §11). Queued 2026-09-26.** The
+  default surface drops its citations and takes the docs' words: plan
+  prints `reads:`, `of: <field> (the value under review)` and `ends in
+  group "<name>" as <type>`; source and traverse receipt lines say
+  `already in the ledger` and `already in this run`; the simulate banner
+  and receipt title say `recorded responses only`; every error names the
+  fix with no `ADR-` or `§` reference; plan errors say "leg" where they
+  said "typed segment"; `gtme show` gains `identity_key_tier`;
+  `examples/cache.yaml` becomes `examples/hello.yaml` (pipeline `hello`)
+  in README, START.md, ADAPTERS.md, the e2e tests and the docs. `help
+  --agent` and `help --bindings` keep their citations. Acceptance,
+  offline: `gtme plan examples/hello.yaml` prints `reads:` and no `ADR-`;
+  a review step's plan block prints `of: title (the value under review)`;
+  a traverse receipt line ends `1 already in this run` and a source line
+  `(1 already in the ledger)`; `gtme run --simulate` prints `recorded
+  responses only`; `gtme show jane.doe@acme.com` prints
+  `"identity_key_tier": "email"` and a name-hashed record `"name_hash"`;
+  no printed string outside `help_agent.go` and `help_bindings.go`
+  contains `ADR-` or `§`; every docs page that prints plan or receipt
+  output is re-run and lints clean.
 - **M28 — types and traverse (ADR-054; §3, §4, §4a, §5, §6, §7, §8, §9,
   §10a, §13). Built 2026-09-05 (changelog v0.43).** A type is a file: `spec/fields/*.json` gain
   `kind`, `identity` and per-field `reference`, §4 derivation reads the
@@ -2915,6 +2957,15 @@ no reconstruction required from raw table scans.
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.50 — 2026-09-26 (ADR-058 reconciliation: plain words on the operator surface; build queued as M32)
+**Changed:** §7 "typed segments" become typed legs, and the plan labels
+(`reads:`, `of: … (the value under review)`, `ends in group …`); §8 gains
+the plain-words rule (no `ADR-`/`§` citations on the default surface),
+the receipt words for coalescing, the simulate banner wording, and
+`identity_key_tier` on `gtme show`; §10 item 9 and §11 M29 name
+`examples/hello.yaml`; §11 M32 queued. No wire, DDL, manifest or
+exit-code change.
 
 ### v0.49 — 2026-09-13 (M31 build: one dialect, built)
 **Changed:** §11 M31 marked built; no normative text changed — v0.47's
