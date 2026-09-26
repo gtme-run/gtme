@@ -94,7 +94,7 @@ func parseConfig(raw map[string]any) (config, error) {
 	var c config
 	c.Template, _ = raw[template.Key].(string)
 	if strings.TrimSpace(c.Template) == "" {
-		return c, fmt.Errorf("config.template is required (ADR-057)")
+		return c, fmt.Errorf("config.template is required")
 	}
 	c.Model, _ = raw["model"].(string)
 	c.Of, _ = raw[adapters.OfConfigKey].(string)
@@ -149,7 +149,7 @@ func (a *Adapter) shapeFor(cfg config) (shape, error) {
 	raw := cfg.Provides
 	if len(raw) == 0 {
 		if a.Mode == modeReview {
-			return shape{}, fmt.Errorf("%s: a review declares its labels — add provides: to the step (ADR-048)", a.id())
+			return shape{}, fmt.Errorf("%s: a review declares its labels — add provides: to the step", a.id())
 		}
 		if a.Mode == modeCompose {
 			var doc struct {

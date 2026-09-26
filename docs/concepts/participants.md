@@ -96,13 +96,13 @@ The output is the following, trimmed with `...`:
 2. grade [review] — human/review@1
 ...
      provides:  grading.grade
-     of:        title (the referent — its value joins the cache key, its id the provenance; ADR-048)
+     of:        title (the value under review)
      render:    the of: value
      prompt:    never — records wait in the ledger; `gtme answer` records, the next `gtme run` collects (ADR-049)
 ...
 ```
 
-`[review]` is the step's role and `@1` the adapter's version. `provides:` is the field the step writes, prefixed with the pipeline's name. `of:` is the value under review, which [Steps and roles](/concepts/steps-and-roles) calls the referent. `render:` is what the person sees, and `prompt:` says whether the run asks. Run it:
+`[review]` is the step's role and `@1` the adapter's version. `provides:` is the field the step writes, prefixed with the pipeline's name. `of:` is the value under review. `render:` is what the person sees, and `prompt:` says whether the run asks. Run it:
 
 ```sh
 gtme run grading.yaml

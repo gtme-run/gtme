@@ -22,7 +22,7 @@ func cmdFreeze(ctx context.Context, env Env, args []string) error {
 	fs := flag.NewFlagSet("freeze", flag.ContinueOnError)
 	fs.SetOutput(env.Stderr)
 	name := fs.String("name", "", "name for the frozen pipeline (default: frozen-<run id>)")
-	bundleDir := fs.String("bundle", "", "assemble a campaign bundle into this directory instead of printing YAML (SPEC §8, ADR-029)")
+	bundleDir := fs.String("bundle", "", "assemble a campaign bundle into this directory instead of printing YAML")
 	positional, err := parseFlags(fs, args)
 	if err != nil {
 		return err

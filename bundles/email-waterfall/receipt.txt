@@ -4,7 +4,7 @@ simulate: ignoring missing credentials (3 plan problems:
   - step "finder-a": missing credential FINDER_A_API_KEY (set it in the environment or run `gtme secret set FINDER_A_API_KEY`)
   - step "finder-b": missing credential FINDER_B_API_KEY (set it in the environment or run `gtme secret set FINDER_B_API_KEY`)
   - step "verify": missing credential VERIFIER_API_KEY (set it in the environment or run `gtme secret set VERIFIER_API_KEY`))
-simulate: fixtures only — no network, no spend, nothing sends, nothing persists
+simulate: recorded responses only — no network, no spend, nothing sends, nothing persists
 run 01M2EPQSYKBXS3T6HPVXX6FWNW (email-waterfall)
 source [info]: read 3 rows from people.csv
 source: sourced 3 records
@@ -18,7 +18,7 @@ verify: 2 in, 2 out, 0 cached, 0 filtered, 0 failed
 deliverable: 2 in, 1 out, 0 cached, 1 filtered, 0 failed
 out: 1 in, 0 out, 0 cached, 0 filtered, 0 failed, 1 held (dry run)
 
-run 01M2EPQSYKBXS3T6HPVXX6FWNW — done (SIMULATED — fixtures only; nothing sent, nothing persisted)
+run 01M2EPQSYKBXS3T6HPVXX6FWNW — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
 step         adapter                in  out  empty  cached  filtered  failed  cost     avoided
 source       csv/source             0   3    -      0       -         -       $0       -
 finder-a     finder-a/email         3   1    2      0       -         -       $0.0050  -

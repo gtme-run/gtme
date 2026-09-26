@@ -6,7 +6,7 @@ learn:
   - "the six roles a single-type pipeline uses, and what each one reads, writes, and costs"
   - "why only a filter writes a verdict, and what `when:` checks"
   - "how `gtme plan` checks each step's needs against what earlier steps provide"
-  - "how to read a step's plan block: projects, of, provides, and est/record"
+  - "how to read a step's plan block: reads, of, provides, and est/record"
 order: 2
 roles: [builder, operator]
 links:
@@ -115,30 +115,30 @@ pipeline roles (version 1)
      provides:  company_domain, email, full_name, title
 ...
 2. score [enrich] — demo/enrich@1
-     projects:  email, full_name
+     reads:     email, full_name
      provides:  demo.note, demo.score
 ...
 3. fit [filter] — ai/filter@1
-     projects:  title, demo.score
+     reads:     title, demo.score
      provides:  (none)
 ...
 4. draft [compose] — ai/compose@1
      when:      fit.passed
-     projects:  full_name, title
+     reads:     full_name, title
      provides:  roles.first_line
 ...
 5. grade [review] — ai/review@1
-     projects:  title, roles.first_line
+     reads:     title, roles.first_line
      provides:  roles.grade
-     of:        roles.first_line (the referent — its value joins the cache key, its id the provenance; ADR-048)
+     of:        roles.first_line (the value under review)
      est/record: ?
 ...
 6. out [deliver] — csv/deliver@1
-     projects:  roles.first_line, roles.grade
+     reads:     roles.first_line, roles.grade
      provides:  (none)
 ...
 
-send surface: 1 deliver step(s) (ADR-031)
+send surface: 1 deliver step(s)
   out → csv/deliver (touch scope: roles)
 
 available fields after the last step: company_domain, demo.note, demo.score, email, full_name, roles.first_line, roles.grade, title
@@ -156,7 +156,7 @@ SPEC §6 lists eight roles. The other two are `traverse`, which changes the reco
 | Role | Reads | Writes | Costs | In this file |
 |---|---|---|---|---|
 | source | a file, an API, or a [group](/concepts/groups)'s members | new records and their fields | the vendor's price per search, no vendor call for a CSV | `source` |
-| enrich | the fields its manifest requires, printed as `projects:` | fields | the vendor's price per record, skipped while the fields are fresher than `cache:`, and no vendor call for `sql/transform` | `score` |
+| enrich | the fields its manifest requires, printed as `reads:` | fields | the vendor's price per record, skipped while the fields are fresher than `cache:`, and no vendor call for `sql/transform` | `score` |
 | filter | the `uses:` fields | a verdict, pass or fail with a reason, plus any declared fields | model tokens for `ai/filter`, no model for `sql/filter` | `fit` |
 | compose | the `uses:` fields | new field values | model tokens for `ai/compose`, no model for `text/compose` | `draft` |
 | review | the `of:` value, with `uses:` as context | labels about that value, as fields | model tokens for `ai/review`, no model for `human/review` | `grade` |
@@ -164,7 +164,7 @@ SPEC §6 lists eight roles. The other two are `traverse`, which changes the reco
 
 Plan prints `?` for a step whose adapter publishes no per-record estimate. That's every AI step, and every no-vendor step except `csv/deliver`, the only one that declares $0. An AI step's model spend is measured and shows on the receipt.
 
-**Read `grade` against its plan block.** `projects:` is what it reads, `title` and `roles.first_line`. The `roles.` prefix is the pipeline's name on a field an AI step declared, so two campaigns can each write a person's first line (the decision record, [ADR-033](/decisions#adr-033)). `of:` names the referent, the thing under review, and its value joins the cache key, so a changed first line gets re-reviewed. `provides:` is what it writes, `roles.grade`, an enum, meaning a fixed set of allowed values, and it costs model tokens with no plan estimate.
+**Read `grade` against its plan block.** `reads:` is what it reads, `title` and `roles.first_line`. The `roles.` prefix is the pipeline's name on a field an AI step declared, so two campaigns can each write a person's first line (the decision record, [ADR-033](/decisions#adr-033)). `of:` names the value under review, and that value joins the cache key, so a changed first line gets re-reviewed. `provides:` is what it writes, `roles.grade`, an enum, meaning a fixed set of allowed values, and it costs model tokens with no plan estimate.
 
 **Only a filter writes a verdict.** A record that fails stays in the ledger ([SPEC §7](/spec#7-contract-validation--the-planner--decided)).
 

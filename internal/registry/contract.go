@@ -53,7 +53,7 @@ func (r *Registry) Contract(m *adapters.Manifest, entityType string, provides []
 	strong, weakOnly := r.Coverage(entityType, provides)
 	if !strong && !weakOnly {
 		problems = append(problems, ContractProblem{Check: "key", Msg: fmt.Sprintf(
-			"no identity-key path: none of the fields it provides (%s) can key a %s (SPEC §4 tiers: %s) — a %s that emits unkeyable records is billed and yields nothing",
+			"no identity-key path: none of the fields it provides (%s) can key a %s (key tiers: %s) — a %s that emits unkeyable records is billed and yields nothing",
 			strings.Join(provides, ", "), entityType, strings.Join(t.TierNames(), "; "), m.Role)})
 	}
 	return problems, !strong && weakOnly

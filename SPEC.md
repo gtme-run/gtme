@@ -2591,7 +2591,7 @@ decided contract, not shipped behavior.
   produce byte-identical requests before and after; a binding still
   using the bare `|` fallback fails `adapters verify` naming the
   rewrite.
-- **M32 — plain words (ADR-058; §7, §8, §10, §11). Queued 2026-09-26.** The
+- **M32 — plain words (ADR-058; §7, §8, §10, §11). Built 2026-09-26 (changelog v0.52).** The
   default surface drops its citations and takes the docs' words: plan
   prints `reads:`, `of: <field> (the value under review)` and `ends in
   group "<name>" as <type>`; source and traverse receipt lines say
@@ -2957,6 +2957,22 @@ no reconstruction required from raw table scans.
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.52 — 2026-09-26 (M32 build: plain words, built)
+**Changed:** §11 M32 marked built; no normative text changed — v0.50's
+contract is shipped behaviour, covered by M32's acceptance. Behavioural
+notes from the build: the citation strip covers every printed string
+outside `help_agent.go` and `help_bindings.go`, including built-in
+adapters' config-schema descriptions (which `docs/_adapters.json`
+regenerates from); the `ends in group` line keeps a parenthetical,
+`(records that complete the run are added)`, so the terminus still says
+what it does; `identity_key_tier` reports the type file's field name, so a
+company keyed by domain prints `company_domain` and a hashed key
+`name_hash`, derived by re-running each tier's rule over the stored key in
+tier order; the simulation-gap lines say `recorded responses` with the
+banner; `examples/cache.yaml` is removed, not aliased, and the bundles'
+committed `receipt.txt` files carry the new wording (their tables are
+unchanged). (v0.51 is ADR-059's reconciliation, on its own packet.)
 
 ### v0.50 — 2026-09-26 (ADR-058 reconciliation: plain words on the operator surface; build queued as M32)
 **Changed:** §7 "typed segments" become typed legs, and the plan labels

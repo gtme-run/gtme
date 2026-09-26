@@ -29,7 +29,7 @@ links:
     description: The group keys this page leaves out, top-level group and require and exclude on a step
   - to: /start/show-me
     type: relates-to
-    description: Runs the same cache.yaml twice, armed, at $0
+    description: Runs the same hello.yaml twice, armed, at $0
   - to: /guides/first-pipeline
     type: relates-to
     description: Writes a pipeline like this one from your own CSV, key by key
@@ -58,10 +58,10 @@ links:
 
 # A pipeline is a YAML file
 
-Here's `cache.yaml`, an example that ships with gtme, minus its header comment:
+Here's `hello.yaml`, an example that ships with gtme, minus its header comment:
 
 ```yaml
-name: cache
+name: hello
 version: 1
 
 source:
@@ -96,13 +96,13 @@ steps:
 It reads three people from a CSV, scores each one, keeps anyone scoring 70 or more, and writes the keepers to `out.csv`. If you ran [See it run](/start/show-me), the file is already in your folder, and if it isn't, that page has the two download lines. Ask plan what it read. It spends nothing and sends nothing:
 
 ```sh
-gtme plan cache.yaml
+gtme plan hello.yaml
 ```
 
 The output is the following:
 
 ```
-pipeline cache (version 1)
+pipeline hello (version 1)
 
 1. source [source] — csv/source@1
      entity:    person
@@ -112,7 +112,7 @@ pipeline cache (version 1)
 
 2. score [enrich] — demo/enrich@1
      entity:    person
-     projects:  email, full_name
+     reads:     email, full_name
      requires:  any of email | full_name
      provides:  demo.note, demo.score
      cache:     30d
@@ -120,14 +120,14 @@ pipeline cache (version 1)
 
 3. keep [filter] — sql/filter
      entity:    person
-     projects:  (none)
+     reads:     (none)
      provides:  (none)
      est/record: ?
 
 4. out [deliver] — csv/deliver@1
      record:    touched → cache
      entity:    person
-     projects:  demo.note, demo.score
+     reads:     demo.note, demo.score
      requires:  demo.note, demo.score
      provides:  (none)
      idempotency: email
@@ -137,14 +137,14 @@ pipeline cache (version 1)
      note:      needs vendor-namespaced field "demo.score" — this pipeline is coupled to that vendor
      est/record: $0.0000
 
-send surface: 1 deliver step(s) (ADR-031)
-  out → csv/deliver (touch scope: cache)
+send surface: 1 deliver step(s)
+  out → csv/deliver (touch scope: hello)
 
 available fields after the last step: company_domain, demo.note, demo.score, email, full_name, title
 plan ok — nothing has been spent
 ```
 
-Each entry is a step, with its role in brackets and its adapter's version after `@`. `projects:` is what the step reads, its *projection*: the current value of each field it asked for. `requires:` must already exist, and `provides:` is what the step writes. `est/record:` is the adapter's price per record, and `?` means it publishes none. `sql/filter` and `csv/source` cost nothing, and an AI step's spend shows on the [receipt](/concepts/runs-and-receipts).
+Each entry is a step, with its role in brackets and its adapter's version after `@`. `reads:` is what the step reads, its *projection*: the current value of each field it asked for. `requires:` must already exist, and `provides:` is what the step writes. `est/record:` is the adapter's price per record, and `?` means it publishes none. `sql/filter` and `csv/source` cost nothing, and an AI step's spend shows on the [receipt](/concepts/runs-and-receipts).
 
 `writes:` is a relation the source records between each person and their company. `touched → cache` scopes a delivery to this pipeline, so another pipeline can still deliver the same person. `send surface` lists every step that sends. The two `note:` lines aren't a problem to fix. `demo.score` is namespaced, its name prefixed with the vendor's, and plan is telling you this file depends on `demo/enrich`.
 
@@ -172,7 +172,7 @@ A deliver step like `out` is an ordinary entry, so a pipeline can have none, one
 
 ## So what?
 
-**Plan checks every field name before anything spends.** Here's a `text/compose` step added to `cache.yaml` between `keep` and `out`. It writes an email subject from a template, at no cost:
+**Plan checks every field name before anything spends.** Here's a `text/compose` step added to `hello.yaml` between `keep` and `out`. It writes an email subject from a template, at no cost:
 
 ```yaml
   - id: subject
@@ -184,7 +184,7 @@ A deliver step like `out` is an ordinary entry, so a pipeline can have none, one
 ```
 
 ```sh
-gtme plan cache.yaml
+gtme plan hello.yaml
 ```
 
 The output is the following:
@@ -198,7 +198,7 @@ The CSV has a company domain and no company name, so nothing upstream provides i
 ```
 4. subject [compose] — text/compose@1
      entity:    person
-     projects:  full_name, company_domain
+     reads:     full_name, company_domain
      requires:  full_name, company_domain
      provides:  cache.subject
      est/record: ?

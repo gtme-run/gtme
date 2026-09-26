@@ -47,7 +47,7 @@ links:
 
 # The gate ladder
 
-These examples run `cache.yaml` from [A pipeline is a YAML file](/concepts/pipeline). `score` rates three fictional people at a pretend $0.01 each and caches the score for 30 days, `demo/enrich`'s default, which is why the armed run shows `cached 3`. `keep` drops anyone under 70, and `out` writes the rest to `out.csv`. In the folder with `cache.yaml` and `contacts.csv` ([See it run](/start/show-me) has the download lines), point gtme at a fresh ledger:
+These examples run `hello.yaml` from [A pipeline is a YAML file](/concepts/pipeline). `score` rates three fictional people at a pretend $0.01 each and caches the score for 30 days, `demo/enrich`'s default, which is why the armed run shows `cached 3`. `keep` drops anyone under 70, and `out` writes the rest to `out.csv`. In the folder with `hello.yaml` and `contacts.csv` ([See it run](/start/show-me) has the download lines), point gtme at a fresh ledger:
 
 ```sh
 export GTME_LEDGER=./ladder.db
@@ -55,26 +55,26 @@ export GTME_LEDGER=./ladder.db
 
 | Rung | Command | Spends | Ledger | Sends |
 |---|---|---|---|---|
-| Simulate | `gtme run cache.yaml --simulate` | No | A throwaway copy | No |
-| Plan | `gtme plan cache.yaml` | No | Reads groups and SQL; writes no rows (it creates an empty ledger file if there isn't one) | No |
-| Dry-run | `gtme run cache.yaml --dry-run` | Yes, on every step except deliver | Facts and costs, no deliveries | No. Preflight reads the target |
-| Armed | `gtme run cache.yaml` | Yes | Everything | Yes, after preflight |
+| Simulate | `gtme run hello.yaml --simulate` | No | A throwaway copy | No |
+| Plan | `gtme plan hello.yaml` | No | Reads groups and SQL; writes no rows (it creates an empty ledger file if there isn't one) | No |
+| Dry-run | `gtme run hello.yaml --dry-run` | Yes, on every step except deliver | Facts and costs, no deliveries | No. Preflight reads the target |
+| Armed | `gtme run hello.yaml` | Yes | Everything | Yes, after preflight |
 
 ## Simulate
 
 **Simulate runs the whole pipeline offline and keeps nothing.**
 
 ```sh
-gtme run cache.yaml --simulate
+gtme run hello.yaml --simulate
 ```
 
 The output is similar to the following:
 
 ```
-simulate: fixtures only — no network, no spend, nothing sends, nothing persists
-run 01M3DJMCH37P7QHXT7NNVCC0E3 (cache)
+simulate: recorded responses only — no network, no spend, nothing sends, nothing persists
+run 01M3DJMCH37P7QHXT7NNVCC0E3 (hello)
 ...
-run 01M3DJMCH37P7QHXT7NNVCC0E3 — done (SIMULATED — fixtures only; nothing sent, nothing persisted)
+run 01M3DJMCH37P7QHXT7NNVCC0E3 — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
 step    adapter      in  out  empty  cached  filtered  failed  cost     avoided
 source  csv/source   0   3    -      0       -         -       $0       -
 score   demo/enrich  3   3    -      0       -         -       $0.0300  -
@@ -108,13 +108,13 @@ Simulate borrows dry-run's wording for held deliveries, so `1 held (dry run)` an
 **Plan checks the file and prices it, with no network and no spend.**
 
 ```sh
-gtme plan cache.yaml
+gtme plan hello.yaml
 ```
 
 The output is the following:
 
 ```
-pipeline cache (version 1)
+pipeline hello (version 1)
 ...
 2. score [enrich] — demo/enrich@1
 ...
@@ -124,8 +124,8 @@ pipeline cache (version 1)
 ...
      est/record: ?
 ...
-send surface: 1 deliver step(s) (ADR-031)
-  out → csv/deliver (touch scope: cache)
+send surface: 1 deliver step(s)
+  out → csv/deliver (touch scope: hello)
 ...
 plan ok — nothing has been spent
 ```
@@ -137,14 +137,14 @@ Plan checks that every field a step needs is provided upstream and that every cr
 **A dry-run is a real run with every deliver step held: it spends, and it sends nothing.**
 
 ```sh
-gtme run cache.yaml --dry-run
+gtme run hello.yaml --dry-run
 ```
 
 The output is similar to the following:
 
 ```
 dry run: deliver steps will resolve and receipt their variables, but nothing sends
-run 01M3DJMCKEX7Y2DKB61K2QZE08 (cache)
+run 01M3DJMCKEX7Y2DKB61K2QZE08 (hello)
 ...
 run 01M3DJMCKEX7Y2DKB61K2QZE08 — done (dry run — nothing sent)
 step    adapter      in  out  empty  cached  filtered  failed  cost     avoided
@@ -179,13 +179,13 @@ run                         pipeline  status      started                   reco
 **Armed is the same command with no flag. It spends and sends.**
 
 ```sh
-gtme run cache.yaml
+gtme run hello.yaml
 ```
 
 The output is similar to the following:
 
 ```
-run 01M3DJMCMTTCDTS8CP3SGYG6VN (cache)
+run 01M3DJMCMTTCDTS8CP3SGYG6VN (hello)
 ...
 out [info]: csv/deliver: wrote 1 row(s) to out.csv
 ...

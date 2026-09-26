@@ -68,10 +68,10 @@ func TestAIDeclaredProvidesStoreNamespacedAndRejectEnum(t *testing.T) {
 	for _, want := range []string{
 		"2. judge [filter] — ai/filter@1",
 		"provides:  qualify.rationale, qualify.state",
-		"projects:  qualify.state, qualify.rationale",
+		"reads:     qualify.state, qualify.rationale",
 		"provides:  qualify.subject",
-		`needs this pipeline's own judgment field "qualify.state" (declared by an earlier AI step, ADR-033)`,
-		`provides: "state" lands as "qualify.state" (per-campaign, ADR-033); the canonical person field "state" is untouched — add canonical: true to write it instead`,
+		`needs this pipeline's own judgment field "qualify.state" (declared by an earlier AI step)`,
+		`provides: "state" lands as "qualify.state" (per-campaign); the canonical person field "state" is untouched — add canonical: true to write it instead`,
 	} {
 		contains(t, plan.stderr, want, "plan output")
 	}
@@ -192,7 +192,7 @@ steps:
 		t.Fatalf("exit = %d, want 2\nstderr:\n%s", res.code, res.stderr)
 	}
 	contains(t, res.stderr, `manifest provides: "first_line" is not a canonical company field`, "stderr")
-	contains(t, res.stderr, "declare provides: on this step (ADR-033)", "stderr")
+	contains(t, res.stderr, "declare provides: on this step", "stderr")
 
 	// Declared outputs land on the company identities, registry-checked as company.
 	env := h.fixtureScript("ai.json", "$auto")

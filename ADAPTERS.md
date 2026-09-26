@@ -199,7 +199,7 @@ is [~150 lines of YAML](spec/bindings/apollo-search/binding.yaml).
 A traverse changes the run's entity type: records of one type in, records
 of another — or the same — type out, each related to the record that
 produced it (ADR-054). Only the new type moves forward; the parents are
-finished at the traverse. So a pipeline is a sequence of typed segments,
+finished at the traverse. So a pipeline is a sequence of typed legs,
 every step is validated against the type of its segment, and `when:` may
 only name a step in the same one — gate at the traverse itself to skip a
 parent's children. `gtme plan` prints each crossing with the relation it
@@ -254,7 +254,7 @@ vendor`). No key, no network, no payload; runs the same armed and under
 real over a stated pretend price and the adapter id labels every dollar
 it produces; 30-day freshness, `cache:` overrides. Never in the registry
 index, and the `demo/` prefix is refused for installed bindings.
-`examples/cache.yaml` runs it twice for the delta.
+`examples/hello.yaml` runs it twice for the delta.
 
 ### `harvest/profile`
 

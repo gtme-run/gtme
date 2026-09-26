@@ -198,7 +198,7 @@ func Parse(raw []byte) (*Pipeline, error) {
 	var p Pipeline
 	if err := dec.Decode(&p); err != nil {
 		if strings.Contains(err.Error(), "field deliver not found in type pipeline.Pipeline") {
-			return nil, fmt.Errorf("pipeline: the top-level deliver: block was removed (ADR-031) — deliver adapters are ordinary steps: entries; move the block into steps: (%w)", err)
+			return nil, fmt.Errorf("pipeline: the top-level deliver: block was removed — deliver adapters are ordinary steps: entries; move the block into steps: (%w)", err)
 		}
 		return nil, fmt.Errorf("pipeline: %w", err)
 	}
@@ -248,7 +248,7 @@ func (p *Pipeline) normalize() error {
 		}
 		isGroupSource := s == p.Source && strings.TrimSpace(s.Group) != ""
 		if isGroupSource && strings.TrimSpace(s.Use) != "" {
-			return fmt.Errorf("pipeline: %s: group: and use: are mutually exclusive on the source (SPEC §9)", fallback)
+			return fmt.Errorf("pipeline: %s: group: and use: are mutually exclusive on the source", fallback)
 		}
 		if strings.TrimSpace(s.Use) == "" && !isGroupSource {
 			return fmt.Errorf("pipeline: %s: use is required", fallback)
@@ -330,10 +330,10 @@ func (p *Pipeline) normalize() error {
 		}
 	}
 	if len(p.Source.Require) > 0 || len(p.Source.Exclude) > 0 {
-		return fmt.Errorf("pipeline: %s: require:/exclude: are not valid on the source step (SPEC §9)", p.Source.ID)
+		return fmt.Errorf("pipeline: %s: require:/exclude: are not valid on the source step", p.Source.ID)
 	}
 	if p.Source.Respend {
-		return fmt.Errorf("pipeline: %s: respend: is not valid on the source step — a source's spend is its query (SPEC §7)", p.Source.ID)
+		return fmt.Errorf("pipeline: %s: respend: is not valid on the source step — a source's spend is its query", p.Source.ID)
 	}
 	// limit: (ADR-032) bounds a group source, and (ADR-054) a traverse step;
 	// a source adapter's limit is config (ADR-047). Which interior steps are
@@ -346,13 +346,13 @@ func (p *Pipeline) normalize() error {
 			return fmt.Errorf("pipeline: %s: limit must be >= 1 (got %d)", s.ID, s.Limit)
 		}
 		if s.ID == p.Source.ID && strings.TrimSpace(s.Group) == "" {
-			return fmt.Errorf("pipeline: %s: limit: is only valid on a group source or a traverse step (SPEC §9, ADR-032, ADR-054) — a source adapter's cap is with: {limit: N} (ADR-047)", s.ID)
+			return fmt.Errorf("pipeline: %s: limit: is only valid on a group source or a traverse step — a source adapter's cap is with: {limit: N}", s.ID)
 		}
 	}
 	// once: (ADR-052) selects a group source's unfinished members and nothing else.
 	for _, s := range p.AllSteps() {
 		if s.Once && (strings.TrimSpace(s.Group) == "" || s.ID != p.Source.ID) {
-			return fmt.Errorf("pipeline: %s: once: is only valid on a group source (SPEC §9, ADR-052)", s.ID)
+			return fmt.Errorf("pipeline: %s: once: is only valid on a group source", s.ID)
 		}
 	}
 	for _, s := range p.AllSteps() {
@@ -498,11 +498,11 @@ func parseProvidesField(name string, raw any) (ProvidesField, error) {
 			}
 			f.Canonical = b
 		default:
-			return f, fmt.Errorf("provides: %s: unknown keyword %q (a declared field may carry type, enum and canonical, SPEC §7)", name, k)
+			return f, fmt.Errorf("provides: %s: unknown keyword %q (a declared field may carry type, enum and canonical)", name, k)
 		}
 	}
 	if f.Canonical && strings.Contains(name, ".") {
-		return f, fmt.Errorf("provides: %s: a canonical name must not contain a dot (SPEC §4a) — drop canonical: true or the namespace", name)
+		return f, fmt.Errorf("provides: %s: a canonical name must not contain a dot — drop canonical: true or the namespace", name)
 	}
 	if len(f.Enum) > 0 && f.Type != "" && f.Type != "string" {
 		return f, fmt.Errorf("provides: %s: an enum is a string domain; type %q contradicts it", name, f.Type)

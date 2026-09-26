@@ -48,7 +48,7 @@ func TestSpecExamplePipelinePlans(t *testing.T) {
 		"4. linkedin [enrich] — harvest/profile@1",
 		"5. personalize [compose] — ai/compose@1",
 		"6. send [deliver] — instantly/add-to-campaign@1",
-		"send surface: 1 deliver step(s) (ADR-031)",
+		"send surface: 1 deliver step(s)",
 		"send → instantly/add-to-campaign (touch scope: apollo-to-instantly)",
 		"requires:  any of linkedin_url | linkedin_internal_url | linkedin_sales_nav_url",
 		"variables: first_line ← first_line, ps_line ← ps_line",
@@ -226,13 +226,13 @@ func TestReceiptNamesTheMissingKey(t *testing.T) {
 }
 
 // M29 acceptance (SPEC §11, ADR-056): the zero-key top-up demo. Planned with
-// no environment, examples/cache.yaml prices demo/enrich at $0.01; run armed
+// no environment, examples/hello.yaml prices demo/enrich at $0.01; run armed
 // twice against an empty ledger, the first receipt spends $0.03 on three
 // records and delivers one, the second cache-skips all three, prints the
 // $0.03 avoided, calls no adapter, and delivers nothing twice.
 func TestCacheExampleShowsTheDelta(t *testing.T) {
 	h := newHarness(t)
-	for _, name := range []string{"cache.yaml", "contacts.csv"} {
+	for _, name := range []string{"hello.yaml", "contacts.csv"} {
 		raw, err := os.ReadFile(filepath.Join(repoRoot(), "examples", name))
 		if err != nil {
 			t.Fatalf("reading examples/%s: %v", name, err)
@@ -240,11 +240,11 @@ func TestCacheExampleShowsTheDelta(t *testing.T) {
 		h.write(name, string(raw))
 	}
 
-	plan := h.mustRun("plan", "cache.yaml")
+	plan := h.mustRun("plan", "hello.yaml")
 	contains(t, plan.stderr, "score [enrich] — demo/enrich@1", "plan resolves the built-in")
 	contains(t, plan.stderr, "est/record: $0.0100", "plan prints the pretend price")
 
-	first := h.mustRun("run", "cache.yaml")
+	first := h.mustRun("run", "hello.yaml")
 	contains(t, first.stderr, "score: 3 in, 3 out, 0 cached", "first run scores everyone")
 	contains(t, first.stderr, "keep: 3 in, 1 out, 0 cached, 2 filtered", "the SQL filter judges")
 	contains(t, first.stderr, "out: 1 in, 1 out", "one delivered")
@@ -259,7 +259,7 @@ func TestCacheExampleShowsTheDelta(t *testing.T) {
 		t.Errorf("demo.note = %v", got)
 	}
 
-	second := h.mustRun("run", "cache.yaml")
+	second := h.mustRun("run", "hello.yaml")
 	contains(t, second.stderr, "score: 3 in, 0 out, 3 cached", "second run cache-skips")
 	contains(t, second.stderr, "$0.0300", "the receipt prints the dollars avoided")
 	contains(t, second.stderr, "avoided via cache", "second receipt")

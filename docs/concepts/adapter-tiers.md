@@ -211,7 +211,7 @@ gtme run tiers.yaml --simulate
 The [receipt](/concepts/runs-and-receipts) at the end is similar to the following:
 
 ```
-run 01M3DMGEKBPTQ0VJ4VK74Q8678 — done (SIMULATED — fixtures only; nothing sent, nothing persisted)
+run 01M3DMGEKBPTQ0VJ4VK74Q8678 — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
 step    adapter                 in  out  empty  cached  filtered  failed  cost  avoided
 source  hubspot/contact-search  0   2    -      0       -         -       $0    -
 score   mock-enrich-py          2   2    -      0       -         -       $0    -

@@ -16,7 +16,7 @@ func TestPlanPrintsTheResolvedPlan(t *testing.T) {
 		"pipeline csv-to-mock",
 		"1. source [source] — csv/source@1",
 		"2. mock [enrich] — mock-enrich-py@1 (external:",
-		"projects:  email, full_name",
+		"reads:     email, full_name",
 		"provides:  mock.note, mock.score",
 		"cache:     30d",
 		"est/record: $0.0000",

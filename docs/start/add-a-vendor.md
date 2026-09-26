@@ -196,13 +196,13 @@ For a vendor API over plain HTTP, an [adapter](/concepts/adapter-tiers) is a *bi
     The receipt at the end is similar to the following:
 
     ```
-    simulate: fixtures only — no network, no spend, nothing sends, nothing persists
+    simulate: recorded responses only — no network, no spend, nothing sends, nothing persists
     run 01M3CX29SWR8TS6ZEW6XEXWJBP (my-pipeline)
     source [info]: jsonplaceholder/users: 3 records
     source: sourced 3 records
     out: 3 in, 0 out, 0 cached, 0 filtered, 0 failed, 3 held (dry run)
 
-    run 01M3CX29SWR8TS6ZEW6XEXWJBP — done (SIMULATED — fixtures only; nothing sent, nothing persisted)
+    run 01M3CX29SWR8TS6ZEW6XEXWJBP — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
     step    adapter                in  out  empty  cached  filtered  failed  cost  avoided
     source  jsonplaceholder/users  0   3    -      0       -         -       $0    -
     out     csv/deliver            3   0    -      0       -         -       $0    -

@@ -50,17 +50,17 @@ links:
 
 # Runs and receipts
 
-This is `cache.yaml` from [See it run](/start/show-me), run [armed](/concepts/gate-ladder), and it spends $0 (`demo/enrich` charges a pretend $0.01 per record) and sends nothing. From the folder that has `cache.yaml` and `contacts.csv`, run it against a fresh ledger:
+This is `hello.yaml` from [See it run](/start/show-me), run [armed](/concepts/gate-ladder), and it spends $0 (`demo/enrich` charges a pretend $0.01 per record) and sends nothing. From the folder that has `hello.yaml` and `contacts.csv`, run it against a fresh ledger:
 
 ```sh
 export GTME_LEDGER=$(mktemp -d)/ledger.db
-gtme run cache.yaml
+gtme run hello.yaml
 ```
 
 The output is similar to the following:
 
 ```
-run 01M3DJG0795V0Y98M7KXHRPTEZ (cache)
+run 01M3DJG0795V0Y98M7KXHRPTEZ (hello)
 ...
 run 01M3DJG0795V0Y98M7KXHRPTEZ — done
 step    adapter      in  out  empty  cached  filtered  failed  cost     avoided
@@ -78,7 +78,7 @@ The table at the end is the receipt. It and the progress lines go to the termina
 Here's the file that produced it:
 
 ```yaml
-name: cache
+name: hello
 version: 1
 
 source:
@@ -196,13 +196,13 @@ Run it in a fresh ledger:
 
 ```sh
 export GTME_LEDGER=$(mktemp -d)/ledger.db
-gtme run cache.yaml
+gtme run hello.yaml
 ```
 
 The output is similar to the following:
 
 ```
-run 01M3DJG3J1BYGRYMCPNP7A2EEZ (cache)
+run 01M3DJG3J1BYGRYMCPNP7A2EEZ (hello)
 ...
 run 01M3DJG3J1BYGRYMCPNP7A2EEZ — failed
 step    adapter      in  out  empty  cached  filtered  failed  cost     avoided
@@ -218,13 +218,13 @@ Jane's `run_records` state is `keep`, the last step she completed. Make the fold
 
 ```sh
 mkdir sent
-gtme run cache.yaml --resume last
+gtme run hello.yaml --resume last
 ```
 
 The output is similar to the following:
 
 ```
-resuming run 01M3DJG3J1BYGRYMCPNP7A2EEZ (cache)
+resuming run 01M3DJG3J1BYGRYMCPNP7A2EEZ (hello)
 ...
 run 01M3DJG3J1BYGRYMCPNP7A2EEZ — done
 step    adapter      in  out  empty  cached  filtered  failed  cost  avoided

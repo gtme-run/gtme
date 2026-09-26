@@ -280,7 +280,7 @@ func Execute(ctx context.Context, o Options) (*Result, error) {
 	}
 	switch {
 	case r.simulate:
-		fmt.Fprintln(r.stderr, "simulate: fixtures only — no network, no spend, nothing sends, nothing persists")
+		fmt.Fprintln(r.stderr, "simulate: recorded responses only — no network, no spend, nothing sends, nothing persists")
 		path, err := writeAutoFixture()
 		if err != nil {
 			return nil, fmt.Errorf("runner: %w", err)
@@ -323,7 +323,7 @@ func Execute(ctx context.Context, o Options) (*Result, error) {
 	// ledger is a throwaway copy.
 	if !r.simulate {
 		if n, err := r.l.PurgeExpiredPayloads(ctx); err == nil && n > 0 {
-			fmt.Fprintf(r.stderr, "evicted %d expired payload(s) (ADR-030)\n", n)
+			fmt.Fprintf(r.stderr, "evicted %d expired payload(s)\n", n)
 		}
 	}
 
@@ -723,7 +723,7 @@ func (r *runner) runSource(ctx context.Context) error {
 		// A stubbed source under --simulate sources nothing: a visible gap, not a
 		// silent pass (SPEC §8).
 		r.bump(st, func(s *StepStat) { s.SimGap = true })
-		fmt.Fprintf(r.stderr, "%s: simulation gap — nothing to source from (no fixtures)\n", st.ID)
+		fmt.Fprintf(r.stderr, "%s: simulation gap — nothing to source from (no recorded responses)\n", st.ID)
 		return r.l.LogStepEvent(ctx, r.prov(st.ID), "", "done",
 			map[string]any{"records": 0, "simulation_gap": true})
 	}
@@ -806,7 +806,7 @@ func (r *runner) runSource(ctx context.Context) error {
 	// ADR-053): the adapter's own [info] line says what it read; this one
 	// says what became a record, and classifies the difference.
 	if coalesced > 0 {
-		fmt.Fprintf(r.stderr, "%s: sourced %d records (%d coalesced into known identities)\n", st.ID, count, coalesced)
+		fmt.Fprintf(r.stderr, "%s: sourced %d records (%d already in the ledger)\n", st.ID, count, coalesced)
 	} else {
 		fmt.Fprintf(r.stderr, "%s: sourced %d records\n", st.ID, count)
 	}

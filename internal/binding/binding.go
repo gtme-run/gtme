@@ -268,7 +268,7 @@ func Parse(rawYAML []byte) (*Binding, error) {
 // check enforces what the JSON schema cannot express.
 func (b *Binding) check() error {
 	if b.Role != adapters.RoleDeliver && b.IdempotencyScope != "" {
-		return fmt.Errorf("binding: %s: idempotency_scope is a deliver-binding key (ADR-044)", b.ID)
+		return fmt.Errorf("binding: %s: idempotency_scope is a deliver-binding key", b.ID)
 	}
 	if b.Role == adapters.RoleDeliver && b.Idempotency == "" {
 		return fmt.Errorf("binding: %s: a deliver binding must declare idempotency: native | ledger", b.ID)
@@ -276,9 +276,9 @@ func (b *Binding) check() error {
 	if b.Role == adapters.RoleTraverse {
 		switch {
 		case b.From == "":
-			return fmt.Errorf("binding: %s: a traverse binding declares from — the input type (SPEC §10a, ADR-054)", b.ID)
+			return fmt.Errorf("binding: %s: a traverse binding declares from — the input type", b.ID)
 		case b.Relation == nil || b.Relation.Name == "":
-			return fmt.Errorf("binding: %s: a traverse binding declares relation: {name, from: record | parent} (SPEC §10a, ADR-054)", b.ID)
+			return fmt.Errorf("binding: %s: a traverse binding declares relation: {name, from: record | parent}", b.ID)
 		}
 	} else if b.From != "" || b.Relation != nil {
 		return fmt.Errorf("binding: %s: from and relation are traverse keys (role %s)", b.ID, b.Role)

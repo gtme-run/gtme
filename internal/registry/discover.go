@@ -100,7 +100,7 @@ func (r *Registry) add(d discovered) {
 		if existing.Hash == t.Hash {
 			return
 		}
-		r.problems[name] = fmt.Sprintf("two type files disagree — %s and %s define %q with different content; one binding's type must win, so uninstall one or make them identical (SPEC §4a)",
+		r.problems[name] = fmt.Sprintf("two type files disagree — %s and %s define %q with different content; one binding's type must win, so uninstall one or make them identical",
 			existing.Path, t.Path, name)
 		delete(r.byEntity, name)
 		return

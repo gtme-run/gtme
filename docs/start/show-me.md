@@ -52,10 +52,10 @@ simulate: ignoring missing credentials (3 plan problems:
   - step "source": missing credential APOLLO_API_KEY (set it in the environment or run `gtme secret set APOLLO_API_KEY`)
   - step "reveal": missing credential APOLLO_API_KEY (set it in the environment or run `gtme secret set APOLLO_API_KEY`)
   - step "send": missing credential INSTANTLY_API_KEY (set it in the environment or run `gtme secret set INSTANTLY_API_KEY`))
-simulate: fixtures only — no network, no spend, nothing sends, nothing persists
+simulate: recorded responses only — no network, no spend, nothing sends, nothing persists
 run 01M3CWQATKY6BTBKFTKE8RM81J (demo)
 ...
-run 01M3CWQATKY6BTBKFTKE8RM81J — done (SIMULATED — fixtures only; nothing sent, nothing persisted)
+run 01M3CWQATKY6BTBKFTKE8RM81J — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
 step    adapter                    in  out  empty  cached  filtered  failed  cost     avoided
 source  apollo/search              0   1    -      0       -         -       $0       -
 fit     ai/filter                  1   1    -      0       -         -       $0       -
@@ -120,23 +120,23 @@ Search Apollo, keep the people an AI judge says own outbound tooling, and pay fo
 
 ## Run something twice
 
-**The second file runs armed, which means for real: it writes to the ledger file you set.** It still spends $0 and sends nothing. `cache.yaml` reads three fictional people from a CSV, scores them with `demo/enrich`, keeps anyone scoring 70 or more, and writes the keepers to `out.csv` in this folder. `demo/enrich` is gtme's built-in scorer: no vendor, a pretend $0.01 per record, so the receipt has real arithmetic.
+**The second file runs armed, which means for real: it writes to the ledger file you set.** It still spends $0 and sends nothing. `hello.yaml` reads three fictional people from a CSV, scores them with `demo/enrich`, keeps anyone scoring 70 or more, and writes the keepers to `out.csv` in this folder. `demo/enrich` is gtme's built-in scorer: no vendor, a pretend $0.01 per record, so the receipt has real arithmetic.
 
 1. Download the pipeline and its CSV:
 
     ```sh
-    curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/cache.yaml
+    curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/hello.yaml
     curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/contacts.csv
     ```
 
 1. Run it. This is the armed run; the $0.03 on the receipt is the pretend price:
 
     ```sh
-    gtme run cache.yaml
+    gtme run hello.yaml
     ```
 
     ```
-    run 01M3CWQDPB13EJGJVM8FSN38HK (cache)
+    run 01M3CWQDPB13EJGJVM8FSN38HK (hello)
     ...
     step    adapter      in  out  empty  cached  filtered  failed  cost     avoided
     source  csv/source   0   3    -      0       -         -       $0       -
@@ -149,11 +149,11 @@ Search Apollo, keep the people an AI judge says own outbound tooling, and pay fo
 1. Run it again:
 
     ```sh
-    gtme run cache.yaml
+    gtme run hello.yaml
     ```
 
     ```
-    run 01M3CWQDQ9N9W3XTC922W5S569 (cache)
+    run 01M3CWQDQ9N9W3XTC922W5S569 (hello)
     ...
     step    adapter      in  out  empty  cached  filtered  failed  cost  avoided
     source  csv/source   0   3    -      0       -         -       $0    -

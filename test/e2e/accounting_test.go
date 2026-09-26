@@ -172,7 +172,7 @@ steps:
 		h.write("people.csv", peopleCSV)
 		h.write("p.yaml", pipeline("    on_missing: skip\n"))
 		plan := h.mustRun("plan", "p.yaml")
-		contains(t, plan.stderr, "on_missing: skip (a declared uses: field absent at run time — ADR-053)", "plan output")
+		contains(t, plan.stderr, "on_missing: skip (a declared uses: field absent at run time)", "plan output")
 		res := h.runWithEnv(h.fixtureScript("ai.json", "$auto"), "", "run", "p.yaml")
 		if res.code != 0 {
 			t.Fatalf("exit = %d\nstderr:\n%s", res.code, res.stderr)
@@ -262,13 +262,13 @@ steps:
 	// A rehearsal's deliver line reconciles: held, not out — and the source
 	// line reconciles there too.
 	dry := h.mustRun("run", "--dry-run", "p.yaml")
-	contains(t, dry.stderr, "source: sourced 2 records (1 coalesced into known identities)", "dry-run source line")
+	contains(t, dry.stderr, "source: sourced 2 records (1 already in the ledger)", "dry-run source line")
 	contains(t, dry.stderr, "park: 2 in, 0 out, 0 cached, 0 filtered, 0 failed, 2 held (dry run)", "dry-run deliver line")
 	reconcile(t, dry.stderr)
 
 	res := h.mustRun("run", "p.yaml")
 	contains(t, res.stderr, "read 3 rows from contacts.csv", "the adapter's own read line")
-	contains(t, res.stderr, "source: sourced 2 records (1 coalesced into known identities)", "the reconciling source line")
+	contains(t, res.stderr, "source: sourced 2 records (1 already in the ledger)", "the reconciling source line")
 	contains(t, res.stderr, "park: 2 in, 2 out", "the next step saw two")
 	if n := h.queryInt(`SELECT count(*) FROM run_records rr JOIN runs r ON r.id = rr.run_id WHERE r.dry = 0`); n != 2 {
 		t.Errorf("armed run's run_records = %d, want 2", n)

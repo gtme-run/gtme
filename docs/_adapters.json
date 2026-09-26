@@ -649,7 +649,7 @@
               "type": "string",
               "minLength": 1
             },
-            "description": "Egress mapping, injected by the runner from the step-level variables: key (ADR-018). Its targets are the columns."
+            "description": "Egress mapping, injected by the runner from the step-level variables: key. Its targets are the columns."
           },
           "entity_type": {
             "type": "string"
@@ -939,7 +939,7 @@
               "type": "string",
               "minLength": 1
             },
-            "description": "Egress mapping, injected by the runner from the step-level variables: key (ADR-018)."
+            "description": "Egress mapping, injected by the runner from the step-level variables: key."
           },
           "keep_payloads": {
             "type": "boolean"
@@ -971,7 +971,7 @@
           "url": {
             "type": "string",
             "minLength": 1,
-            "description": "Request URL, templated from {{record.<field>}} placeholders \u2014 which are also the step's derived needs (SPEC \u00a710a)"
+            "description": "Request URL, templated from {{record.<field>}} placeholders \u2014 which are also the step's derived needs"
           },
           "method": {
             "enum": [
@@ -998,7 +998,7 @@
           },
           "field": {
             "type": "string",
-            "description": "The declared content field (markdown mode) \u2014 canonical or namespaced (\u00a74a)"
+            "description": "The declared content field (markdown mode) \u2014 canonical or namespaced"
           },
           "extract": {
             "type": "object",
@@ -1015,7 +1015,7 @@
           "max_bytes": {
             "type": "integer",
             "minimum": 1,
-            "description": "Response size cap (default 262144). An oversized response stores no field \u2014 the record advances counted empty, never truncated silently \u2014 and is still retained as a payload under the ADR-030 window (ADR-053)."
+            "description": "Response size cap (default 262144). An oversized response stores no field \u2014 the record advances counted empty, never truncated silently \u2014 and is still retained as a payload for the retention window."
           },
           "auth": {
             "type": "object",
@@ -1045,7 +1045,7 @@
           },
           "keep_payloads": {
             "type": "boolean",
-            "description": "ADR-030 per-step override"
+            "description": "per-step override of payload retention"
           },
           "entity_type": {
             "type": "string"

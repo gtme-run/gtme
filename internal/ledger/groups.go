@@ -89,7 +89,7 @@ func (l *Ledger) EnsureGroup(ctx context.Context, name, entityType string) (Grou
 	g, err := l.GetGroup(ctx, name)
 	if err == nil {
 		if g.EntityType != "" && entityType != "" && g.EntityType != entityType {
-			return Group{}, fmt.Errorf("ledger: group %q holds %s records, not %s (SPEC §3, ADR-054)", name, g.EntityType, entityType)
+			return Group{}, fmt.Errorf("ledger: group %q holds %s records, not %s", name, g.EntityType, entityType)
 		}
 		return g, nil
 	}
@@ -146,7 +146,7 @@ func (l *Ledger) AddGroupEvent(ctx context.Context, groupID, identityID, event s
 			return fmt.Errorf("ledger: adding to group: %w", err)
 		}
 		if groupType.Valid && groupType.String != "" && groupType.String != identityType.String {
-			return fmt.Errorf("ledger: the group holds %s records; a %s cannot join it (SPEC §8, ADR-054)", groupType.String, identityType.String)
+			return fmt.Errorf("ledger: the group holds %s records; a %s cannot join it", groupType.String, identityType.String)
 		}
 	}
 	var detailJSON any

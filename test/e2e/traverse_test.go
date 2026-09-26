@@ -1,7 +1,7 @@
 package e2e
 
 // M28 acceptance (SPEC §11, ADR-054), fully offline: a type is a file and a
-// run is a sequence of typed segments. A person pipeline traverses to posts
+// run is a sequence of typed legs. A person pipeline traverses to posts
 // from a fixture adapter, writes authored_by per post, coalesces the post two
 // parents share, counts parents in/empty and children traversed/coalesced,
 // and ends in a group typed post; a second traverse back to people reaches a
@@ -36,14 +36,14 @@ func TestTraverseOpensATypedSegment(t *testing.T) {
 	plan := h.mustRun("plan", "posts.yaml")
 	contains(t, plan.stderr, "traverse:  person → post via mock/posts (authored_by)", "plan prints the type change and its relation")
 	contains(t, plan.stderr, "writes:    works_at → company (from company_domain)", "plan prints the relation a reference field writes")
-	contains(t, plan.stderr, `terminus: records completing the run are added to group "posts-found" as post`, "the terminus takes the last segment's type")
+	contains(t, plan.stderr, `ends in group "posts-found" as post`, "the terminus takes the last segment's type")
 
 	res := h.mustRun("run", "posts.yaml")
 	// Jane yields two posts, Bob one Jane also authored, Carol none: three
 	// parents in, two with children, one empty; two posts minted, one
 	// coalesced (SPEC §8).
-	contains(t, res.stderr, "posts: 3 in, 2 out, 1 empty, 0 cached, 0 filtered, 0 failed — 2 traversed (post), 1 coalesced", "traverse step line")
-	contains(t, res.stderr, "posts: 3 parent(s) in, 2 out, 1 empty — 2 traversed (post), 1 coalesced", "traverse receipt line")
+	contains(t, res.stderr, "posts: 3 in, 2 out, 1 empty, 0 cached, 0 filtered, 0 failed — 2 traversed (post), 1 already in this run", "traverse step line")
+	contains(t, res.stderr, "posts: 3 parent(s) in, 2 out, 1 empty — 2 traversed (post), 1 already in this run", "traverse receipt line")
 	contains(t, res.stderr, `group "posts-found": 2 record(s) added`, "the terminus adds the posts")
 
 	if n := h.queryInt(`SELECT count(*) FROM identities WHERE entity_type = 'post'`); n != 2 {
@@ -107,13 +107,13 @@ group: engaged
 `)
 	plan := h.mustRun("plan", "engage.yaml")
 	contains(t, plan.stderr, "traverse:  post → person via mock/engagers (engaged_with)", "the second crossing")
-	contains(t, plan.stderr, `added to group "engaged" as person`, "the terminus takes the last segment's type")
+	contains(t, plan.stderr, `ends in group "engaged" as person`, "the terminus takes the last leg's type")
 
 	res := h.mustRun("run", "engage.yaml")
 	// Two posts in; the shared post's engagers are Bob (a parent of the first
 	// traverse — reached again, coalescing) and Dave (new); jane-1's engager
 	// is Dave again (coalescing). One person minted, two coalesced.
-	contains(t, res.stderr, "engagers: 2 in, 2 out, 0 cached, 0 filtered, 0 failed — 1 traversed (person), 2 coalesced", "second traverse line")
+	contains(t, res.stderr, "engagers: 2 in, 2 out, 0 cached, 0 filtered, 0 failed — 1 traversed (person), 2 already in this run", "second traverse line")
 	contains(t, res.stderr, `group "engaged": 2 record(s) added`, "the terminus adds the last segment's completers only")
 	members := h.queryStrings(`SELECT i.identity_key FROM group_members m JOIN identities i ON i.id = m.identity_id JOIN groups g ON g.id = m.group_id
 		WHERE g.name = 'engaged' ORDER BY i.identity_key`)
@@ -156,7 +156,7 @@ group: accounts
 	contains(t, plan.stderr, "cross-record: this query reads relations", "annotated cross-record like every sql/* step")
 
 	res := h.mustRun("run", "companies.yaml")
-	contains(t, res.stderr, "to-company: 3 in, 3 out, 0 cached, 0 filtered, 0 failed — 3 traversed (company), 0 coalesced", "sql/traverse line")
+	contains(t, res.stderr, "to-company: 3 in, 3 out, 0 cached, 0 filtered, 0 failed — 3 traversed (company), 0 already in this run", "sql/traverse line")
 	contains(t, res.stderr, `group "accounts": 3 record(s) added`, "the companies join the terminus")
 	if got := h.queryStrings(`SELECT COALESCE(entity_type,'') FROM groups WHERE name = 'accounts'`); len(got) != 1 || got[0] != "company" {
 		t.Errorf("accounts type = %v", got)
@@ -226,7 +226,7 @@ steps:
 	plan := h.mustRun("plan", "gated.yaml")
 	contains(t, plan.stderr, "when:      gate.passed", "when: on the traverse plans")
 	run := h.mustRun("run", "gated.yaml")
-	contains(t, run.stderr, "posts: 2 in, 2 out, 0 cached, 0 filtered, 0 failed — 2 traversed (post), 1 coalesced", "only passing parents reach the traverse")
+	contains(t, run.stderr, "posts: 2 in, 2 out, 0 cached, 0 filtered, 0 failed — 2 traversed (post), 1 already in this run", "only passing parents reach the traverse")
 
 	// from must equal the segment's type: a traverse from post cannot follow
 	// a person source.
@@ -271,7 +271,7 @@ steps:
 	plan = h.mustRun("plan", "limited.yaml")
 	contains(t, plan.stderr, "limit:     1 child(ren) per parent (engine-owned)", "limit line")
 	run = h.mustRun("run", "limited.yaml")
-	contains(t, run.stderr, "— 2 traversed (post), 0 coalesced", "jane yields her first post only; bob his only one")
+	contains(t, run.stderr, "— 2 traversed (post), 0 already in this run", "jane yields her first post only; bob his only one")
 }
 
 func TestOnceFinishesParentsAtATraverseAndDryRunExecutesIt(t *testing.T) {
@@ -291,7 +291,7 @@ group: posts-found
 	// A dry run executes the crossing (spend at a traverse is spend as at a
 	// source) but finishes nothing for once:.
 	dry := h.mustRun("run", "--dry-run", "drain.yaml")
-	contains(t, dry.stderr, "— 2 traversed (post), 1 coalesced", "the dry run traverses")
+	contains(t, dry.stderr, "— 2 traversed (post), 1 already in this run", "the dry run traverses")
 	contains(t, dry.stderr, `group "posts-found": 2 record(s) would be added (held back — dry run)`, "the dry terminus holds")
 	if n := h.queryInt(`SELECT count(*) FROM identities WHERE entity_type = 'post'`); n != 2 {
 		t.Errorf("posts after a dry run = %d, want 2 (minted, as a source mints)", n)
@@ -304,7 +304,7 @@ group: posts-found
 	// A child known from the dry run is a new run record, not a coalesce
 	// (ADR-053 (3)): the counts read as on the rehearsal, and nothing is
 	// minted twice.
-	contains(t, armed.stderr, "— 2 traversed (post), 1 coalesced", "the armed run's counts match the rehearsal")
+	contains(t, armed.stderr, "— 2 traversed (post), 1 already in this run", "the armed run's counts match the rehearsal")
 	if n := h.queryInt(`SELECT count(*) FROM identities WHERE entity_type = 'post'`); n != 2 {
 		t.Errorf("posts after the armed run = %d, want 2 (resolved, not re-minted)", n)
 	}
@@ -376,7 +376,7 @@ steps:
 	if res.code != 2 {
 		t.Fatalf("plan exit = %d, want 2\n%s", res.code, res.stderr)
 	}
-	contains(t, res.stderr, "a traverse needs a typed segment", "an entity-blind pipeline cannot traverse")
+	contains(t, res.stderr, "a traverse needs a typed leg", "an entity-blind pipeline cannot traverse")
 	contains(t, res.stderr, "gtme groups add todo --type person", "the error names the fix")
 	list := h.mustRun("groups")
 	contains(t, list.stderr, "(untyped)", "an untyped group is listed as such")
