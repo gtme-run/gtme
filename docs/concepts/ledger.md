@@ -20,7 +20,7 @@ links:
     description: Each fact carries source, confidence, and time; this page shows the table, that page shows how those columns decide which value wins
   - to: /concepts/gate-ladder
     type: relates-to
-    description: Plan reads the ledger to price a run before it spends; dry-run writes everything except deliveries
+    description: Plan checks a pipeline against the ledger's groups and SQL without writing a row; dry-run writes everything except deliveries
   - to: /concepts/groups
     type: relates-to
     description: Groups are the ledger's third layer, decisions about sets of identities
@@ -162,6 +162,6 @@ That's it. That's the ledger, and everything else in gtme is built on top of it.
 
 - [Identity keys](/concepts/identity-keys) decide which row a vendor's record lands on. The ledger is only as good as the keying.
 - [Facts](/concepts/facts) is the deeper cut on `source`, `confidence`, and freshness, and what happens when they conflict.
-- [The gate ladder](/concepts/gate-ladder) is the ledger read in the other direction: `plan` prices a run by checking what's already known.
+- [The gate ladder](/concepts/gate-ladder) is the ledger written in stages: plan writes nothing, dry-run writes facts and no deliveries, and armed writes everything.
 - [Groups](/concepts/groups) are the third layer, where a set of identities becomes a thing you can name, deliver to, and source from.
 - [`gtme show`](/reference/cli/show), [`gtme query`](/reference/cli/query), and [the schema](/reference/ledger-schema) are the lookup pages.

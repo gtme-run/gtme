@@ -21,10 +21,10 @@ collections:
     - { slug: add-a-vendor, name: Add a vendor, status: reviewed }
     - { slug: for-agents, name: For agents, status: reviewed }
   concepts:
-    - { slug: pipeline, name: A pipeline is a YAML file, status: planned }
-    - { slug: steps-and-roles, name: Steps and roles, status: planned }
-    - { slug: gate-ladder, name: The gate ladder, status: planned }
-    - { slug: runs-and-receipts, name: Runs and receipts, status: planned }
+    - { slug: pipeline, name: A pipeline is a YAML file, status: draft }
+    - { slug: steps-and-roles, name: Steps and roles, status: draft }
+    - { slug: gate-ladder, name: The gate ladder, status: draft }
+    - { slug: runs-and-receipts, name: Runs and receipts, status: draft }
     - { slug: ledger, name: The ledger, status: draft }
     - { slug: identity-keys, name: Identity keys, status: planned }
     - { slug: canonical-fields, name: Canonical fields, status: planned }
