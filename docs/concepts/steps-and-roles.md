@@ -9,6 +9,27 @@ learn:
   - "how to read a step's plan block: reads, of, provides, and est/record"
 order: 2
 roles: [builder, operator]
+defines:
+  - term: "role"
+    definition: "What a step's adapter declares it does, one of source, enrich, verify, filter, compose, review, deliver, or traverse, which decides what the step reads, writes, and whether a record can stop there."
+  - term: "enrich"
+    definition: "The role that reads the fields its manifest requires and writes new fields, skipping a record whose values are still fresher than its cache window."
+  - term: "verify"
+    definition: "The role that checks a field and writes fields, cached like enrich; it is in the manifest schema and no shipped adapter uses it."
+  - term: "filter"
+    definition: "The role that reads the uses fields and writes a verdict, pass or fail with a reason, the only role that can stop a record."
+  - term: "compose"
+    definition: "The role that reads the uses fields and writes new field values, such as an opening line."
+  - term: "review"
+    definition: "The role that reads one value named by of, with the uses fields as context, and writes labels about it as fields without ever gating."
+  - term: "deliver"
+    definition: "The role that reads the values named in variables and sends them to a target, writing a delivery row; the one step the gate ladder holds back."
+  - term: "verdict"
+    definition: "The pass or fail a filter writes for a record, with a reason, which the ledger keeps and a when gate reads."
+  - term: "referent"
+    definition: "The value a review or an edit is about, named by of, whose current value joins the cache key and whose row becomes the output's provenance."
+  - term: "send surface"
+    definition: "The list plan prints of every deliver step in a pipeline, the steps that send."
 links:
   - to: /concepts/pipeline
     type: depends-on

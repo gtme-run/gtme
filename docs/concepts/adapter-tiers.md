@@ -9,6 +9,25 @@ learn:
   - "what the built-in floor adapters are for"
 order: 13
 roles: [extender, builder]
+defines:
+  - term: "adapter"
+    definition: "Whatever a step's use line names, a binding or a process adapter, that reads and writes records in one role."
+  - term: "binding"
+    definition: "A vendor adapter written as a YAML file the runner interprets, with a request template and an extract map and no code."
+  - term: "process adapter"
+    definition: "An adapter that is a program in any language, exchanging records as NDJSON over stdin and stdout, for anything a binding cannot express."
+  - term: "manifest"
+    definition: "An adapter's declaration of its id, version, role, entity type, needs, provides, with keys, and credentials, the one surface plan reads."
+  - term: "fixture"
+    definition: "A recorded vendor response shipped beside a binding, which verification and simulate run offline instead of calling the vendor."
+  - term: "bindings registry"
+    definition: "The public index of bindings on GitHub that gtme adapters search reads and gtme adapters add installs from at a pinned commit."
+  - term: "floor"
+    definition: "The adapter families built into the binary, csv, http, sql, ai, and group, the crudest working version of any integration."
+  - term: "wire protocol"
+    definition: "The NDJSON message contract between the runner and a process adapter."
+  - term: "NDJSON"
+    definition: "Newline-delimited JSON, one object per line, the format a process adapter reads and writes."
 links:
   - to: /concepts/steps-and-roles
     type: depends-on

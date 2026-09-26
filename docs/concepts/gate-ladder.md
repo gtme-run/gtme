@@ -9,6 +9,19 @@ learn:
   - "what each rung spends and sends on a pipeline from Apollo to Instantly"
 order: 3
 roles: [operator, builder]
+defines:
+  - term: "gate ladder"
+    definition: "The four ways to run a pipeline, simulate, plan, dry-run, and armed, each spending, writing, or sending more than the one before."
+  - term: "simulate"
+    definition: "gtme run --simulate, which runs the whole pipeline offline from fixtures, spends nothing, sends nothing, and keeps nothing."
+  - term: "plan"
+    definition: "gtme plan, which checks every field and credential a pipeline needs and prices each step, with no network and no spend."
+  - term: "dry-run"
+    definition: "gtme run --dry-run, a real run with every deliver step held back, so it spends and writes facts and sends nothing."
+  - term: "armed"
+    definition: "gtme run with no flag, the run that spends and sends."
+  - term: "preflight"
+    definition: "A deliver adapter's read-only check of its live target before anything sends, which a dry-run prints and an armed run enforces."
 links:
   - to: /concepts/pipeline
     type: depends-on

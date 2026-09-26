@@ -9,6 +9,15 @@ learn:
   - "what a human step costs a pipeline under cron"
 order: 11
 roles: [operator, builder]
+defines:
+  - term: "participant"
+    definition: "Whoever answers a filter, compose, or review step: a model under ai/, a person under human/, or an agent under agent/."
+  - term: "pending"
+    definition: "The status of a run that ended with records waiting on a participant or an in-flight batch, which the next gtme run resumes instead of sourcing anew."
+  - term: "collect"
+    definition: "What the next gtme run does with a pending run: read the recorded answers and move the answered records on."
+  - term: "answer"
+    definition: "gtme answer, the one write path for a participant's judgment on a pending record, checked against the step's declared outputs on the spot."
 links:
   - to: /concepts/steps-and-roles
     type: depends-on

@@ -9,6 +9,15 @@ learn:
   - "why cache, resume, and dedupe come from the schema"
 order: 5
 roles: [operator, builder]
+defines:
+  - term: "ledger"
+    definition: "The one append-only SQLite file where every fact gtme learns lives, which steps read from and write to instead of passing records to each other."
+  - term: "projection"
+    definition: "The current value of each field a step declared it reads, and nothing else; what a step sees."
+  - term: "current value"
+    definition: "The row that wins for a field, the highest confidence and then the newest, computed by a view whenever something asks."
+  - term: "payload"
+    definition: "A raw vendor response kept as a purgeable cache beside the facts, which no step reads and gtme vacuum evicts."
 links:
   - to: /concepts/identity-keys
     type: relates-to

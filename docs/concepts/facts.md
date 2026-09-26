@@ -9,6 +9,15 @@ learn:
   - "why a raw vendor response isn't a fact, and what gtme vacuum deletes"
 order: 8
 roles: [builder, operator]
+defines:
+  - term: "fact"
+    definition: "One row in field_values saying who wrote what value for which field of which identity, how sure it was, and when."
+  - term: "provenance"
+    definition: "The source, run, confidence, and time recorded on every fact, so any value can be traced to what wrote it."
+  - term: "confidence"
+    definition: "A number from 0 to 1 a source attaches to each field it writes, 1 unless it says otherwise, which ranks ahead of recency when values conflict."
+  - term: "cache window"
+    definition: "The cache duration on a step, within which a value the step already wrote counts as fresh and the step is skipped for that record."
 links:
   - to: /concepts/ledger
     type: depends-on

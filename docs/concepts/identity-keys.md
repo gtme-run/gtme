@@ -8,6 +8,15 @@ learn:
   - "what happens when a weak key later gains a stronger one"
 order: 6
 roles: [builder]
+defines:
+  - term: "identity key"
+    definition: "The one normalized string, an email, a public LinkedIn URL, a domain, or a name hash, that says which record a row is about."
+  - term: "name hash"
+    definition: "The weakest identity key, a SHA-256 of a person's name and company domain prefixed nh:, used when a row carries no stronger key."
+  - term: "key tier"
+    definition: "The order the identity fields are tried in, email first, so a record carrying two keys is named by the stronger one."
+  - term: "key upgrade"
+    definition: "What happens when a later row matches a record by a weak key and carries a stronger one: the record keeps its id and facts and takes the stronger key."
 links:
   - to: /concepts/ledger
     type: relates-to
