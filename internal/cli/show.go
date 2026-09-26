@@ -344,7 +344,13 @@ func keyTier(entityType, key string) string {
 		return ""
 	}
 	for _, tier := range t.Identity {
-		if tier.Prefix != "" && strings.HasPrefix(key, tier.Prefix) {
+		// A prefixed tier is recognised by its prefix alone: its rule
+		// (handle, or the hash) would reproduce almost any string, so it
+		// must never be tried against a key that lacks the prefix.
+		if tier.Prefix != "" {
+			if !strings.HasPrefix(key, tier.Prefix) {
+				continue
+			}
 			if len(tier.Hash) > 0 {
 				return "name_hash"
 			}
