@@ -1344,7 +1344,9 @@ AUDIT.md (b) item 3 applied by it.
 
 ### ADR-042: Bindings live in a registry, not in the binary
 **Status:** Accepted (2026-08-29 — design conversation 2026-08-29;
-human-approved 2026-08-30)
+human-approved 2026-08-30). **Decision (4) partially superseded by
+ADR-059**, which retires the reference-twin carve-out: the binary carries
+the floor and no vendor.
 **Context:** The binary carries the floor — `csv/*`, `http/*`, `sql/*`,
 `ai/*`, `group/*` — plus four reference bindings that twin the Go vendor
 adapters. Every further vendor is a binding: a directory of YAML and
@@ -3880,6 +3882,132 @@ manifest field, no wire message and no DDL changes.
 receipt words, simulate banner, `gtme show`), §10 item 9 and §11 M29 (the
 example's name), §11 (M32 queued), Changelog (v0.50). docs/DESIGN.md's
 noun list gains *leg*; `docs/_outline.yaml`'s terms gain `leg`.
+
+### ADR-059: Vendors leave the binary — every vendor adapter is a registry entry
+**Status:** Accepted (2026-09-26 — from a design session after the
+registry's catalog pages went live; human-approved by merging this
+packet; build queued as M33, Instantly's move sequenced behind the engine
+work ROADMAP.md names)
+**Context:** ADR-042 put vendors in a registry and kept a carve-out: "the
+binary carries the floor and the reference twins, nothing else … the
+reference twins stay because they are the conformance kit for the Go
+adapters." Three of those twins are not a kit for anything: `apollo/search`,
+`apollo/enrich` and `attio/assert` are the registered adapters themselves,
+compiled in. Two Go process adapters remain, `harvest/profile` and
+`instantly/add-to-campaign`, each with an unregistered binding twin that is
+narrower than it. So the binary ships five vendors and the registry ships
+one, and the line between them is historical, not principled. It will not
+hold: the next Harvest adapters (the `harvest/profile-posts` traverse in
+`bundles/posts-to-engagers`, `harvest/post-reactions`) are bindings, and a
+vendor whose first adapter is compiled in while the rest install from the
+registry is two distribution models for one API. The catalog page makes the
+split visible: five entries read "built in", the rest "verified", with
+nothing a reader can use to tell why.
+
+What each Go adapter does that its twin cannot, read from the code
+(2026-09-26): `harvest/profile` makes a second call per record for
+`recent_posts` (`posts_limit`), formats `role_history` as one line per
+position ("Role at Company (2019–2023)", with stated fallbacks), and reads
+its cost from `cost_per_profile_usd`. `instantly/add-to-campaign` resolves a
+campaign *name* to an id once per run, runs ADR-040's four preflight checks
+(the campaign is Active; the sequence has as many steps as the highest
+`_step_N` target assumes; every non-first-class target appears as
+`{{name}}` in some step; every variant of step N carries its own
+`<x>_step_N`), and attests (ADR-036) by re-reading the lead and comparing
+every field sent. The binding engine has none of this: its extraction
+language is a dotted path, with no way to map an array's elements.
+
+**Decision:** (1) **The binary carries the floor and no vendor.** The floor
+is `csv/*`, `http/*`, `sql/*`, `ai/*`, `group/*`, the runner-owned
+participant and template steps (`human/*`, `agent/*`, `text/compose`), and
+the keyless `demo/enrich`. Every adapter named for a vendor is a registry
+entry in `gtme-bindings`, verified tier, installed with `gtme adapters
+add`. ADR-042's carve-out for reference twins is retired: an entry in the
+registry is its own conformance kit, and the registry's CI runs its
+fixtures. `spec/bindings/` keeps one binding, printed by `gtme help
+--bindings` as the worked example (ADR-041) and registered as no adapter;
+the print says which registry entry it mirrors. (2) **Four move in M33:**
+`apollo/search`, `apollo/enrich` and `attio/assert` move unchanged (same
+id, version, fixtures). `harvest/profile` moves as version 2, a single
+call: it keeps the one-of LinkedIn needs, the public-URL recovery (ADR-020)
+and `role_history`, loses `recent_posts` and `posts_limit`, and takes its
+cost from config through ADR-046's template (`cost_per_profile_usd`,
+default `0.012`). A new entry, **`harvest/recent-posts`** (enrich, person),
+needs `linkedin_url`, makes one call to the profile-posts endpoint, and
+provides `recent_posts` (string array, at most config `posts_limit`,
+default 3; not `limit`, which ADR-047 reserves for sources).
+It is a person's field for a compose to read, which is why it is an enrich
+and not the `harvest/profile-posts` traverse, which mints post records.
+The composition is two steps, one call each, composed in the pipeline
+rather than bundled in one adapter: a pipeline that wants posts asks for them by name, and one that
+does not stops paying the second call silently. (3) **The engine gains one
+extraction form, `each:`.** A field's extraction may be `{each: <dotted
+path to an array>, template: <a template in the ADR-057 dialect over
+item.*>, limit: <n | a config reference>}`: the engine renders the
+template once per element, drops elements whose render is empty after
+trimming (text/compose's rule, §10 item 10), stops at `limit`, and
+provides a string array. The template may use the dialect's tags
+(`if`/`unless`/`case`), unlike a request leaf (M31), because it renders
+text and is not a typed value. This is enough for `role_history` and
+`recent_posts` to keep their shapes, and the graduation rule is unchanged:
+`each:` introduces no expression language. It reuses ADR-057's closed
+dialect, which already runs inside bindings. (4) **Instantly moves last.**
+`instantly/add-to-campaign` stays a built-in Go adapter until the engine
+can declare what it does today: a `resolve:` pre-request (one lookup per
+run, its result templated into later requests), a `preflight:` block (a
+request plus checks from a closed vocabulary that ROADMAP.md starts), and
+an `attest:` block (a read-back request plus a field comparison against
+what was sent). A deliver binding that lacked preflight and attestation
+would break the gate ladder's promises (ADR-040, ADR-036), which the docs
+state and the home page's dry-run receipt shows. Moving it early would
+trade a guarantee for consistency, and that trade is the wrong way round.
+The engine work is its own packet: the check vocabulary is spec-visible
+and needs its own argument that it is not the logic the graduation rule
+forbids. Until it lands, the binary carries exactly one vendor, and §10
+says so. (5) **Installing several is one command.** `gtme adapters add`
+takes more than one reference, and a bare id (`apollo/search`) resolves
+through the registry index to that entry's pinned `source` (verified and
+community alike; the index's `sha` is the pin, so a bare id is exactly as
+pinned as a full reference). `gtme adapters add apollo/search
+apollo/enrich harvest/profile` is the first real-stack step. When `gtme
+plan` meets a `use:` id that is not installed, the error names the command
+that installs it, `gtme adapters add <id>`. Plan stays offline: it does not
+consult the index to say whether the id exists there.
+
+**Consequences:** Every vendor adapter has one home, one tier label, one
+update path (`gtme adapters update`) and one CI. A vendor fix no longer
+waits for a binary release. The keyless path (`csv/source`, `demo/enrich`,
+`--simulate` over the floor) is untouched. The first run against a real
+stack gains one line before `gtme plan`, and START.md, `docs/start/my-stack.md`,
+`docs/start/show-me.md`, `docs/concepts/gate-ladder.md` and
+`docs/concepts/types-and-traverse.md` gain it. `examples/apollo-to-instantly.yaml`
+and `examples/demo.yaml` name registry ids, so the examples say so in a
+header comment and the e2e tests install from a local copy of the entries
+(`GTME_ADAPTER_PATH`) rather than the network. The canonical §9 pipeline
+gains a `posts` step. Cost rows for Harvest profile lookups move from
+`harvest/profile@1` to `@2`; the judgment cache treats the new version as a
+new adapter, as for any version bump. "Verified" means what ADR-042 said,
+and the former built-ins are verified by construction: they live in
+`gtme-bindings` and its CI runs their fixtures on every change. The site's
+catalog relabels the four from "built in" to "verified" with no site change
+beyond one list. What is lost: `recent_posts` no longer rides the profile
+call, and a pipeline that set `posts_limit` on `harvest/profile` must
+move it to a `harvest/recent-posts` step. Version 2's config schema
+refuses the key, and the plan error says so. M33
+is roughly: the `each:` form in `internal/binding` (~120 LOC with tests),
+two new registry entries plus four moved, and deletions (the Harvest Go
+adapter, three embedded bindings, the twin tests) that exceed the
+additions. The Instantly move is sized in its own packet.
+**Spec impact:** AMEND §8 (`adapters add` takes several references and
+bare ids; the plan error for an uninstalled id), §8's `gtme adapters`
+paragraph (the binary carries the floor and no vendor), §9 (the canonical
+pipeline's `posts` step), §10 (intro; items 2, 2a and 4 served from the
+registry; new item 4a `harvest/recent-posts`; item 6 the one remaining
+built-in vendor until it moves), §10a (the `each:` extraction form; the
+reference-twin sentence), §11 (M33 queued), Changelog (v0.51). ROADMAP.md
+gains the engine's `resolve:`/`preflight:`/`attest:` and amends the
+registry entry's "reference twins" line. `spec/binding-schema.json` gains
+`each` in M33.
 
 ### ADR-054: `traverse` — a run is a sequence of typed segments, and a type is a file
 **Status:** Accepted (2026-09-05 — design session; answers ADR-008's parked
