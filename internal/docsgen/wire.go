@@ -3,7 +3,6 @@ package docsgen
 import (
 	"encoding/json"
 	"fmt"
-	"path"
 	"regexp"
 	"strings"
 )
@@ -103,10 +102,11 @@ func (s *site) wireProtocolPage(r repoFiles) (*page, error) {
 		b.WriteString(keyTable(f.rows(m.schema, "")))
 	}
 
-	// The example: the first stream of the first transcript, verbatim.
+	// The example: the first transcript, whole and verbatim, one session per
+	// adapter in the order they appear.
 	tpath := transcripts[0]
-	var lines []string
-	stream, adapter := "", ""
+	var lines, streams []string
+	seenStream := map[string]bool{}
 	for _, line := range strings.Split(string(r[tpath]), "\n") {
 		if strings.TrimSpace(line) == "" {
 			continue
@@ -118,15 +118,14 @@ func (s *site) wireProtocolPage(r repoFiles) (*page, error) {
 		if err := json.Unmarshal([]byte(line), &env); err != nil {
 			return nil, fmt.Errorf("%s: %w", tpath, err)
 		}
-		if stream == "" {
-			stream, adapter = env.Stream, env.Adapter
+		if !seenStream[env.Stream] {
+			seenStream[env.Stream] = true
+			streams = append(streams, fmt.Sprintf("the `%s` session with `%s`", env.Stream, env.Adapter))
 		}
-		if env.Stream == stream {
-			lines = append(lines, line)
-		}
+		lines = append(lines, line)
 	}
 	b.WriteString("\n## Example\n\n")
-	fmt.Fprintf(&b, "The `%s` stream of `%s`, recorded from `%s`. Each line wraps the message in `msg`; `stream`, `dir`, and `adapter` say which session it belongs to, which way it went, and the adapter on the other end. The whole exchange is [%s on GitHub](%s/blob/main/%s).\n\n", stream, tpath, adapter, path.Base(tpath), repo, tpath)
+	fmt.Fprintf(&b, "`%s`, recorded from real adapters: %s. Each line wraps the message in `msg`; `stream`, `dir`, and `adapter` say which session it belongs to, which way it went, and the adapter on the other end ([on GitHub](%s/blob/main/%s)).\n\n", tpath, joinAnd(streams), repo, tpath)
 	b.WriteString("```json\n" + strings.Join(lines, "\n") + "\n```\n")
 	b.WriteString(seeAlsoList([][2]string{{"Binding manifest", "/reference/binding-manifest"}, {"Adapter catalog", "/reference/adapters"}, {"Conformance kit and fixtures", "/reference/conformance"}}))
 	b.WriteString(s.usedIn("/reference/wire-protocol"))
