@@ -4,6 +4,9 @@
 # is held with its variables resolved into the receipt. No API keys, no
 # network, no spend, nothing persisted.
 #
+# The Apollo adapters are registry entries (ADR-059), so install them first:
+#   gtme adapters add apollo/search apollo/enrich
+#
 # With real keys set (gtme secret set APOLLO_API_KEY / ANTHROPIC_API_KEY /
 # INSTANTLY_API_KEY) and the Instantly campaign named below existing, the
 # same file climbs the rest of the ladder:
@@ -14,7 +17,7 @@ name: demo
 version: 1
 
 source:
-  use: apollo/search        # a vendor adapter that is pure YAML — see spec/bindings/
+  use: apollo/search        # a vendor adapter that is pure YAML, installed from the registry
   with:
     query: vp marketing, saas
     limit: 1                  # one person through the whole chain first; raise it once a dry-run receipt reads right

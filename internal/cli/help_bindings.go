@@ -107,7 +107,7 @@ var bindingsVerbs = []agentVerb{
 var registryVerbs = []agentVerb{
 	{"gtme adapters", "list installed adapters with their source and pin (.source.json)"},
 	{"gtme adapters search TEXT", "search the registry index by id, vendor, description and role"},
-	{"gtme adapters add github.com/<owner>/<repo>/<path>[@ref]", "fetch a binding over HTTPS at a pinned ref, verify it, install it under ~/.gtme/adapters/<id, slashes → dashes>/ with .source.json beside it"},
+	{"gtme adapters add REF...", "fetch each binding (github.com/<owner>/<repo>/<path>[@ref], or a registry id such as apollo/search, pinned at the index's sha) over HTTPS, verify it, install it under ~/.gtme/adapters/<id, slashes → dashes>/ with .source.json beside it; each installs on its own"},
 	{"gtme adapters verify ID", "validate against the schema, run the fixtures offline (a `config` member in fixtures/conformance.json drives the run; `input` supplies a sample record for a role that consumes them), print the hosts it will call and the credentials it will demand; a binding with no fixtures, or failing ones, does not install"},
 	{"gtme adapters update ID [@ref]", "re-fetch at a newer ref, only when asked — nothing else moves a pin"},
 }
@@ -148,7 +148,9 @@ func bindingsSurface() (bindingsDoc, error) {
 }
 
 // referenceBinding picks the fullest shipped binding (ADR-041 as amended
-// 2026-08-30: "the fullest shipped one, verbatim") so the worked example
+// 2026-08-30: "the fullest shipped one, verbatim"; since M33, ADR-059, the
+// only one, a copy of a registry entry registered as no adapter) so the
+// worked example
 // exercises the most of the schema — extraction, pagination, error verdicts —
 // and it never drifts from what the binary actually validates. (First built
 // as "smallest", which picked the deliver binding: the one role with no
@@ -191,7 +193,7 @@ func referenceBinding() (bindingsReference, error) {
 		Role:        m.Role,
 		Directory:   strings.ReplaceAll(m.ID, "/", "-"),
 		Credentials: m.Credentials,
-		Does:        fmt.Sprintf("the fullest binding this binary ships, verbatim — a %s binding; its fixtures file follows. Installed on discovery.path under `%s/`, it resolves exactly as the embedded copy does.", m.Role, strings.ReplaceAll(m.ID, "/", "-")),
+		Does:        fmt.Sprintf("the one binding this binary ships, verbatim, registered as no adapter — a %s binding that mirrors the registry entry %s (`gtme adapters add %s` installs the live one); its fixtures file follows. Installed on discovery.path under `%s/`, it resolves as that entry does.", m.Role, m.ID, m.ID, strings.ReplaceAll(m.ID, "/", "-")),
 		BindingYAML: string(bestRaw),
 		Conformance: string(bestFix),
 	}, nil

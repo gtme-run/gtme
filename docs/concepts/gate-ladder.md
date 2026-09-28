@@ -220,7 +220,7 @@ Nothing asks you to confirm. The dry-run's printed variables are the approval, a
 
 ## On a real stack
 
-**On `examples/apollo-to-instantly.yaml`, dry-run is the first rung that costs real money.** Plan's `est/record` for the Apollo reveal and the Harvest profile read, times the source's `limit:`, bounds the vendor spend, and the two AI steps get no estimate.
+**On `examples/apollo-to-instantly.yaml`, dry-run is the first rung that costs real money.** Its vendor adapters install first with `gtme adapters add`, free. Plan's `est/record` for the Apollo reveal and the two Harvest calls, times the source's `limit:`, bounds the vendor spend, and the two AI steps get no estimate.
 
 A dry-run runs every step before `send` for real. It spends Apollo credits on the reveal and model tokens on the AI filter and compose, so its receipt is the first real number for model spend. Nothing reaches Instantly, though preflight reads the campaign. Armed adds the survivors to the campaign preflight confirmed is active, and Instantly emails them on its own schedule.
 
