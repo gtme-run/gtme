@@ -25,6 +25,9 @@ links:
   - to: /concepts/ledger
     type: relates-to
     description: "Defines ledger"
+  - to: /concepts/steps-and-roles
+    type: relates-to
+    description: "Defines referent"
   - to: /concepts/types-and-traverse
     type: relates-to
     description: "Defines relation"
@@ -70,3 +73,4 @@ gtme query "SELECT i.identity_key, e.detail ->> 'reason' AS reason
 - [Agent-operable by design](/concepts/agent-operable): Read-only SQL against the ledger, with rows on stdout
 - [Launch](/guides/launch): Every flag of the command the ledger check uses
 - [Report](/guides/report): Read-only SQL against the ledger, used for the check and the monthly total
+- [Interrogate](/guides/interrogate): Read-only SQL, used for a field's history and a referent lookup
