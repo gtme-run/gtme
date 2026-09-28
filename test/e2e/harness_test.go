@@ -73,14 +73,16 @@ func newHarness(t *testing.T) *harness {
 }
 
 // env is the process environment for a gtme invocation: an isolated HOME, the
-// repo's external adapters on the search path, and nothing else.
+// repo's external adapters and the local copy of the registry's vendor
+// entries (ADR-059) on the search path, and nothing else.
 func (h *harness) env() []string {
 	return []string{
 		"HOME=" + h.home,
 		"PATH=" + os.Getenv("PATH"),
 		"GTME_LEDGER=" + h.ledger,
 		"GTME_ADAPTER_PATH=" + filepath.Join(repoRoot(), "adapters") + ":" +
-			filepath.Join(repoRoot(), "test", "fixtures", "adapters"),
+			filepath.Join(repoRoot(), "test", "fixtures", "adapters") + ":" +
+			registryDir(),
 	}
 }
 
