@@ -1,0 +1,86 @@
+# harvest/recent-posts — a person's recent LinkedIn posts, as text, from
+# HarvestAPI's profile-posts endpoint: one call per record (SPEC §10 item
+# 4a, ADR-059). A person's field for a compose to read. It is not the
+# harvest/profile-posts traverse, which mints post records of their own.
+#
+# recent_posts is the each: list form (SPEC §10a): each post's content
+# (its text when content is empty), stripped, empty posts dropped, at most
+# posts_limit. HarvestAPI has sent the list as both `elements` and
+# `element`; either is read.
+#
+# Cost: HarvestAPI publishes no per-call price for this endpoint in its
+# docs (checked 2026-09-27), so the default is its profile lookup's,
+# 0.012; set cost_per_call_usd to your plan's figure.
+#
+# Endpoint: GET https://api.harvestapi.io/linkedin/profile-posts?profile=...&page=1
+# Auth:     X-API-Key header
+# Docs:     https://docs.harvestapi.io/linkedin-api-reference/profile/profile-posts
+
+id: harvest/recent-posts
+version: 1
+role: enrich
+entity_type: person
+
+needs:
+  type: object
+  required: [linkedin_url]
+  properties:
+    linkedin_url: { type: string }
+
+provides:
+  type: object
+  additionalProperties: false
+  properties:
+    recent_posts: { type: array, items: { type: string } }
+
+config_schema:
+  type: object
+  additionalProperties: false
+  properties:
+    posts_limit:
+      type: integer
+      minimum: 1
+      maximum: 20
+      default: 3
+      description: The most posts to keep, newest first
+    cost_per_call_usd:
+      type: number
+      minimum: 0
+      default: 0.012
+      description: What one posts call costs on your HarvestAPI plan
+    base_url:
+      type: string
+      default: "https://api.harvestapi.io"
+      description: Override the API host (testing)
+
+credentials: [HARVEST_API_KEY]
+freshness_days: 30
+
+auth:
+  type: header
+  name: X-API-Key
+  env: HARVEST_API_KEY
+
+request:
+  method: GET
+  url: "{{config.base_url}}/linkedin/profile-posts"
+  query:
+    profile: "{{ record.linkedin_url }}"
+    page: "1"
+
+extract:
+  records: "."
+  fields:
+    recent_posts:
+      each: "elements|element"
+      template: "{{ item.content | strip | default: item.text | strip }}"
+      limit: "{{ config.posts_limit }}"
+
+errors:
+  "404":
+    verdict: skip
+    reason: profile not found
+
+cost:
+  per: record
+  amount_usd: "{{ config.cost_per_call_usd }}"

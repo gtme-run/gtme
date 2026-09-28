@@ -188,7 +188,7 @@ The key is the field named by `idempotency:`, here `email`. The target is the [a
 
 A repeat is skipped with the reason `already_delivered` ([SPEC §8](/spec#deliver-idempotency)). A different path or campaign delivers again, per the decision record, [ADR-044](/decisions#adr-044). A rule that holds across every target is a suppression [group](/concepts/groups).
 
-`accepted` means the target took the request. A delivery becomes `sent` only when the provider attests it, that is, reports back that it sent ([ADR-036](/decisions#adr-036)). A target that updates in place delivers again when the delivered values change, and `attio/assert` is the only shipped target that does ([ADR-045](/decisions#adr-045)).
+`accepted` means the target took the request. A delivery becomes `sent` only when the provider attests it, that is, reports back that it sent ([ADR-036](/decisions#adr-036)). A target that updates in place delivers again when the delivered values change, and `attio/assert`, a registry entry, is the only target that does today ([ADR-045](/decisions#adr-045)).
 
 ## Resume
 
