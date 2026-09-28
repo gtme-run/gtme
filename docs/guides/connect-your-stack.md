@@ -122,15 +122,15 @@ steps:
 
    ```
    gtme: 4 plan problems:
-     - step "source": adapters: unknown adapter "hubspot/contact-search"
-     built-in: agent/compose, agent/filter, agent/review, ai/compose, ai/filter, ai/review, apollo/enrich, apollo/search, attio/assert, csv/deliver, csv/source, demo/enrich, harvest/profile, http/deliver, http/enrich, human/compose, human/filter, human/review, instantly/add-to-campaign, text/compose
+     - step "source": adapters: unknown adapter "hubspot/contact-search" — if it is a registry entry, install it: gtme adapters add hubspot/contact-search
+     built-in: agent/compose, agent/filter, agent/review, ai/compose, ai/filter, ai/review, csv/deliver, csv/source, demo/enrich, http/deliver, http/enrich, human/compose, human/filter, human/review, instantly/add-to-campaign, text/compose
    ...
-     - step "lines": needs first_name, title, company_name, which no earlier step provides (available: nothing); installed adapters provide it: first_name ← apollo/enrich|apollo/search, title ← apollo/enrich|apollo/search, company_name ← apollo/enrich|apollo/search
+     - step "lines": needs first_name, title, company_name, which no earlier step provides (available: nothing)
      - step "send": missing credential INSTANTLY_API_KEY (set it in the environment or run `gtme secret set INSTANTLY_API_KEY`)
-     - step "send": needs email, which no earlier step provides (available: first_line, ps_line); installed adapters provide it: email ← apollo/enrich
+     - step "send": needs email, which no earlier step provides (available: first_line, ps_line)
    ```
 
-   The problem is in the file itself, not a missing key. The `built-in` line is every [adapter](/concepts/adapter-tiers) this binary ships. `hubspot/contact-search` isn't one, and the two `needs` lines are fallout from it: with no source, no step downstream gets a field. Fix unknown adapters first.
+   The problem is in the file itself, not a missing key. The `built-in` line is every [adapter](/concepts/adapter-tiers) this binary ships, and the only vendor on it is Instantly. `hubspot/contact-search` isn't one, so plan prints the command that installs it from the registry. The two `needs` lines are fallout from it: with no source, no step downstream gets a field. Fix unknown adapters first.
 
 1. Find the missing adapter in the registry. Searching reads GitHub and spends nothing:
 
@@ -145,17 +145,16 @@ steps:
    hubspot/contact-search  source  verified  gtme adapters add github.com/gtme-run/gtme-bindings/hubspot-contact-search@main  Source HubSpot contacts via the CRM v3 Search API, filtered…
    ```
 
-   Install it with the `INSTALL` column's command:
+   Install it by its ID, the command plan printed:
 
    ```sh
-   gtme adapters add \
-       github.com/gtme-run/gtme-bindings/hubspot-contact-search@main
+   gtme adapters add hubspot/contact-search
    ```
 
    The output is similar to the following:
 
    ```
-   fetched github.com/gtme-run/gtme-bindings/hubspot-contact-search@main at af95211c7c3d
+   fetched github.com/gtme-run/gtme-bindings/hubspot-contact-search@bcf671b9e1df177ed24e98b58e0c132176261c78 at bcf671b9e1df
    hubspot/contact-search v1 — source (person)
      calls:       api.hubapi.com
      demands:     HUBSPOT_ACCESS_TOKEN
@@ -165,7 +164,7 @@ steps:
    ...
    ```
 
-   `hubspot/contact-search` is a binding, a vendor adapter written as YAML. `calls:` lists every host it reaches, and `demands:` is the key it needs. The install is pinned to commit `af95211c7c3d` (the decision record, [ADR-042](/decisions#adr-042)). If search finds nothing, [Add a vendor](/start/add-a-vendor) shows how to write the binding.
+   `hubspot/contact-search` is a binding, a vendor adapter written as YAML. `calls:` lists every host it reaches, and `demands:` is the key it needs. The install is pinned to commit `bcf671b9e1df`, the one the registry's index names (the decision record, [ADR-042](/decisions#adr-042)). The `INSTALL` column's longer reference also works, and pins whatever commit `main` points to. If search finds nothing, [Add a vendor](/start/add-a-vendor) shows how to write the binding.
 
 1. Plan again until only keys are left:
 
@@ -304,10 +303,10 @@ The output is the following:
 
 ```
 ID                      VERSION  ROLE    KIND     SOURCE
-hubspot/contact-search  1        source  binding  github.com/gtme-run/gtme-bindings/hubspot-contact-search@main (af95211c7c3d)
+hubspot/contact-search  1        source  binding  github.com/gtme-run/gtme-bindings/hubspot-contact-search@bcf671b9e1df177ed24e98b58e0c132176261c78 (bcf671b9e1df)
 ```
 
-The hash in parentheses is the pin; `main` only named where to fetch it. `gtme secret list` and `gtme plan` recheck the keys. To have Claude Code do steps 1 through 7 and stop there, paste this line. The agent leaves each `gtme secret set` for you to run ([For agents](/start/for-agents)):
+The hash in parentheses is the pin, the short form of the commit in `SOURCE`. `gtme secret list` and `gtme plan` recheck the keys. To have Claude Code do steps 1 through 7 and stop there, paste this line. The agent leaves each `gtme secret set` for you to run ([For agents](/start/for-agents)):
 
 ```text
 Connect hubspot-to-instantly.yaml: plan it, install what plan names, list the keys for me to set, then simulate and stop before the dry-run
