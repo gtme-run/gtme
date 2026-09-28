@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -79,12 +80,43 @@ func TestHelpAgentSurface(t *testing.T) {
 	}
 	for id, role := range map[string]string{
 		"csv/source": "source", "ai/filter": "filter", "ai/compose": "compose",
-		"harvest/profile": "enrich", "instantly/add-to-campaign": "deliver",
+		"demo/enrich": "enrich", "instantly/add-to-campaign": "deliver",
 	} {
 		if got, ok := haveAdapter[id]; !ok {
 			t.Errorf("adapters missing %s", id)
 		} else if got != role {
 			t.Errorf("%s role = %q, want %q", id, got, role)
+		}
+	}
+}
+
+// TestHelpAgentListsNoVendorButInstantly is M33's acceptance (ADR-059): from
+// a clean HOME, with nothing on the adapter path, the binary carries the
+// floor and exactly one vendor.
+func TestHelpAgentListsNoVendorButInstantly(t *testing.T) {
+	h := newHarness(t)
+	res := h.runWithEnv([]string{"GTME_ADAPTER_PATH="}, "", "help", "--agent")
+	if res.code != 0 {
+		t.Fatalf("exit = %d\n%s", res.code, res.stderr)
+	}
+	var doc struct {
+		Adapters []struct {
+			ID string `json:"id"`
+		} `json:"adapters"`
+	}
+	if err := json.Unmarshal([]byte(res.stdout), &doc); err != nil {
+		t.Fatal(err)
+	}
+	floor := []string{"csv/", "http/", "sql/", "ai/", "group/", "human/", "agent/", "text/", "demo/", "instantly/"}
+	for _, a := range doc.Adapters {
+		ok := false
+		for _, p := range floor {
+			if strings.HasPrefix(a.ID, p) {
+				ok = true
+			}
+		}
+		if !ok {
+			t.Errorf("help --agent lists %s: the binary carries the floor and no vendor but instantly/ (ADR-059)", a.ID)
 		}
 	}
 }

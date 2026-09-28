@@ -1,4 +1,10 @@
 {
+  "config": {},
+  "input": {
+    "email": "jane@acme.example",
+    "first_name": "Jane",
+    "last_name": "Doe"
+  },
   "responses": [
     {
       "match": "PUT /v2/objects/people/records",
