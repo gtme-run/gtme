@@ -128,6 +128,11 @@ func newRegistryWorld(t *testing.T) *registryWorld {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/repos/petco/bindings/commits/", func(rw http.ResponseWriter, req *http.Request) {
+		// A full sha resolves to itself (a pinned ref); anything else to HEAD.
+		if ref := strings.TrimPrefix(req.URL.Path, "/repos/petco/bindings/commits/"); len(ref) == 40 {
+			json.NewEncoder(rw).Encode(map[string]string{"sha": ref})
+			return
+		}
 		json.NewEncoder(rw).Encode(map[string]string{"sha": w.headSHA})
 	})
 	mux.HandleFunc("/petco/bindings/tar.gz/", func(rw http.ResponseWriter, req *http.Request) {
@@ -265,6 +270,60 @@ func TestAdaptersAddInstallsVerifiedAndPinned(t *testing.T) {
 	contains(t, list.stderr, "pets/list", "adapters list")
 	contains(t, list.stderr, "github.com/petco/bindings/pets-list@main", "adapters list (source)")
 	contains(t, list.stderr, fakeSHA[:12], "adapters list (pin)")
+}
+
+// TestAdaptersAddBareIDs is M33's acceptance (ADR-059): `adapters add`
+// takes several references, a bare registry id resolves through the index
+// to the entry's source pinned at the index's sha, each installs on its own,
+// and one that fails does not undo the others but sets the exit code.
+func TestAdaptersAddBareIDs(t *testing.T) {
+	w := newRegistryWorld(t)
+	var rows []map[string]any
+	for id, dir := range map[string]string{"apollo/search": "apollo-search", "apollo/enrich": "apollo-enrich"} {
+		for _, f := range []string{"binding.yaml", "fixtures/conformance.json"} {
+			raw, err := os.ReadFile(filepath.Join(registryDir(), dir, filepath.FromSlash(f)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			w.repo[dir+"/"+f] = string(raw)
+		}
+		e := w.entry(id, dir, "")
+		e["source"].(map[string]string)["sha"] = fakeSHA2
+		rows = append(rows, e)
+	}
+	w.index["bindings"] = rows
+	h := newHarness(t)
+
+	res := h.runWithEnv(w.env(), "", "adapters", "add", "apollo/search", "apollo/enrich")
+	if res.code != 0 {
+		t.Fatalf("add exit = %d\n%s", res.code, res.stderr)
+	}
+	for _, dir := range []string{"apollo-search", "apollo-enrich"} {
+		raw, err := os.ReadFile(filepath.Join(h.home, ".gtme", "adapters", dir, adapterinstall.SourceFile))
+		if err != nil {
+			t.Fatalf("%s: no %s: %v", dir, adapterinstall.SourceFile, err)
+		}
+		var src adapterinstall.Source
+		if err := json.Unmarshal(raw, &src); err != nil {
+			t.Fatal(err)
+		}
+		if src.Commit != fakeSHA2 || src.Ref != fakeSHA2 {
+			t.Errorf("%s: pinned to commit %q ref %q, want the index sha %q", dir, src.Commit, src.Ref, fakeSHA2)
+		}
+	}
+
+	// One unknown id among good ones: the good one installs, the exit code
+	// reports the failure, and the error says where to look.
+	h2 := newHarness(t)
+	res = h2.runWithEnv(w.env(), "", "adapters", "add", "nope/missing", "apollo/search")
+	if res.code == 0 {
+		t.Fatalf("add with an unknown id exited 0\n%s", res.stderr)
+	}
+	contains(t, res.stderr, "nope/missing is not in the registry index", "add error")
+	contains(t, res.stderr, "1 of 2 not installed", "add summary")
+	if _, err := os.Stat(filepath.Join(h2.home, ".gtme", "adapters", "apollo-search", "binding.yaml")); err != nil {
+		t.Errorf("apollo/search should still install beside the failure: %v", err)
+	}
 }
 
 func TestAdaptersAddRefusesUnverifiable(t *testing.T) {

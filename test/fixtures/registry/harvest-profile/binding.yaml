@@ -1,0 +1,155 @@
+# harvest/profile — HarvestAPI LinkedIn profile lookup, one call per record
+# (SPEC §10 item 4). Version 2 (ADR-059): the registry entry that replaced
+# gtme's built-in Go adapter. Version 1 also fetched recent posts with a
+# second call; that is harvest/recent-posts now, a step of its own, so a
+# pipeline that does not want posts never pays for them.
+#
+# role_history is the each: list form (SPEC §10a): one line per position,
+# "<role> at <company> (<start>–<end>)" — role is position, else title,
+# else "(role not stated)"; company likewise "(company not stated)"; a
+# position with neither is dropped. The span is the start and end years
+# (their text labels when there is no year), "<start>–present" with no
+# end, the end alone with no start, the duration with neither.
+#
+# Endpoint: GET https://api.harvestapi.io/linkedin/profile?url=...
+# Auth:     X-API-Key header
+# Docs:     https://docs.harvestapi.io/linkedin-api-reference/profile/get
+
+id: harvest/profile
+version: 2
+role: enrich
+entity_type: person
+
+needs:
+  type: object
+  properties:
+    linkedin_url: { type: string }
+    linkedin_internal_url: { type: string }
+    linkedin_sales_nav_url: { type: string }
+  anyOf:
+    - required: [linkedin_url]
+    - required: [linkedin_internal_url]
+    - required: [linkedin_sales_nav_url]
+
+provides:
+  type: object
+  additionalProperties: false
+  properties:
+    linkedin_url: { type: string }
+    headline: { type: string }
+    about: { type: string }
+    location: { type: string }
+    current_role: { type: string }
+    current_company: { type: string }
+    follower_count: { type: integer }
+    open_to_work: { type: boolean }
+    role_history: { type: array, items: { type: string } }
+
+config_schema:
+  type: object
+  additionalProperties: false
+  properties:
+    main_only:
+      type: boolean
+      description: Ask for the cheaper main profile version
+    cost_per_profile_usd:
+      type: number
+      minimum: 0
+      default: 0.012
+      description: What one profile lookup costs on your HarvestAPI plan
+    base_url:
+      type: string
+      default: "https://api.harvestapi.io"
+      description: Override the API host (testing)
+    posts_limit:
+      not: {}
+      description: >-
+        version 2 fetches no posts; add a harvest/recent-posts step after
+        this one and set posts_limit there
+
+credentials: [HARVEST_API_KEY]
+freshness_days: 30
+
+auth:
+  type: header
+  name: X-API-Key
+  env: HARVEST_API_KEY
+
+request:
+  method: GET
+  url: "{{config.base_url}}/linkedin/profile"
+  query:
+    url: "{{ record.linkedin_url | default: record.linkedin_internal_url | default: record.linkedin_sales_nav_url }}"
+    main: "{{config.main_only}}"
+
+extract:
+  records: element
+  fields:
+    linkedin_url: { path: linkedinUrl, transform: linkedin, skip_if_input: true }
+    headline: headline
+    about: about
+    location: { paths: ["location.linkedinText", "location.parsed.text"] }
+    current_role:
+      paths:
+        - currentPosition.0.position
+        - currentPosition.0.title
+        - experience.0.position
+        - experience.0.title
+    current_company:
+      paths:
+        - currentPosition.0.companyName
+        - experience.0.companyName
+    follower_count: { path: followerCount, absent: [0] }
+    open_to_work: { path: openToWork, absent: [false] }
+    role_history:
+      each: experience
+      template: >-
+        {%- case item.position | strip | default: item.title | strip | default: item.companyName | strip %}
+        {%- when "" %}
+        {%- else %}{{ item.position | strip | default: item.title | strip | default: "(role not stated)" }} at {{ item.companyName | strip | default: "(company not stated)" }}
+        {%- case item.startDate.year %}
+        {%- when 0, "0", "", nil %}
+        {%- case item.startDate.text | strip %}
+        {%- when "" %}
+        {%- case item.endDate.year %}
+        {%- when 0, "0", "", nil %}
+        {%- case item.endDate.text | strip %}
+        {%- when "" %}
+        {%- case item.duration | strip %}
+        {%- when "" %}
+        {%- else %} ({{ item.duration | strip }})
+        {%- endcase %}
+        {%- else %} ({{ item.endDate.text | strip }})
+        {%- endcase %}
+        {%- else %} ({{ item.endDate.year }})
+        {%- endcase %}
+        {%- else %} ({{ item.startDate.text | strip }}
+        {%- case item.endDate.year %}
+        {%- when 0, "0", "", nil %}
+        {%- case item.endDate.text | strip %}
+        {%- when "" %}–present
+        {%- else %}–{{ item.endDate.text | strip }}
+        {%- endcase %}
+        {%- else %}–{{ item.endDate.year }}
+        {%- endcase %})
+        {%- endcase %}
+        {%- else %} ({{ item.startDate.year }}
+        {%- case item.endDate.year %}
+        {%- when 0, "0", "", nil %}
+        {%- case item.endDate.text | strip %}
+        {%- when "" %}–present
+        {%- else %}–{{ item.endDate.text | strip }}
+        {%- endcase %}
+        {%- else %}–{{ item.endDate.year }}
+        {%- endcase %})
+        {%- endcase %}
+        {%- endcase %}
+
+errors:
+  "404":
+    verdict: skip
+    reason: profile not found
+
+cost:
+  per: record
+  amount_usd: "{{ config.cost_per_profile_usd }}"

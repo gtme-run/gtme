@@ -64,12 +64,14 @@ What happens: a whole outbound pipeline — vendor search, AI filter,
 paid reveal, AI compose, CRM delivery — runs **offline**. The vendor
 adapters serve their recorded fixtures, the AI steps answer synthetically
 and say so in provenance, delivery is held with its merge variables
-resolved into the receipt. No network, no keys, no spend, nothing
-persisted.
+resolved into the receipt. No keys, no spend, nothing persisted. The
+Apollo adapters are registry entries, so one keyless command fetches
+them first; the run itself touches no network.
 
 ```sh
 mkdir -p gtme-start && cd gtme-start
 curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/demo.yaml
+gtme adapters add apollo/search apollo/enrich   # verified offline against their fixtures, then pinned
 gtme run demo.yaml --simulate
 ```
 
@@ -167,6 +169,7 @@ reports whether it is fit to send to — active, with a sequence that
 references every variable the step sends — before a single record moves.
 
 ```sh
+gtme adapters add apollo/search apollo/enrich   # skip if See it run installed them
 gtme secret set APOLLO_API_KEY
 gtme secret set ANTHROPIC_API_KEY
 gtme secret set INSTANTLY_API_KEY
@@ -184,8 +187,8 @@ gtme run demo.yaml                  # again: the cache receipt, zero re-delivery
 ```
 
 `examples/apollo-to-instantly.yaml` is the same shape at campaign size,
-with a LinkedIn enrichment in the middle; its header says which four
-keys it wants.
+with a LinkedIn profile and recent posts in the middle; its header says
+which adapters to install and which four keys it wants.
 
 Done when: a dry-run receipt was read by a human, one armed run
 delivered, and the run after it shows `avoided` on the paid steps and

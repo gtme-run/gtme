@@ -1,18 +1,30 @@
 # Adapters
 
-Every adapter that ships with gtme, what it does, and the config that
-matters. Three always-true companions to this page: `gtme help --agent`
+Every adapter that ships with gtme, and the vendor adapters the registry
+serves, what each does, and the config that matters. Three always-true companions to this page: `gtme help --agent`
 regenerates the full surface (every manifest, every flag) from the live
 registry, `gtme help --bindings` prints the contract for authoring a
 binding gtme does not ship, and each adapter's contract lives in its
 manifest or binding —
 this page is the human-readable tour, not a second source of truth.
 
+The binary carries no vendor but Instantly. Every other vendor adapter is
+a **registry** entry: a binding in
+[gtme-bindings](https://github.com/gtme-run/gtme-bindings), installed
+before its first use, several at a time:
+
+```sh
+gtme adapters add apollo/search apollo/enrich harvest/profile harvest/recent-posts attio/assert
+```
+
+`gtme plan` on a pipeline that names one you have not installed fails and
+prints the `gtme adapters add` line for it.
+
 Three kinds appear below:
 
-- **binding** — pure YAML interpreted by the generic engine
-  (`spec/bindings/`); cannot execute code; ships conformance fixtures that
-  `--simulate` serves.
+- **binding** — pure YAML interpreted by the generic engine; cannot
+  execute code; ships conformance fixtures that `--simulate` serves.
+  Every registry entry is one.
 - **process** — a Go (or any-language) executable speaking NDJSON; used
   where an integration needs real logic.
 - **runner-owned** — not an adapter at all: the runner executes it
@@ -24,8 +36,10 @@ Three kinds appear below:
 | `csv/source` | source | process (built-in) | rows from a CSV, with `columns:` ingress mapping |
 | `demo/enrich` | enrich | process (built-in) | synthetic, keyless, priced at a stated pretend rate — the zero-key cache demo |
 | `source: {group: …}` | source | runner-owned | a typed group's current members, projected from the ledger |
-| `apollo/search` | source | **binding** | Apollo people search, paginated |
-| `harvest/profile` | enrich | process (built-in) | LinkedIn profile via HarvestAPI |
+| `apollo/search` | source | **binding** (registry) | Apollo people search, paginated, masked fields |
+| `apollo/enrich` | enrich | **binding** (registry) | Apollo's per-credit reveal of one searched person |
+| `harvest/profile` | enrich | **binding** (registry) | LinkedIn profile via HarvestAPI, with role history |
+| `harvest/recent-posts` | enrich | **binding** (registry) | a person's recent LinkedIn posts, as text |
 | `http/enrich` | enrich | engine-inline | fetch any URL per record → markdown field or JSON extraction |
 | `sql/traverse` | traverse | runner-owned | follow a relation the ledger already holds into records of another type |
 | `sql/transform` | enrich | runner-owned | derive fields with a read-only SELECT over the ledger — per-record or cross-record |
@@ -33,7 +47,7 @@ Three kinds appear below:
 | `sql/filter` | filter | runner-owned | deterministic verdicts from a SQL predicate |
 | `ai/compose` | compose | process (built-in) | LLM writing → `first_line`, `ps_line`, or whatever the step's `provides:` declares |
 | `instantly/add-to-campaign` | deliver | process (built-in) | add a lead to an Instantly campaign |
-| `attio/assert` | deliver | **binding** | idempotent upsert of a person into Attio |
+| `attio/assert` | deliver | **binding** (registry) | idempotent upsert of a person into Attio |
 | `group/deliver` | deliver | runner-owned | hand records to a group — the next stage's source (ADR-032) |
 | `http/deliver` | deliver | engine-inline | POST resolved variables to any URL |
 | `csv/deliver` | deliver | process (built-in) | append delivered records to a reviewable CSV |
@@ -184,15 +198,18 @@ group source are validated like anywhere else. A group created before
 types existed has none, and a pipeline sourcing from it is entity-blind
 until `--type` sets it; `gtme plan` says so.
 
-### `apollo/search` — binding
+### `apollo/search` — registry binding
 
 Apollo `mixed_people/search`, paginated, mapped to canonical fields —
 including the judgment calls: LinkedIn URLs routed by shape
 (public/internal/sales-nav), Apollo's locked-email placeholder treated as
 absent (never an identity key), domain fallback from `primary_domain` to
 `website_url`. Config: `query` or `titles`/`seniorities`/`locations`/
-`domains`, plus `limit`. Credential: `APOLLO_API_KEY`. The whole adapter
-is [~150 lines of YAML](spec/bindings/apollo-search/binding.yaml).
+`domains`, plus `limit`. Credential: `APOLLO_API_KEY`. Install with
+`gtme adapters add apollo/search`. The whole adapter is
+[~150 lines of YAML](https://github.com/gtme-run/gtme-bindings/blob/main/apollo-search/binding.yaml);
+the binary keeps a copy as the worked example `gtme help --bindings`
+prints.
 
 ## Traversers
 
@@ -256,16 +273,28 @@ it produces; 30-day freshness, `cache:` overrides. Never in the registry
 index, and the `demo/` prefix is refused for installed bindings.
 `examples/hello.yaml` runs it twice for the delta.
 
-### `harvest/profile`
+### `harvest/profile` — registry binding
 
-LinkedIn profile lookup via HarvestAPI. Needs *any one* LinkedIn URL shape
-(public, internal, or Sales Navigator); when the lookup starts from a
-non-public shape it also returns the resolved public `linkedin_url`, which
-upgrades the identity key automatically. Provides headline, about,
-location, role history, current role/company, and (config `posts_limit`)
-recent posts. Credential: `HARVEST_API_KEY`; ~$0.012/profile; 30-day
-freshness by default. Stays a process adapter on purpose: the posts call
-and role-history formatting are logic a binding refuses to hold.
+LinkedIn profile lookup via HarvestAPI, one call per record. Needs *any
+one* LinkedIn URL shape (public, internal, or Sales Navigator); when the
+lookup starts from a non-public shape it also returns the resolved public
+`linkedin_url`, which upgrades the identity key automatically. Provides
+headline, about, location, current role/company, and `role_history`, one
+line per position (`VP Marketing at Acme Inc (2022–present)`). Credential:
+`HARVEST_API_KEY`; config `cost_per_profile_usd` (default $0.012); 30-day
+freshness by default. Install with `gtme adapters add harvest/profile`.
+Version 2 fetches no posts: `posts_limit` moved to `harvest/recent-posts`,
+and plan says so if a step still sets it.
+
+### `harvest/recent-posts` — registry binding
+
+A person's recent LinkedIn posts as `recent_posts`, a list of their text,
+at most config `posts_limit` (default 3). Needs `linkedin_url`, so it
+runs after `harvest/profile` when records arrive with another URL shape.
+One call per record; config `cost_per_call_usd` (default $0.012, set it
+to your plan's price). A pipeline that wants posts asks for them with
+this step, and one that does not never pays for the call. Install with
+`gtme adapters add harvest/recent-posts`.
 
 ### `http/enrich`
 
@@ -504,13 +533,14 @@ variable references and variants before sending. Attests: after the
 create it re-reads the lead (`GET /api/v2/leads/{id}`) and compares every
 field it sent. Credential: `INSTANTLY_API_KEY`.
 
-### `attio/assert` — binding
+### `attio/assert` — registry binding
 
 Asserts (upserts) a person into Attio by `matching_attribute` (default
 `email_addresses`) — **idempotency is native**: re-delivering cannot
 duplicate. `variables:` become attribute values on the record. Config:
-`object` (default `people`). Credential: `ATTIO_API_KEY`. Pure YAML:
-[spec/bindings/attio-assert/](spec/bindings/attio-assert/binding.yaml).
+`object` (default `people`). Credential: `ATTIO_API_KEY`. Install with
+`gtme adapters add attio/assert`. Pure YAML:
+[gtme-bindings/attio-assert](https://github.com/gtme-run/gtme-bindings/blob/main/attio-assert/binding.yaml).
 
 ### `group/deliver` — the handoff (ADR-032)
 

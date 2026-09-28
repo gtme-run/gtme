@@ -42,6 +42,10 @@ const (
 	// session, none of them declared-list checked (the binding's needs
 	// and config_schema are its own contract).
 	Binding
+	// Item is a binding's each: template (SPEC §10a, ADR-059): rendered
+	// once per array element over item.* only, tags allowed — it renders
+	// text, not a typed value.
+	Item
 )
 
 // Tags is the closed tag set (SPEC §10 item 10). Clause tags (else, elsif,
@@ -170,6 +174,19 @@ func Eval(expr string, vars map[string]any) (any, error) {
 		return nil, fmt.Errorf("template: %s", cleanErr(err))
 	}
 	return v, nil
+}
+
+// RenderItem renders an each: template over one array element, bound as
+// item (SPEC §10a, ADR-059). Lenient on absent values, like Render.
+func RenderItem(source string, item any) (string, error) {
+	if m, ok := item.(map[string]any); ok {
+		item = nest(m)
+	}
+	out, err := eng().ParseAndRenderString(source, liquid.Bindings{"item": item})
+	if err != nil {
+		return "", fmt.Errorf("template: %s", cleanErr(err))
+	}
+	return out, nil
 }
 
 // Nest is nest, for callers that bind their own record.
@@ -377,6 +394,12 @@ func (s *scanner) ref(chain []string, loops []string) {
 		}
 	}
 	path := strings.Join(chain[1:], ".")
+	if s.scope == Item {
+		if root != "item" {
+			s.problem(fmt.Sprintf("template: %q is not a variable here — an each: template reads item.<field>, the array element it renders", strings.Join(chain, ".")))
+		}
+		return
+	}
 	if s.scope == Binding {
 		if !roots[root] {
 			s.problem(fmt.Sprintf("template: %q is not a variable here — a request template reads record.<field>, config.<key>, variables.<name> or session", strings.Join(chain, ".")))

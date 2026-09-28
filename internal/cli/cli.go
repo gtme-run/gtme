@@ -172,7 +172,7 @@ Usage:
   gtme vacuum                        evict expired payloads (nothing else)
   gtme adapters                      installed adapters with source and pin
   gtme adapters search TEXT          search the registry index
-  gtme adapters add REF              install a binding from github.com/<owner>/<repo>/<path>[@ref], verified first
+  gtme adapters add REF...           install bindings by github.com/<owner>/<repo>/<path>[@ref] or registry id, verified first
   gtme adapters verify ID            schema + fixtures offline; prints hosts and credentials it will use
   gtme adapters update ID [@ref]     re-fetch at a newer ref, explicitly
   gtme help --agent                  machine-readable CLI + adapter surface

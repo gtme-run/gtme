@@ -253,7 +253,7 @@ That's it. That's how adapters work, and every vendor you add is one of these tw
 
 **Vendors live in a registry outside the binary.** `gtme adapters update` moves a pin only when you ask, and every registry entry must ship fixtures ([ADR-042](/decisions#adr-042)).
 
-**The binary ships a floor**: the `csv/*`, `http/*`, `sql/*`, `ai/*`, and `group/*` families (the last for [record groups](/concepts/groups)), plus the reference bindings in the repository's `spec/bindings/` folder. The floor is the crudest version of any integration on purpose, so anything is wireable today ([ADR-023](/decisions#adr-023)). Inline `http/*` config that repeats across pipelines should become a binding. We think that's the right trade: a pipeline runs on day one and improves when a binding replaces its floor step.
+**The binary ships a floor**: the `csv/*`, `http/*`, `sql/*`, `ai/*`, and `group/*` families (the last for [record groups](/concepts/groups)). It carries one vendor, `instantly/add-to-campaign`; every other vendor adapter, Apollo's and Harvest's included, is a registry entry you install with `gtme adapters add` ([ADR-059](/decisions#adr-059)). The floor is the crudest version of any integration on purpose, so anything is wireable today ([ADR-023](/decisions#adr-023)). Inline `http/*` config that repeats across pipelines should become a binding. We think that's the right trade: a pipeline runs on day one and improves when a binding replaces its floor step.
 
 The binary also ships built-ins outside the floor: the [participant](/concepts/participants) adapters `human/*` and `agent/*`, `demo/enrich`, and `text/compose`.
 
