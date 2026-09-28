@@ -2750,8 +2750,7 @@ decided contract, not shipped behavior.
   reason `unconfirmed`; `--resend-unconfirmed` (valid only with
   `--resume`) releases them; the receipt and `gtme runs RUN_ID` count
   `N unconfirmed` and print the release command. `http/deliver` sends
-  `Idempotency-Key`. `instantly/add-to-campaign` resolves its campaign
-  once per process, not once per session. Every executing run holds its
+  `Idempotency-Key`. Every executing run holds its
   `flock` on `locks/<run_id>.lock`; `gtme runs` derives `interrupted`;
   `--resume` refuses a live run and a `done` run with exit 2; a plain
   `gtme run` after an interrupted one prints the resume command.
