@@ -18,7 +18,7 @@ links:
     description: "Defines ledger"
   - to: /concepts/runs-and-receipts
     type: relates-to
-    description: "Defines idempotency"
+    description: "Defines delivery and idempotency"
   - to: /concepts/types-and-traverse
     type: relates-to
     description: "Defines type"
@@ -68,3 +68,4 @@ CREATE TABLE deliveries (
 ## Used in
 
 - [Top up](/guides/top-up)
+- [Iterate](/guides/iterate): The target, scope, and key each delivery row carries

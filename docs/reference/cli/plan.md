@@ -68,3 +68,4 @@ gtme plan my-csv.yaml
 - [Canonical fields](/concepts/canonical-fields): The command that prints the namespace and coupling notes
 - [Build your first pipeline from a CSV](/guides/first-pipeline): Every line plan prints, which this guide reads after each edit
 - [Guard](/guides/guard): Every line plan prints, and its exit codes
+- [Iterate](/guides/iterate): Every line plan prints after an edit
