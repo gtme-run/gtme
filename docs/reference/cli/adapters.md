@@ -8,11 +8,17 @@ learn:
   - "each flag and what it changes"
   - "where the docs use it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines adapter, binding, bindings registry, and fixture"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code"
+  - to: /concepts/gate-ladder
+    type: relates-to
+    description: "Defines dry-run and plan"
   - to: /concepts/pipeline
     type: relates-to
     description: "Defines source"
@@ -59,4 +65,4 @@ gtme adapters search jsonplaceholder
 ## Used in
 
 - [Two adapter tiers](/concepts/adapter-tiers): The search, add, verify, and update verbs
-- [Add a vendor with a binding](/guides/add-a-binding): The verify verb this guide runs until it passes, and the verbs that install from the registry
+- [Connect your stack: secrets, plan, dry-run, arm](/guides/connect-your-stack): The search, add, verify, and update verbs

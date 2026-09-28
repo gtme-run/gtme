@@ -1,6 +1,7 @@
 // docsgen writes the generated half of docs/ — the reference collection and
-// the glossary — from `gtme help --agent`, docs/_adapters.json,
-// spec/fields/*.json, spec/ledger.sql, and each concept page's `defines:`.
+// the glossary — from `gtme help --agent`, docs/_adapters.json, the spec/
+// artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance,
+// and each concept page's `defines:`.
 // `make docs-reference` builds the binary, captures the agent document from
 // a clean home, and runs this. With -check it writes nothing and exits 1
 // when the committed pages differ from what it would write.
