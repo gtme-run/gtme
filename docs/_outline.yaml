@@ -67,7 +67,7 @@ collections:
     - { slug: report, name: Report, status: planned }
     - { slug: interrogate, name: Interrogate, status: planned }
     - { slug: top-up, name: Top up, status: planned }
-    - { slug: iterate, name: Iterate, status: planned }
+    - { slug: iterate, name: Iterate, status: reviewed }
     - { slug: recover, name: Recover, status: planned }
     - { slug: segment, name: Segment, status: planned }
     - { slug: multi-stage, name: Multi-stage campaigns with groups, status: planned }
