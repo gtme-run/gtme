@@ -8,11 +8,14 @@ learn:
   - "each flag and what it changes"
   - "where the docs use it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines adapter, binding, and fixture"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code"
 ---
 
 # gtme help
@@ -51,3 +54,4 @@ gtme help --bindings > bindings.json
 ## Used in
 
 - [For agents](/start/for-agents): The help verb, including the --agent output the agent reads
+- [Agent-operable by design](/concepts/agent-operable): The forms of gtme help, including --agent and --bindings
