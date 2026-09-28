@@ -114,6 +114,16 @@ func (ix *Index) Search(q string) []Entry {
 	return out
 }
 
+// Find returns the entry with the given adapter id, if the index lists one.
+func (ix *Index) Find(id string) *Entry {
+	for i := range ix.Bindings {
+		if ix.Bindings[i].ID == id {
+			return &ix.Bindings[i]
+		}
+	}
+	return nil
+}
+
 // FindSource returns the entry publishing the given repository path, if the
 // index carries one — the hook for the content-hash refusal (SPEC §11 M19).
 func (ix *Index) FindSource(url, path string) *Entry {

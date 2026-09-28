@@ -45,6 +45,21 @@ func TestShippedBindingsParse(t *testing.T) {
 	if names := binding.Shipped(); len(names) != 1 {
 		t.Errorf("spec/bindings/ = %v, want exactly the one worked example (ADR-059)", names)
 	}
+	// The worked example mirrors its registry entry byte for byte, so what
+	// `help --bindings` prints is what `adapters add` installs.
+	for _, f := range []string{"binding.yaml", "fixtures/conformance.json"} {
+		shipped, err := os.ReadFile(filepath.Join("..", "..", "spec", "bindings", "apollo-search", filepath.FromSlash(f)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		entry, err := os.ReadFile(filepath.Join(registryEntries, "apollo-search", filepath.FromSlash(f)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(shipped) != string(entry) {
+			t.Errorf("spec/bindings/apollo-search/%s differs from the registry entry's copy", f)
+		}
+	}
 	entries, err := os.ReadDir(registryEntries)
 	if err != nil {
 		t.Fatal(err)

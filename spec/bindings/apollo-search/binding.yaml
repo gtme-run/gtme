@@ -1,4 +1,4 @@
-# apollo/search — THE apollo/search adapter: a registered built-in binding,
+# apollo/search — THE apollo/search adapter (built into gtme until ADR-059),
 # rewritten for the masked API surface (ADR-043). Apollo withdrew value
 # fields from API search 2026-08-30: `mixed_people/search` 422s for API
 # callers, and its replacement `mixed_people/api_search` returns masked rows

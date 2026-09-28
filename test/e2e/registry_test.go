@@ -249,3 +249,15 @@ steps:
 		t.Errorf("the plan error should name harvest/recent-posts:\n%s", out)
 	}
 }
+
+// TestPlanNamesTheInstallCommand: an uninstalled vendor id is a plan error
+// naming `gtme adapters add <id>`, decided offline (ADR-059, SPEC §6).
+func TestPlanNamesTheInstallCommand(t *testing.T) {
+	h := newHarness(t)
+	h.write("p.yaml", "name: uninstalled\nsource:\n  use: apollo/search\n  with:\n    query: x\nsteps: []\n")
+	res := h.runWithEnv([]string{"GTME_ADAPTER_PATH=", "GTME_REGISTRY=http://127.0.0.1:1/unreachable.json"}, "", "plan", "p.yaml")
+	if res.code == 0 {
+		t.Fatalf("plan accepted an uninstalled apollo/search:\n%s", res.stdout)
+	}
+	contains(t, res.stderr, "gtme adapters add apollo/search", "plan error")
+}
