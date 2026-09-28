@@ -64,3 +64,4 @@ gtme run hello.yaml
 - [Launch](/guides/launch): Every flag of the launch command, including --resume and --dry-run
 - [Guard](/guides/guard): The --simulate flag this guide uses and --dry-run, the next rung and the first that spends
 - [Recover](/guides/recover): Every flag of gtme run, including --resume
+- [Run on cron and events](/guides/cron-and-events): Every flag of the command the crontab line runs

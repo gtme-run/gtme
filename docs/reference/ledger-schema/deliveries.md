@@ -21,7 +21,7 @@ links:
     description: "Defines step"
   - to: /concepts/runs-and-receipts
     type: relates-to
-    description: "Defines delivery and idempotency"
+    description: "Defines delivery, idempotency, and run"
   - to: /concepts/steps-and-roles
     type: relates-to
     description: "Defines deliver"
@@ -77,3 +77,4 @@ CREATE TABLE deliveries (
 - [Iterate](/guides/iterate): The target, scope, and key each delivery row carries
 - [Recover](/guides/recover): The table a deliver step checks before it sends
 - [Segment](/guides/segment): Every delivery row, with the target and scope a slice can narrow on
+- [Run on cron and events](/guides/cron-and-events)
