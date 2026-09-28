@@ -60,7 +60,7 @@
     "credentials_optional": {
       "type": "array",
       "items": {"type": "string"},
-      "description": "Injected when present, never blocks a plan (SPEC.md §6). Used by adapters that can work several ways, e.g. an AI step with a local engine."
+      "description": "Injected when present, never blocks a plan (SPEC.md §6). Used by adapters that can work several ways, such as an AI step with a local engine."
     },
     "config_schema": {
       "type": "object",
