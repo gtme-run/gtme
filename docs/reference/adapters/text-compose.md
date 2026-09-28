@@ -75,4 +75,5 @@ From [A pipeline is a YAML file](/concepts/pipeline):
 
 ## Used in
 
+- [Build your first pipeline from a CSV](/guides/first-pipeline)
 - The `persona-file-and-text-compose` example in `gtme help --agent`
