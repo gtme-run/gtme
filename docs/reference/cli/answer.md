@@ -8,7 +8,7 @@ learn:
   - "each flag and what it changes"
   - "where the docs use it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
@@ -58,7 +58,7 @@ From [Participants](/concepts/participants):
 
 ```sh
 gtme answer grading grade jane.doe@acme.com --set grading.grade=A \
-    --note "owns the budget"
+    --note "owns the budget" --as dana
 ```
 
 ## Used in
