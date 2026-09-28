@@ -55,3 +55,4 @@ gtme groups
 ## Used in
 
 - [Groups and segments](/concepts/groups): Every gtme groups verb and flag
+- [Segment](/guides/segment): Every gtme groups verb, including add --from-segment

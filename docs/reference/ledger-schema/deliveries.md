@@ -12,13 +12,13 @@ generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapt
 links:
   - to: /concepts/groups
     type: relates-to
-    description: "Defines handoff"
+    description: "Defines handoff and segment"
   - to: /concepts/ledger
     type: relates-to
     description: "Defines ledger"
   - to: /concepts/runs-and-receipts
     type: relates-to
-    description: "Defines idempotency"
+    description: "Defines delivery and idempotency"
   - to: /concepts/types-and-traverse
     type: relates-to
     description: "Defines type"
@@ -64,3 +64,7 @@ CREATE TABLE deliveries (
   UNIQUE(target, scope, idempotency)
 );
 ```
+
+## Used in
+
+- [Segment](/guides/segment): Every delivery row, with the target and scope a slice can narrow on
