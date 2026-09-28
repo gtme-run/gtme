@@ -2657,7 +2657,7 @@ decided contract, not shipped behavior.
   contains `ADR-` or `§`; every docs page that prints plan or receipt
   output is re-run and lints clean.
 - **M33 — vendors leave the binary (ADR-059; §6, §8, §9, §10, §10a,
-  §11). Queued 2026-09-26.** The binding engine gains the `each:`
+  §11). Built 2026-09-27 (changelog v0.53).** The binding engine gains the `each:`
   extraction form (§10a; `spec/binding-schema.json` gains `each`).
   `gtme-bindings` gains five verified entries: `apollo-search`,
   `apollo-enrich` and `attio-assert` moved unchanged, `harvest-profile`
@@ -3028,6 +3028,27 @@ no reconstruction required from raw table scans.
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.53 — 2026-09-27 (M33 build: vendors leave the binary, built)
+**Changed:** §11 M33 marked built; no normative text changed — v0.51's
+contract is shipped behaviour, covered by M33's acceptance. Behavioural
+notes from the build: an `each:` limit is a positive whole number or
+exactly `{{ config.<key> }}`, and renders kept (not elements read) count
+toward it; its path takes `|` alternatives like any extraction path, and
+`harvest/recent-posts` reads `elements|element`; a config key an entry
+retires is declared `not: {}` with a description, and plan prints
+`config <key> is not accepted: <description>` — that is how
+`harvest/profile@2` names `harvest/recent-posts` for `posts_limit`;
+`harvest/recent-posts` takes its cost from `cost_per_call_usd`, default
+`0.012` because HarvestAPI's docs publish no price for the posts endpoint
+(checked 2026-09-27); `add` with several references reports each failure
+as `gtme: <ref>: <error>`, installs the rest, and exits with the first
+failure's code; the unknown-adapter error carries the `gtme adapters add
+<id>` line for any id with a slash, wherever an id resolves, not only in
+plan; `spec/bindings/` keeps `apollo-search`, byte-identical to its
+registry entry, and `help --bindings` says which entry it mirrors;
+`attio-assert`'s fixtures gained an `input` member so `adapters verify`
+can drive it in the registry's CI.
 
 ### v0.52 — 2026-09-26 (M32 build: plain words, built)
 **Changed:** §11 M32 marked built; no normative text changed — v0.50's

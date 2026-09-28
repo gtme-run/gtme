@@ -10,7 +10,7 @@ pipelines. Adapters are data. Judgment is versioned. Everything replays.
 ```yaml
 name: q3-outbound
 source:
-  use: apollo/search              # a vendor adapter that is ~150 lines of YAML
+  use: apollo/search              # a vendor adapter that is ~150 lines of YAML: gtme adapters add apollo/search
   with: { query: "vp marketing, saas", limit: 200 }
 steps:
   - id: fit
@@ -188,18 +188,20 @@ each one pipeline file, each ending in a receipt.
 
 ## The adapters
 
-What ships today — see **[ADAPTERS.md](ADAPTERS.md)** for each one's
-config and behavior, or `gtme help --agent` for the machine-generated,
-always-current surface:
+What ships today, and the vendor adapters the registry serves — see
+**[ADAPTERS.md](ADAPTERS.md)** for each one's config and behavior, or
+`gtme help --agent` for the machine-generated, always-current surface of
+what the binary carries. Adapters marked *(registry)* install with
+`gtme adapters add <id>`:
 
 | | |
 |---|---|
-| **In** | `csv/source` · group-as-source · `apollo/search` *(binding)* |
-| **Enrich** | `harvest/profile` · `http/enrich` (any URL → markdown or JSON) · `sql/transform` |
+| **In** | `csv/source` · group-as-source · `apollo/search` *(registry)* |
+| **Enrich** | `apollo/enrich` *(registry)* · `harvest/profile` *(registry)* · `harvest/recent-posts` *(registry)* · `http/enrich` (any URL → markdown or JSON) · `sql/transform` |
 | **Judge** | `ai/filter` · `sql/filter` · `ai/review` |
 | **Write** | `ai/compose` · `text/compose` (a template, no model) |
 | **Ask** | `human/filter` · `human/compose` · `human/review` · `agent/*` (the same three, answered by an agent) |
-| **Out** | `instantly/add-to-campaign` · `attio/assert` *(binding)* · `http/deliver` (any URL) · `csv/deliver` · `group/deliver` (the next stage) |
+| **Out** | `instantly/add-to-campaign` · `attio/assert` *(registry)* · `http/deliver` (any URL) · `csv/deliver` · `group/deliver` (the next stage) |
 
 Adding your own doesn't require touching this repo: drop a `binding.yaml`
 into `~/.gtme/adapters/<name>/` and the id resolves immediately.

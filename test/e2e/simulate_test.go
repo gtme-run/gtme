@@ -83,11 +83,24 @@ func TestSimulateCampaignZero(t *testing.T) {
 	}
 }
 
-// TestSimulateGapSurfaces: a credentialed process adapter with no fixtures is
+// TestSimulateGapSurfaces: a credentialed adapter with no fixtures is
 // stubbed and surfaced, and its missing credential does not block the
-// simulated plan (SPEC §8).
+// simulated plan (SPEC §8). The adapter is harvest/profile installed
+// without its fixtures file.
 func TestSimulateGapSurfaces(t *testing.T) {
 	h := newHarness(t)
+	path := t.TempDir()
+	dir := filepath.Join(path, "harvest-profile")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(registryDir(), "harvest-profile", "binding.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "binding.yaml"), raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	h.write("contacts.csv", "Full Name,Linkedin\nJane Doe,https://www.linkedin.com/in/jane-doe\n")
 	h.write("gap.yaml", `name: gap-check
 source:
@@ -103,12 +116,13 @@ steps:
 `)
 
 	// No HARVEST_API_KEY anywhere: a plain run must fail the plan…
-	res := h.run("run", "gap.yaml")
+	env := []string{"GTME_ADAPTER_PATH=" + path}
+	res := h.runWithEnv(env, "", "run", "gap.yaml")
 	if res.code != 3 {
 		t.Fatalf("unsimulated exit = %d, want 3 (missing credential)\nstderr:\n%s", res.code, res.stderr)
 	}
 	// …while the simulated run proceeds and surfaces the gap.
-	res = h.run("run", "gap.yaml", "--simulate")
+	res = h.runWithEnv(env, "", "run", "gap.yaml", "--simulate")
 	if res.code != 0 {
 		t.Fatalf("simulate exit = %d\nstderr:\n%s", res.code, res.stderr)
 	}
