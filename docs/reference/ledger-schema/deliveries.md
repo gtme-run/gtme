@@ -12,7 +12,7 @@ generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapt
 links:
   - to: /concepts/groups
     type: relates-to
-    description: "Defines handoff"
+    description: "Defines handoff and segment"
   - to: /concepts/ledger
     type: relates-to
     description: "Defines ledger"
@@ -76,3 +76,4 @@ CREATE TABLE deliveries (
 - [Top up](/guides/top-up)
 - [Iterate](/guides/iterate): The target, scope, and key each delivery row carries
 - [Recover](/guides/recover): The table a deliver step checks before it sends
+- [Segment](/guides/segment): Every delivery row, with the target and scope a slice can narrow on

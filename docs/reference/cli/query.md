@@ -75,3 +75,4 @@ gtme query "SELECT i.identity_key, e.detail ->> 'reason' AS reason
 - [Report](/guides/report): Read-only SQL against the ledger, used for the check and the monthly total
 - [Interrogate](/guides/interrogate): Read-only SQL, used for a field's history and a referent lookup
 - [Top up](/guides/top-up): Every flag of the command the proof queries use
+- [Segment](/guides/segment): Every gtme query flag, including --save, --name, --list, and --format

@@ -62,3 +62,4 @@ gtme groups
 
 - [Groups and segments](/concepts/groups): Every gtme groups verb and flag
 - [Guard](/guides/guard): Creates and fills a group such as the suppression group plan asked for
+- [Segment](/guides/segment): Every gtme groups verb, including add --from-segment
