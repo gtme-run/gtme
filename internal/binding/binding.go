@@ -9,6 +9,7 @@ package binding
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema/v5"
@@ -113,12 +114,18 @@ func (r *RecordsPath) UnmarshalJSON(raw []byte) error {
 }
 
 // FieldRule is one field's extraction: a path (or alternatives), an optional
-// registry transform, sentinel absent values, and the skip_if_input dedupe.
+// registry transform, sentinel absent values, and the skip_if_input dedupe —
+// or the list form, each: (SPEC §10a, ADR-059): a path to an array, a
+// template rendered once per element over item.*, and a limit (a number or
+// a config reference).
 type FieldRule struct {
 	Paths       []string `json:"paths,omitempty"`
 	Transform   string   `json:"transform,omitempty"`
 	Absent      []any    `json:"absent,omitempty"`
 	SkipIfInput bool     `json:"skip_if_input,omitempty"`
+	Each        string   `json:"each,omitempty"`
+	Template    string   `json:"template,omitempty"`
+	Limit       any      `json:"limit,omitempty"`
 }
 
 // UnmarshalJSON accepts the bare-path string form.
@@ -134,6 +141,9 @@ func (f *FieldRule) UnmarshalJSON(raw []byte) error {
 		Transform   string   `json:"transform"`
 		Absent      []any    `json:"absent"`
 		SkipIfInput bool     `json:"skip_if_input"`
+		Each        string   `json:"each"`
+		Template    string   `json:"template"`
+		Limit       any      `json:"limit"`
 	}
 	if err := json.Unmarshal(raw, &doc); err != nil {
 		return err
@@ -142,9 +152,50 @@ func (f *FieldRule) UnmarshalJSON(raw []byte) error {
 	if doc.Path != "" {
 		paths = append([]string{doc.Path}, paths...)
 	}
-	*f = FieldRule{Paths: paths, Transform: doc.Transform, Absent: doc.Absent, SkipIfInput: doc.SkipIfInput}
+	*f = FieldRule{Paths: paths, Transform: doc.Transform, Absent: doc.Absent, SkipIfInput: doc.SkipIfInput,
+		Each: doc.Each, Template: doc.Template, Limit: doc.Limit}
 	return nil
 }
+
+// check holds a field rule to its form: a path, or each: with its template
+// (the one dialect over item.*, SPEC §10a) and an optional limit.
+func (f FieldRule) check() error {
+	if f.Each == "" {
+		switch {
+		case f.Template != "" || f.Limit != nil:
+			return fmt.Errorf("template and limit belong to each:, the list form")
+		case len(f.Paths) == 0:
+			return fmt.Errorf("has no path")
+		}
+		return nil
+	}
+	switch {
+	case len(f.Paths) > 0 || f.Transform != "":
+		return fmt.Errorf("each: does not mix with path, paths or transform — the template does the shaping")
+	case strings.TrimSpace(f.Template) == "":
+		return fmt.Errorf("each: needs a template, rendered once per element over item.*")
+	}
+	if _, problems := template.Check(f.Template, template.Item, nil, "", nil); len(problems) > 0 {
+		return fmt.Errorf("each: template: %s", problems[0])
+	}
+	switch t := f.Limit.(type) {
+	case nil:
+	case float64:
+		if t < 1 || t != float64(int(t)) {
+			return fmt.Errorf("each: limit must be a positive whole number or {{ config.<key> }}")
+		}
+	case string:
+		ref := strings.TrimSpace(t)
+		if !limitRefRE.MatchString(ref) {
+			return fmt.Errorf("each: limit %q must be a positive whole number or {{ config.<key> }}", t)
+		}
+	default:
+		return fmt.Errorf("each: limit must be a positive whole number or {{ config.<key> }}")
+	}
+	return nil
+}
+
+var limitRefRE = regexp.MustCompile(`^\{\{\s*config\.[A-Za-z_][A-Za-z0-9_]*\s*\}\}$`)
 
 // ErrorRule is primitive 5: one status (or class) → verdict.
 type ErrorRule struct {
@@ -292,8 +343,8 @@ func (b *Binding) check() error {
 		return fmt.Errorf("binding: %s: retry windows / rate_per_hour are declared but not yet enforced by this engine build", b.ID)
 	}
 	for name, rule := range b.Extract.Fields {
-		if len(rule.Paths) == 0 {
-			return fmt.Errorf("binding: %s: extract field %q has no path", b.ID, name)
+		if err := rule.check(); err != nil {
+			return fmt.Errorf("binding: %s: extract field %q: %w", b.ID, name, err)
 		}
 	}
 	if b.Pagination != nil && b.Pagination.Strategy == "cursor" && b.Pagination.CursorPath == "" {

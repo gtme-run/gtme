@@ -48,10 +48,12 @@ This is [See it run](/start/show-me) on live vendors. You'll climb the [gate lad
 
 ## The file you'll run
 
-**Fetch the pipeline:**
+**Fetch the pipeline, and install its vendor adapters from the [registry](/concepts/adapter-tiers):**
 
 ```sh
 curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/apollo-to-instantly.yaml
+gtme adapters add apollo/search apollo/enrich \
+  harvest/profile harvest/recent-posts
 ```
 
 Here it is without comments:
@@ -84,6 +86,11 @@ steps:
 
   - id: linkedin
     use: harvest/profile
+    when: icp-filter.passed
+    cache: 30d
+
+  - id: posts
+    use: harvest/recent-posts
     when: icp-filter.passed
     cache: 30d
     with:
@@ -123,7 +130,7 @@ We recommend `limit: 5` for the first dry run, raised after the [receipt](/conce
     limit: 5
 ```
 
-Without Harvest, delete the `linkedin` step and point `personalize` at Apollo's fields, or plan fails:
+Without Harvest, delete the `linkedin` and `posts` steps and point `personalize` at Apollo's fields, or plan fails:
 
 ```yaml
     uses: [first_name, title, company_name]
@@ -145,33 +152,32 @@ gtme run apollo-to-instantly.yaml --simulate
 The output is similar to the following:
 
 ```
-simulate: ignoring missing credentials (4 plan problems:
+simulate: ignoring missing credentials (5 plan problems:
 ...
 simulate: recorded responses only — no network, no spend, nothing sends, nothing persists
-run 01M3CX161QEV1CKXPXSS382TEC (apollo-to-instantly)
+run 01M3K1VE3JW9NW8HAGD7XY1NMA (apollo-to-instantly)
 ...
 send: 2 in, 0 out, 0 cached, 0 filtered, 0 failed, 2 held (dry run)
 
-run 01M3CX161QEV1CKXPXSS382TEC — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
+run 01M3K1VE3JW9NW8HAGD7XY1NMA — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
 step         adapter                    in  out  empty  cached  filtered  failed  cost     avoided
 source       apollo/search              0   2    -      0       -         -       $0       -
 icp-filter   ai/filter                  2   2    -      0       -         -       $0       -
 reveal       apollo/enrich              2   2    -      0       -         -       $0.0200  -
-linkedin     harvest/profile            2   0    -      0       -         -       $0       -
+linkedin     harvest/profile            2   2    -      0       -         -       $0.0240  -
+posts        harvest/recent-posts       2   2    -      0       -         -       $0.0240  -
 personalize  ai/compose                 2   2    -      0       -         -       $0       -
 send         instantly/add-to-campaign  2   0    -      0       -         -       $0       -
-personalize: 2 missing recent_posts, role_history — dispatched anyway (on_missing: run); set on_missing: skip or fail to hold them
-simulation gap: linkedin (harvest/profile) — 2 record(s) passed through untouched (no fixtures to serve)
 send: preflight skipped — the target is not read under --simulate; --dry-run checks it
 send: resolved variables for 2 record(s) — review, then run again without --dry-run to arm:
   nh:ed48d7bfcbdb5e0ce36005a8cec0be0812e91c1f4a4f542bc86eed418173f417
     first_line: "Fixture first line for nh:ed48d7bfcbdb5e0ce36005a8cec0be0812e91c1f4a4f542bc86eed418173f417"
     ps_line: "Fixture ps line for nh:ed48d7bfcbdb5e0ce36005a8cec0be0812e91c1f4a4f542bc86eed418173f417"
 ...
-total: $0.0200 (estimated) spent
+total: $0.0680 (estimated) spent
 ```
 
-Apollo answered from fixtures, which are recorded responses, and the model from canned text; `$0.0200` is what the reveals would cost. Harvest has no fixtures, so `linkedin` passed records through untouched, and `on_missing: run` let `personalize` write anyway. "held (dry run)" and "without --dry-run to arm" are the CLI's words under simulate too, not a third mode.
+Apollo and Harvest answered from fixtures (recorded responses), the model from canned text; `$0.0680` is what the reveals and the Harvest calls would cost. "held (dry run)" and "without --dry-run to arm" are the CLI's words under simulate too, not a third mode.
 
 **The `send: resolved variables` block, each person's values for the email, is the part to read.** The dry run prints the same block with real people.
 
@@ -186,10 +192,11 @@ gtme plan apollo-to-instantly.yaml
 Without keys, the output is the following:
 
 ```
-gtme: 4 plan problems:
+gtme: 5 plan problems:
   - step "source": missing credential APOLLO_API_KEY (set it in the environment or run `gtme secret set APOLLO_API_KEY`)
   - step "reveal": missing credential APOLLO_API_KEY (set it in the environment or run `gtme secret set APOLLO_API_KEY`)
   - step "linkedin": missing credential HARVEST_API_KEY (set it in the environment or run `gtme secret set HARVEST_API_KEY`)
+  - step "posts": missing credential HARVEST_API_KEY (set it in the environment or run `gtme secret set HARVEST_API_KEY`)
   - step "send": missing credential INSTANTLY_API_KEY (set it in the environment or run `gtme secret set INSTANTLY_API_KEY`)
 ```
 

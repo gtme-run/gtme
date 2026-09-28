@@ -109,9 +109,8 @@ func TestHelpBindingsNamesThePathAndTheFixtures(t *testing.T) {
 // criterion (SPEC §8, ADR-041): the reference binding it prints validates
 // against the schema it prints, and — installed on the discovery path it
 // names, under the directory it names — resolves through `gtme plan`. The
-// reference is a shipped built-in, so it is installed under a shifted vendor
-// prefix (as binding_twin_test does) to prove the path resolved it, not the
-// binary.
+// reference mirrors a registry entry the harness also has on its path, so it
+// is installed under a shifted vendor prefix to prove this copy resolved.
 func TestHelpBindingsReferenceRoundTrips(t *testing.T) {
 	h := newHarness(t)
 	doc, _ := helpBindings(t, h)
