@@ -73,8 +73,8 @@ gtme init
 The output is similar to the following:
 
 ```
-ledger created: /var/folders/cm/pyqn674s1xbbrfv0yfbx5xwr0000gn/T/tmp.8JJJKBqb9D/.gtme/ledger.db
-gtme home: /var/folders/cm/pyqn674s1xbbrfv0yfbx5xwr0000gn/T/tmp.8JJJKBqb9D/.gtme
+ledger created: /tmp/you/.gtme/ledger.db
+gtme home: /tmp/you/.gtme
 ```
 
 On your machine, both paths start with your home folder. Running `gtme init` again is safe: it prints `ledger up to date` and changes nothing.

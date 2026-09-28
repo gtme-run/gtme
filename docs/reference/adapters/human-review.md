@@ -8,7 +8,7 @@ learn:
   - "every `with:` key it accepts"
   - "what it costs and which credential it demands"
 roles: [builder, extender, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
@@ -89,4 +89,5 @@ From [Participants](/concepts/participants):
 
 ## Used in
 
+- [Put a human in the loop](/guides/human-in-the-loop)
 - The `human-review-then-cron` example in `gtme help --agent`

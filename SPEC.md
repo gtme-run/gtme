@@ -2181,7 +2181,7 @@ signature (§7, ADR-039) in the form `ai/compose @ <model-id>#<signature>`
 (e.g. `ai/compose @ claude-sonnet-4-6#1a2b3c4d5e6f`), so two prompts'
 outputs are distinguishable in provenance, and COST attributes spend per
 model. A `human/*` or `agent/*` step (ADR-049) takes the same form with
-the participant in the model's place — `human/review @ trevor#<sig>`,
+the participant in the model's place — `human/review @ <participant>#<sig>`,
 `agent/filter @ claude-code#<sig>` — the signature over the step
 declaration alone (adapter id, `template:`/`render.fields`, the declared
 outputs, `uses:`, `of:`), never the name: the cache is checked at

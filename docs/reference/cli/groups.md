@@ -8,20 +8,29 @@ learn:
   - "each flag and what it changes"
   - "where the docs use it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code"
   - to: /concepts/facts
     type: relates-to
     description: "Defines provenance"
+  - to: /concepts/gate-ladder
+    type: relates-to
+    description: "Defines plan"
   - to: /concepts/groups
     type: relates-to
-    description: "Defines group and segment"
+    description: "Defines group, segment, and suppression group"
   - to: /concepts/pipeline
     type: relates-to
     description: "Defines pipeline"
+  - to: /concepts/runs-and-receipts
+    type: relates-to
+    description: "Defines run"
   - to: /concepts/types-and-traverse
     type: relates-to
-    description: "Defines type"
+    description: "Defines relation, traverse, and type"
 ---
 
 # gtme groups
@@ -55,3 +64,7 @@ gtme groups
 ## Used in
 
 - [Groups and segments](/concepts/groups): Every gtme groups verb and flag
+- [Guard](/guides/guard): Creates and fills a group such as the suppression group plan asked for
+- [Segment](/guides/segment): Every gtme groups verb, including add --from-segment
+- [Multi-stage campaigns with groups](/guides/multi-stage): Every gtme groups verb, including show and remove with --note
+- [Traverse a relation](/guides/traverse): Every verb for the typed groups the two runs end in
