@@ -8,14 +8,20 @@ learn:
   - "what the object holds and who writes it"
   - "the DDL as the spec states it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/ledger
     type: relates-to
     description: "Defines ledger"
+  - to: /concepts/pipeline
+    type: relates-to
+    description: "Defines step"
+  - to: /concepts/runs-and-receipts
+    type: relates-to
+    description: "Defines receipt"
   - to: /concepts/types-and-traverse
     type: relates-to
-    description: "Defines relation, traverse, and type"
+    description: "Defines type"
 ---
 
 # step_events
@@ -52,4 +58,6 @@ CREATE TABLE step_events (
 
 ## Used in
 
-- [Traverse a relation](/guides/traverse): Where the traversed and coalesced events for each child are logged
+- [Report](/guides/report): One row per record per step event, which the receipt's counts are
+- [Top up](/guides/top-up)
+- [Iterate](/guides/iterate): The events and details the reuse queries read, including the judgment signature
