@@ -42,7 +42,7 @@ links:
     description: "Defines ULID, delivery, receipt, and run"
   - to: /concepts/steps-and-roles
     type: relates-to
-    description: "Defines deliver, filter, role, and verdict"
+    description: "Defines deliver, enrich, filter, role, and verdict"
   - to: /concepts/types-and-traverse
     type: relates-to
     description: "Defines type"
@@ -236,7 +236,7 @@ Schema: `spec/schemas/msg-log.schema.json`.
 
 ## Example
 
-The `source` stream of `spec/wire/basic-run.ndjson`, recorded from `csv/source`. Each line wraps the message in `msg`; `stream`, `dir`, and `adapter` say which session it belongs to, which way it went, and the adapter on the other end. The whole exchange is [basic-run.ndjson on GitHub](https://github.com/gtme-run/gtme/blob/main/spec/wire/basic-run.ndjson).
+`spec/wire/basic-run.ndjson`, recorded from real adapters: the `source` session with `csv/source` and the `enrich` session with `mock-enrich-py`. Each line wraps the message in `msg`; `stream`, `dir`, and `adapter` say which session it belongs to, which way it went, and the adapter on the other end ([on GitHub](https://github.com/gtme-run/gtme/blob/main/spec/wire/basic-run.ndjson)).
 
 ```json
 {"stream":"source","dir":"runner->adapter","adapter":"csv/source","msg":{"type":"OPEN","step_id":"source","run_id":"01J8Z6QG4M0000000000000001","config":{"path":"internal/adapters/csvsource/fixtures/people.csv"}}}
@@ -247,6 +247,20 @@ The `source` stream of `spec/wire/basic-run.ndjson`, recorded from `csv/source`.
 {"stream":"source","dir":"adapter->runner","adapter":"csv/source","msg":{"type":"RECORD","fields":{"company_domain":"initech.dev","email":"carol@initech.dev","full_name":"Carol Ray"}}}
 {"stream":"source","dir":"adapter->runner","adapter":"csv/source","msg":{"type":"LOG","level":"info","msg":"read 3 rows from internal/adapters/csvsource/fixtures/people.csv"}}
 {"stream":"source","dir":"adapter->runner","adapter":"csv/source","msg":{"type":"END"}}
+{"stream":"enrich","dir":"runner->adapter","adapter":"mock-enrich-py","msg":{"type":"OPEN","step_id":"mock","run_id":"01J8Z6QG4M0000000000000001","config":{"note":"seen by the external adapter"}}}
+{"stream":"enrich","dir":"runner->adapter","adapter":"mock-enrich-py","msg":{"type":"RECORD","key":{"entity_type":"person","identity_key":"jane.doe@acme.com"},"fields":{"email":"Jane.Doe@Acme.com","full_name":"Jane Doe"}}}
+{"stream":"enrich","dir":"runner->adapter","adapter":"mock-enrich-py","msg":{"type":"RECORD","key":{"entity_type":"person","identity_key":"bob@globex.io"},"fields":{"email":"bob@globex.io","full_name":"Bob Stone"}}}
+{"stream":"enrich","dir":"runner->adapter","adapter":"mock-enrich-py","msg":{"type":"RECORD","key":{"entity_type":"person","identity_key":"carol@initech.dev"},"fields":{"email":"carol@initech.dev","full_name":"Carol Ray"}}}
+{"stream":"enrich","dir":"runner->adapter","adapter":"mock-enrich-py","msg":{"type":"END"}}
+{"stream":"enrich","dir":"adapter->runner","adapter":"mock-enrich-py","msg":{"type": "SCHEMA", "provides": {"type": "object", "additionalProperties": false, "properties": {"mock.score": {"type": "integer", "minimum": 0, "maximum": 100}, "mock.note": {"type": "string"}}}}}
+{"stream":"enrich","dir":"adapter->runner","adapter":"mock-enrich-py","msg":{"type": "RECORD", "key": {"entity_type": "person", "identity_key": "jane.doe@acme.com"}, "fields": {"mock.score": 21, "mock.note": "seen by the external adapter"}}}
+{"stream":"enrich","dir":"adapter->runner","adapter":"mock-enrich-py","msg":{"type": "COST", "key": {"entity_type": "person", "identity_key": "jane.doe@acme.com"}, "provider": "mock", "amount_usd": 0, "detail": {"credits": 0}}}
+{"stream":"enrich","dir":"adapter->runner","adapter":"mock-enrich-py","msg":{"type": "RECORD", "key": {"entity_type": "person", "identity_key": "bob@globex.io"}, "fields": {"mock.score": 30, "mock.note": "seen by the external adapter"}}}
+{"stream":"enrich","dir":"adapter->runner","adapter":"mock-enrich-py","msg":{"type": "COST", "key": {"entity_type": "person", "identity_key": "bob@globex.io"}, "provider": "mock", "amount_usd": 0, "detail": {"credits": 0}}}
+{"stream":"enrich","dir":"adapter->runner","adapter":"mock-enrich-py","msg":{"type": "RECORD", "key": {"entity_type": "person", "identity_key": "carol@initech.dev"}, "fields": {"mock.score": 68, "mock.note": "seen by the external adapter"}}}
+{"stream":"enrich","dir":"adapter->runner","adapter":"mock-enrich-py","msg":{"type": "COST", "key": {"entity_type": "person", "identity_key": "carol@initech.dev"}, "provider": "mock", "amount_usd": 0, "detail": {"credits": 0}}}
+{"stream":"enrich","dir":"adapter->runner","adapter":"mock-enrich-py","msg":{"type": "LOG", "level": "info", "msg": "enriched 3 records"}}
+{"stream":"enrich","dir":"adapter->runner","adapter":"mock-enrich-py","msg":{"type": "END"}}
 ```
 
 ## See also

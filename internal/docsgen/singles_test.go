@@ -212,8 +212,8 @@ func TestWireProtocolPage(t *testing.T) {
 		t.Error("the key definition was not inlined")
 	}
 	ex := page[strings.Index(page, "## Example"):]
-	if !strings.Contains(ex, `"adapter":"csv/source"`) || strings.Contains(ex, `"stream":"enrich"`) {
-		t.Error("example is not the csv/source stream alone")
+	if !strings.Contains(ex, `"adapter":"csv/source"`) || !strings.Contains(ex, `"stream":"enrich"`) || !strings.Contains(ex, `"mock.score"`) {
+		t.Error("example is not the whole transcript, source and enrich sessions")
 	}
 	for _, stale := range []string{"mock_score", "mock_note"} {
 		if strings.Contains(page, stale) {
