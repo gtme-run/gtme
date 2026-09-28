@@ -2747,6 +2747,46 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-28 — Resume and interrupt: `last` is per pipeline, Ctrl-C finishes the run, a resume records its config
+
+**Question:** Three recover bugs found while the recover and launch
+guides were written. `--resume last` resolved to the newest run of any
+pipeline (#122). Ctrl-C during an ordinary step printed a `failed`
+receipt but left the run `running`, and the records the receipt counted
+failed had no step events (#135). Resuming after editing the pipeline
+ran the new file while `runs.config_json` kept the old one, so `gtme
+runs` and `gtme freeze` described a file the run no longer matched
+(#137).
+**Choice:** (1) **`last` is the newest run of the named pipeline**, via
+`LastRunForPipeline`, the same scope collect-first uses. SPEC §8 calls
+`--resume RUN_ID|last` "the explicit form of the same thing", so this
+is conformance, not a new rule. A pipeline with no runs of its own has
+nothing to resume (exit 2). An explicit RUN_ID of another pipeline is
+still allowed, with the existing warning. (2) **What already happened is
+recorded on a context the signal did not cancel.** The run is finished
+that way for any interrupt, not only the ADR-049 walk. A session's
+messages are applied that way too, once the records are sent, because a
+RECORD that arrived before the kill is work done and often paid for, so
+it is kept. A record failed by the interrupt gets its `failed` event the
+same way. The kill still ends the adapter process and the stream, so
+the interrupt cancels the work, not the bookkeeping. (3) **A resume
+records the config it resumes with.** When the resolved pipeline
+differs from `runs.config_json`, the snapshot is replaced and stderr
+says so. Refusing a changed file was the alternative, but "fix the file
+and `--resume`" is the recovery SPEC describes (§8 preflight, and the M4
+resume test resumes an edited file). The run finishes under the new
+file, so that is the file `freeze` should rebuild.
+**Why:** each makes the ledger say what the receipt and the operator
+already believe: the run resumed is the pipeline's own, a run the
+receipt calls failed is failed, and the recorded config is the one that
+finished the run. The snapshot keeps only the latest config. The
+original stays reconstructable from its step events' provenance, and
+keeping a history of configs would be a DDL change.
+**Spec impact:** None. `config_json` remains "the resolved config
+snapshot"; the DDL is unchanged. Refusing to resume a `done` run, and
+the in-flight delivery (#134) and dead-run (#136) fixes, are spec-visible
+and proposed separately.
+
 ### 2026-09-27 — M33 internals: vendors leave the binary (ADR-059)
 
 **Question:** How does the engine hold `each:` without a second

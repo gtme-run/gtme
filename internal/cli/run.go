@@ -118,7 +118,7 @@ func cmdRun(ctx context.Context, env Env, args []string) error {
 			}
 		}
 	}
-	runID, err := resolveRunID(ctx, l, *resume)
+	runID, err := resolveRunID(ctx, l, p.Name, *resume)
 	if err != nil {
 		return err
 	}
@@ -254,16 +254,18 @@ func planFailure(err error) error {
 	return exitError{code: ExitValidation, err: err}
 }
 
-// resolveRunID turns a --resume value into a run id.
-func resolveRunID(ctx context.Context, l *ledger.Ledger, resume string) (string, error) {
+// resolveRunID turns a --resume value into a run id. `last` is the newest run
+// of the named pipeline — the explicit form of collect-first (SPEC §8), which
+// is scoped the same way — never another pipeline's run (#122).
+func resolveRunID(ctx context.Context, l *ledger.Ledger, pipeline, resume string) (string, error) {
 	switch resume {
 	case "":
 		return "", nil
 	case "last":
-		run, err := l.LastRun(ctx)
+		run, err := l.LastRunForPipeline(ctx, pipeline)
 		if err != nil {
 			if errors.Is(err, ledger.ErrNotFound) {
-				return "", fail(ExitValidation, "no runs to resume")
+				return "", fail(ExitValidation, "no runs to resume for pipeline %q", pipeline)
 			}
 			return "", fail(ExitOther, "%v", err)
 		}

@@ -70,6 +70,17 @@ steps:
 `)
 	second := h.mustRun("run", "fixed.yaml", "--resume", runID)
 	contains(t, second.stderr, "resuming run "+runID, "stderr")
+	// The file changed since the run started: the run records the config it
+	// finished with, and says so, so `gtme runs` and `gtme freeze` describe
+	// what ran (#137).
+	contains(t, second.stderr, "the pipeline changed since run "+runID+" started", "stderr")
+	if cfg := h.queryStrings(`SELECT config_json FROM runs WHERE id = ?`, runID)[0]; strings.Contains(cfg, "fail_on") {
+		t.Errorf("config_json still holds the original file after resuming an edited one: %s", cfg)
+	}
+	frozen := h.mustRun("freeze", runID)
+	if strings.Contains(frozen.stdout, "fail_on") {
+		t.Errorf("freeze rebuilt the original file, not the one the run finished with:\n%s", frozen.stdout)
+	}
 	contains(t, second.stderr, "already sourced (3 records)", "stderr")
 	contains(t, second.stderr, "mock: 2 in, 2 out", "stderr")
 
@@ -113,9 +124,13 @@ func TestResumeLastAndUnknownRun(t *testing.T) {
 	}
 	contains(t, res.stderr, "unknown run", "stderr")
 
-	// Resuming a finished run is a no-op that reports itself as such.
+	// Resuming a finished run is a no-op that reports itself as such; an
+	// unchanged file says nothing about its config.
 	res = h.mustRun("run", "pipeline.yaml", "--resume", "last")
 	contains(t, res.stderr, "already sourced", "stderr")
+	if strings.Contains(res.stderr, "the pipeline changed") {
+		t.Errorf("an unchanged pipeline must not report a config change\nstderr:\n%s", res.stderr)
+	}
 	if strings.Contains(res.stderr, "mock: 3 in") {
 		t.Error("resuming a finished run must not redo its work")
 	}
@@ -160,5 +175,60 @@ steps:
 	}
 	if n := h.queryInt(`SELECT count(*) FROM step_events WHERE step_id='mock' AND event='claimed'`); n != 300 {
 		t.Errorf("claimed = %d, want 300 (the surviving chunks were still processed)", n)
+	}
+}
+
+// TestResumeLastIsScopedToThePipeline is #122: `--resume last` resolves to the
+// newest run of the named pipeline — the explicit form of the collect-first
+// rule (SPEC §8) — never to whichever pipeline ran most recently.
+func TestResumeLastIsScopedToThePipeline(t *testing.T) {
+	h := newHarness(t)
+	h.write("people.csv", peopleCSV)
+	h.write("failing.yaml", `name: resumable
+source:
+  use: csv/source
+  with:
+    path: people.csv
+steps:
+  - id: mock
+    use: mock-enrich-py
+    cache: 30d
+    with:
+      fail_on: bob@globex.io
+`)
+	h.write("other.yaml", strings.Replace(csvToMockYAML, "name: csv-to-mock", "name: other", 1))
+
+	if first := h.runWithEnv([]string{"GTME_CONCURRENCY=1"}, "", "run", "failing.yaml"); first.code == 0 {
+		t.Fatalf("expected the induced failure to fail the run\nstderr:\n%s", first.stderr)
+	}
+	failed := h.queryStrings(`SELECT id FROM runs WHERE pipeline = 'resumable'`)[0]
+	h.mustRun("run", "other.yaml")
+
+	// A pipeline with no runs of its own has nothing to resume, even though
+	// the ledger holds runs of others.
+	h.write("fresh.yaml", strings.Replace(csvToMockYAML, "name: csv-to-mock", "name: fresh", 1))
+	res := h.run("run", "fresh.yaml", "--resume", "last")
+	if res.code != 2 {
+		t.Errorf("exit = %d, want 2 for a pipeline with no runs", res.code)
+	}
+	contains(t, res.stderr, "no runs to resume", "stderr")
+
+	h.write("fixed.yaml", `name: resumable
+source:
+  use: csv/source
+  with:
+    path: people.csv
+steps:
+  - id: mock
+    use: mock-enrich-py
+    cache: 30d
+`)
+	res = h.mustRun("run", "fixed.yaml", "--resume", "last")
+	contains(t, res.stderr, "resuming run "+failed, "stderr")
+	if strings.Contains(res.stderr, "warning: run") {
+		t.Errorf("resume last must not pick another pipeline's run\nstderr:\n%s", res.stderr)
+	}
+	if n := h.queryInt(`SELECT count(*) FROM runs WHERE pipeline = 'resumable' AND status = 'done'`); n != 1 {
+		t.Errorf("done resumable runs = %d, want 1 (the failed run finished)", n)
 	}
 }
