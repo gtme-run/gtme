@@ -25,9 +25,12 @@ links:
   - to: /concepts/pipeline
     type: relates-to
     description: "Defines pipeline"
+  - to: /concepts/runs-and-receipts
+    type: relates-to
+    description: "Defines run"
   - to: /concepts/types-and-traverse
     type: relates-to
-    description: "Defines type"
+    description: "Defines relation, traverse, and type"
 ---
 
 # gtme groups
@@ -64,3 +67,4 @@ gtme groups
 - [Guard](/guides/guard): Creates and fills a group such as the suppression group plan asked for
 - [Segment](/guides/segment): Every gtme groups verb, including add --from-segment
 - [Multi-stage campaigns with groups](/guides/multi-stage): Every gtme groups verb, including show and remove with --note
+- [Traverse a relation](/guides/traverse): Every verb for the typed groups the two runs end in

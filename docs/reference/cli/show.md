@@ -34,6 +34,9 @@ links:
   - to: /concepts/runs-and-receipts
     type: relates-to
     description: "Defines receipt and run"
+  - to: /concepts/types-and-traverse
+    type: relates-to
+    description: "Defines relation and traverse"
 ---
 
 # gtme show
@@ -82,3 +85,4 @@ gtme show jane.doe@acme.com
 - [Facts have provenance](/concepts/facts): Every flag of gtme show, including --provenance
 - [Interrogate](/guides/interrogate): Every form and flag of gtme show, including --run and --pending
 - [Top up](/guides/top-up): Every flag of gtme show, including --provenance and --fields
+- [Traverse a relation](/guides/traverse): Prints the company the traverse reached, with its fields
