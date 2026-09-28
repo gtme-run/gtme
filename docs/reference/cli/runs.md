@@ -49,3 +49,4 @@ gtme runs
 - [Runs and receipts](/concepts/runs-and-receipts): Every flag and output of gtme runs
 - [Report](/guides/report): Every form of the command this guide reads receipts with
 - [Interrogate](/guides/interrogate): Lists runs with their pipeline, which names the run behind a value
+- [Recover](/guides/recover): Every flag and output of gtme runs, the command that shows a run's status and per-step counts
