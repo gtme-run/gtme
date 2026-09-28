@@ -18,7 +18,7 @@ links:
     description: "Defines fact and provenance"
   - to: /concepts/ledger
     type: relates-to
-    description: "Defines payload"
+    description: "Defines ledger and payload"
 ---
 
 # gtme vacuum
@@ -43,4 +43,5 @@ gtme vacuum
 
 ## Used in
 
+- [The ledger](/concepts/ledger): Deletes expired payloads without touching a fact
 - [Facts have provenance](/concepts/facts): The command that deletes expired payloads and nothing else

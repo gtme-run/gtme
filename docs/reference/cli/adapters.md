@@ -12,7 +12,7 @@ generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapt
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
-    description: "Defines adapter, binding, bindings registry, and fixture"
+    description: "Defines adapter, binding, bindings registry, fixture, and process adapter"
   - to: /concepts/agent-operable
     type: relates-to
     description: "Defines exit code"
@@ -66,3 +66,6 @@ gtme adapters search jsonplaceholder
 
 - [Two adapter tiers](/concepts/adapter-tiers): The search, add, verify, and update verbs
 - [Connect your stack: secrets, plan, dry-run, arm](/guides/connect-your-stack): The search, add, verify, and update verbs
+- [Add a vendor with a binding](/guides/add-a-binding): The verify verb this guide runs until it passes, and the verbs that install from the registry
+- [Write a process adapter](/guides/process-adapter): Lists installed adapters with their kind and source
+- [Publish to the registry](/guides/publish-to-registry): The search, add, verify, and update verbs this guide runs
