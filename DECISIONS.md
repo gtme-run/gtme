@@ -2747,6 +2747,67 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-27 — M33 internals: vendors leave the binary (ADR-059)
+
+**Question:** How does the engine hold `each:` without a second
+expression language, where do the e2e and conformance suites get the
+entries now that the binary has none, how does `harvest/profile@2`'s plan
+error name `harvest/recent-posts` without vendor code in the binary, what
+does `add` do when one of several references fails, and how do the
+Harvest templates reproduce the Go formatting?
+**Choice:** (1) **`each:` is a field-rule form, checked at Parse.** A
+`FieldRule` carries `each`, `template` and `limit`; `each` does not mix
+with `path`, `paths` or `transform`. The template goes through
+`internal/template.Check` under a new `Item` scope: tags allowed, the
+filter allowlist as everywhere, and `item.*` the only variable (a
+`record.*` or `config.*` reference is refused). `limit` is a positive
+whole number or exactly `{{ config.<key> }}`, resolved per step from
+config with defaults applied; the schema only types it, so the refusal
+message is the engine's. The path takes `|` alternatives like any other
+path (`elements|element`). Kept renders count toward the limit, as the
+Go adapter counted non-empty posts. (2) **The suites install a local
+copy.** `test/fixtures/registry/` holds the five entries as committed to
+`gtme-bindings`; the e2e harness appends it to `GTME_ADAPTER_PATH`, and
+the conformance kit loads from it. `spec/bindings/apollo-search/` is kept
+byte-identical to its registry copy, and a conformance test fails when
+they differ. The copy is a test fixture: an entry changed in
+`gtme-bindings` is copied here in the same change. (3) **A refused config
+key is a `not: {}` property.** `ValidateConfig` checks, before the schema,
+whether a key present in the step's config is declared `not: {}` with a
+description, and if so fails with `config <key> is not accepted:
+<description>`. `harvest/profile@2` declares `posts_limit` that way, so
+the binary carries no Harvest knowledge and any entry can retire a key
+the same way. (4) **Several references install independently.** Each is
+resolved, verified and installed in turn; a failure prints `gtme: <arg>:
+<error>` and the rest continue; the command exits with the first
+failure's code and a one-line count. A single reference behaves exactly
+as before. A bare id is `vendor/name` with no dot; the index is fetched
+once per command, and the ref installed is the entry's `source.sha`
+(`source.ref` only when an entry has no sha). (5) **The uninstalled-id
+hint rides the resolve error.** `unknown adapter "apollo/search"` gains
+`— if it is a registry entry, install it: gtme adapters add
+apollo/search` for any id with a slash, so plan, run and the verbs that
+resolve all say it, offline. (6) **The Harvest templates avoid
+comparisons on emptiness.** In the dialect an empty string is truthy and
+`!= blank` does not catch it, while `| default:` does treat it as empty,
+and `case` accepts a filter chain. So `role_history` picks role and
+company with `default:` chains ending in the `(… not stated)` text,
+drops a position with `{% case position | strip | default: title | strip
+| default: companyName | strip %}{% when "" %}`, and treats a year of
+`0`, `"0"`, `""` or nil as absent with `{% when 0, "0", "", nil %}`. Over
+the Go adapter's fixtures and eleven edge-case positions (missing,
+whitespace-only and numeric-string fields, text-only dates, duration
+only), the binding's lines matched `position.line()` exactly before the
+Go adapter was deleted. One divergence remains by construction: a
+non-numeric year label ("Present") prints as itself, where the Go code
+fell back to the date's text.
+**Why:** each choice keeps the binary free of vendor knowledge while the
+operator-facing behaviour stays what ADR-059 promised: same fields, same
+lines, an error that names where a key went, and installs that fail one
+at a time.
+**Spec impact:** None beyond ADR-059's reconciliation (v0.51); v0.53
+records the behavioural notes.
+
 ### 2026-09-26 — The CLI index lists verbs; the verb pages carry the forms
 
 **Question:** The generated `docs/reference/cli/index.md` printed a

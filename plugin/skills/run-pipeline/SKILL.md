@@ -23,7 +23,10 @@ gtme run pipeline.yaml               # Again: the cache receipt. Nothing deliver
 ```
 
 1. **plan.** Exit 0 or fix what it names, then plan again. Never skip
-   to a later rung with a failing plan.
+   to a later rung with a failing plan. A vendor adapter that is not
+   installed fails plan with the line that installs it, `gtme adapters
+   add <id>`: run that (keyless; it verifies the adapter offline before
+   installing), then plan again.
 2. **simulate.** Read the receipt to the human: the step table,
    `simulation gap` lines (a step served nothing), and the held
    deliveries with their resolved variables.

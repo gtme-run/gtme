@@ -9,11 +9,12 @@ package conformance
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/gtme-run/gtme/internal/adapters"
 	"github.com/gtme-run/gtme/internal/adapters/adaptertest"
 	_ "github.com/gtme-run/gtme/internal/adapters/all"
 	"github.com/gtme-run/gtme/internal/binding"
@@ -21,34 +22,70 @@ import (
 	"github.com/gtme-run/gtme/internal/registry"
 )
 
-// loadShipped loads one embedded binding and its fixtures.
+// registryEntries is the local copy of the registry's vendor entries
+// (ADR-059): the binary ships no vendor binding since M33.
+const registryEntries = "../fixtures/registry"
+
+// loadShipped loads one registry entry (from the local copy) and its
+// fixtures.
 func loadShipped(t *testing.T, name string) (*binding.Binding, *binding.FixtureSet) {
 	t.Helper()
-	dir, err := binding.ShippedFS(name)
-	if err != nil {
-		t.Fatalf("shipped binding %s: %v", name, err)
-	}
-	b, fixtures, err := binding.LoadFS(dir)
+	b, fixtures, err := binding.LoadFS(os.DirFS(filepath.Join(registryEntries, name)))
 	if err != nil {
 		t.Fatalf("loading %s: %v", name, err)
 	}
 	return b, fixtures
 }
 
-// TestShippedBindingsParse: every binding under spec/bindings/ conforms to the
-// schema, bridges onto a valid §6 manifest, and names only registry-valid
-// fields in its extraction (§4a enforcement extended to bindings).
+// TestShippedBindingsParse: the one binding under spec/bindings/ (the
+// worked example) and every registry entry in the local copy conform to the
+// schema, bridge onto a valid §6 manifest, and name only registry-valid
+// fields in their extraction (§4a enforcement extended to bindings).
 func TestShippedBindingsParse(t *testing.T) {
-	names := binding.Shipped()
-	if len(names) < 4 {
-		t.Fatalf("shipped bindings = %v, want at least the three ports plus attio", names)
+	if names := binding.Shipped(); len(names) != 1 {
+		t.Errorf("spec/bindings/ = %v, want exactly the one worked example (ADR-059)", names)
+	}
+	// The worked example mirrors its registry entry byte for byte, so what
+	// `help --bindings` prints is what `adapters add` installs.
+	for _, f := range []string{"binding.yaml", "fixtures/conformance.json"} {
+		shipped, err := os.ReadFile(filepath.Join("..", "..", "spec", "bindings", "apollo-search", filepath.FromSlash(f)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		entry, err := os.ReadFile(filepath.Join(registryEntries, "apollo-search", filepath.FromSlash(f)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(shipped) != string(entry) {
+			t.Errorf("spec/bindings/apollo-search/%s differs from the registry entry's copy", f)
+		}
+	}
+	entries, err := os.ReadDir(registryEntries)
+	if err != nil {
+		t.Fatal(err)
 	}
 	reg, err := registry.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range names {
-		b, fixtures := loadShipped(t, name)
+	loads := map[string]func() (*binding.Binding, *binding.FixtureSet, error){}
+	for _, name := range binding.Shipped() {
+		dir, err := binding.ShippedFS(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		loads["spec/bindings/"+name] = func() (*binding.Binding, *binding.FixtureSet, error) { return binding.LoadFS(dir) }
+	}
+	for _, e := range entries {
+		dir := os.DirFS(filepath.Join(registryEntries, e.Name()))
+		loads["registry/"+e.Name()] = func() (*binding.Binding, *binding.FixtureSet, error) { return binding.LoadFS(dir) }
+	}
+	for name, load := range loads {
+		b, fixtures, err := load()
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+			continue
+		}
 		if _, err := b.Manifest(); err != nil {
 			t.Errorf("%s: manifest bridge: %v", name, err)
 		}
@@ -60,21 +97,6 @@ func TestShippedBindingsParse(t *testing.T) {
 		if fixtures == nil {
 			t.Errorf("%s: ships no conformance fixtures — a simulation gap by construction (SPEC §8)", name)
 		}
-	}
-}
-
-// TestAttioBuiltinResolves: attio/assert is registered as a built-in binding
-// (SPEC §11 M8: the first net-new integration is pure YAML).
-func TestAttioBuiltinResolves(t *testing.T) {
-	res, err := adapters.Resolve("attio/assert")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !res.Binding || !res.HasFixtures {
-		t.Errorf("attio/assert: Binding=%v HasFixtures=%v, want true/true", res.Binding, res.HasFixtures)
-	}
-	if res.Manifest.Role != adapters.RoleDeliver {
-		t.Errorf("role = %q", res.Manifest.Role)
 	}
 }
 
@@ -188,6 +210,8 @@ func TestApolloEnrichConformance(t *testing.T) {
 	}
 }
 
+// TestHarvestBindingConformance: harvest/profile@2 (ADR-059) — one call,
+// role_history through each:, the cost from config at its default.
 func TestHarvestBindingConformance(t *testing.T) {
 	b, fixtures := loadShipped(t, "harvest-profile")
 	eng := &binding.Engine{B: b, HTTP: fixtures.Doer()}
@@ -216,6 +240,10 @@ func TestHarvestBindingConformance(t *testing.T) {
 		"current_role":    "VP Marketing",
 		"current_company": "Acme Inc",
 		"follower_count":  float64(4210),
+		"role_history": []any{
+			"VP Marketing at Acme Inc (2022–present)",
+			"Director of Demand Gen at Initech (2019–2022)",
+		},
 	}
 	if !reflect.DeepEqual(normalizeJSON(got), normalizeJSON(want)) {
 		t.Errorf("fields = %#v\nwant    %#v", normalizeJSON(got), normalizeJSON(want))
@@ -248,60 +276,6 @@ func TestHarvestBindingConformance(t *testing.T) {
 	}
 	if _, has := records[0].Fields["linkedin_url"]; has {
 		t.Error("linkedin_url re-emitted despite skip_if_input")
-	}
-}
-
-func TestInstantlyBindingConformance(t *testing.T) {
-	b, fixtures := loadShipped(t, "instantly-add-to-campaign")
-	_ = fixtures
-	stub := &adaptertest.Stub{Routes: map[string]adaptertest.Response{
-		"POST /api/v2/leads": {Body: `{"id":"lead_1","email":"jane.doe@acme.com"}`},
-	}}
-	eng := &binding.Engine{B: b, HTTP: stub}
-
-	msgs, err := adaptertest.Run(t, eng, adaptertest.Input{
-		Config: map[string]any{
-			"campaign": "7d467891-4257-4a62-a8b2-08d3837f5714",
-			"variables": map[string]any{
-				"first_name": "full_name",
-				"first_line": "first_line",
-			},
-		},
-		Records: []protocol.Message{adaptertest.Record("jane.doe@acme.com", map[string]any{
-			"email": "jane.doe@acme.com", "full_name": "Jane Doe", "first_line": "Hello Jane",
-		})},
-		Env: map[string]string{"INSTANTLY_API_KEY": "k"},
-	})
-	if err != nil {
-		t.Fatalf("engine: %v", err)
-	}
-	records := adaptertest.Records(msgs)
-	if len(records) != 1 || len(records[0].Fields) != 0 {
-		t.Fatalf("want one empty acknowledgement RECORD, got %#v", records)
-	}
-
-	if len(stub.Calls) != 1 {
-		t.Fatalf("calls = %d, want 1", len(stub.Calls))
-	}
-	call := stub.Calls[0]
-	if call.Header.Get("Authorization") != "Bearer k" {
-		t.Errorf("auth header = %q", call.Header.Get("Authorization"))
-	}
-	var body map[string]any
-	if err := json.Unmarshal([]byte(call.Body), &body); err != nil {
-		t.Fatal(err)
-	}
-	// First-class routing is declarative: first_name was consumed by the body
-	// template, first_line rode the $variables splice into custom_variables.
-	want := map[string]any{
-		"campaign":            "7d467891-4257-4a62-a8b2-08d3837f5714",
-		"email":               "jane.doe@acme.com",
-		"skip_if_in_campaign": true,
-		"first_name":          "Jane Doe",
-		"custom_variables":    map[string]any{"first_line": "Hello Jane"},
-	}
-	if !reflect.DeepEqual(body, want) {
-		t.Errorf("request body = %#v\nwant %#v", body, want)
 	}
 }
 
@@ -385,6 +359,36 @@ func TestSimulateServesFixtures(t *testing.T) {
 	records := adaptertest.Records(msgs)
 	if len(records) != 1 || records[0].Fields["headline"] == "" {
 		t.Fatalf("simulated records = %#v", records)
+	}
+}
+
+// TestHarvestRecentPostsConformance: harvest/recent-posts keeps at most
+// posts_limit non-empty posts, content before text (ADR-059).
+func TestHarvestRecentPostsConformance(t *testing.T) {
+	b, fixtures := loadShipped(t, "harvest-recent-posts")
+	for _, tc := range []struct {
+		config map[string]any
+		want   int
+	}{{map[string]any{}, 3}, {map[string]any{"posts_limit": float64(1)}, 1}} {
+		eng := &binding.Engine{B: b, HTTP: fixtures.Doer()}
+		msgs, err := adaptertest.Run(t, eng, adaptertest.Input{
+			Config: tc.config,
+			Records: []protocol.Message{adaptertest.Record("in/jane-doe",
+				map[string]any{"linkedin_url": "https://www.linkedin.com/in/jane-doe"})},
+			Env: map[string]string{"HARVEST_API_KEY": "k"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		records := adaptertest.Records(msgs)
+		if len(records) != 1 {
+			t.Fatalf("records = %d, want 1", len(records))
+		}
+		posts, _ := records[0].Fields["recent_posts"].([]any)
+		if len(posts) != tc.want || posts[0] != "We cut our CAC in half by killing three channels. Here is what we kept." {
+			t.Errorf("config %v: recent_posts = %#v, want %d", tc.config, posts, tc.want)
+		}
+		checkRegistryValid(t, "person", records[0].Fields)
 	}
 }
 

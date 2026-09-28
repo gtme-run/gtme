@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/gtme-run/gtme/internal/adapters"
@@ -14,6 +15,7 @@ import (
 	"github.com/gtme-run/gtme/internal/identity"
 	"github.com/gtme-run/gtme/internal/protocol"
 	"github.com/gtme-run/gtme/internal/registry"
+	"github.com/gtme-run/gtme/internal/template"
 	"github.com/gtme-run/gtme/internal/ulid"
 )
 
@@ -183,7 +185,7 @@ func (e *Engine) paginate(ctx context.Context, w *protocol.Writer, p adapters.Po
 
 		records := e.extractRecords(doc)
 		for _, rec := range records {
-			fields := e.extractFields(rec, nil)
+			fields := e.extractFields(rec, nil, cfg)
 			if len(fields) == 0 {
 				continue
 			}
@@ -248,7 +250,7 @@ func (e *Engine) enrichRecord(ctx context.Context, w *protocol.Writer, p adapter
 	if recs := e.extractRecords(doc); len(recs) > 0 {
 		target = recs[0]
 	}
-	learned := e.extractFields(target, in)
+	learned := e.extractFields(target, in, cfg)
 
 	if e.B.Cost != nil && e.B.Cost.Per == "record" {
 		rate, _ := e.B.Cost.rate(tctx)
@@ -501,10 +503,20 @@ func (e *Engine) extractRecords(doc any) []any {
 
 // extractFields maps one raw record onto canonical fields: paths waterfall,
 // sentinel absents, registry transform, and the skip_if_input dedupe. This is
-// the adapter boundary of SPEC §4a, executed by the engine.
-func (e *Engine) extractFields(rec any, input map[string]any) map[string]any {
+// the adapter boundary of SPEC §4a, executed by the engine. cfg (defaults
+// applied) resolves an each: limit that names a config key.
+func (e *Engine) extractFields(rec any, input map[string]any, cfg map[string]any) map[string]any {
 	out := map[string]any{}
 	for name, rule := range e.B.Extract.Fields {
+		if rule.Each != "" {
+			if rule.SkipIfInput && input != nil && !isEmpty(input[name]) {
+				continue
+			}
+			if list := eachRender(rec, rule, cfg); len(list) > 0 {
+				out[name] = list
+			}
+			continue
+		}
 		v := atPaths(rec, rule.Paths)
 		if v == nil || isAbsentValue(v, rule.Absent) {
 			continue
@@ -710,4 +722,55 @@ func intConfig(cfg map[string]any, key string) int {
 	default:
 		return 0
 	}
+}
+
+// eachRender is the each: list form (SPEC §10a, ADR-059): the template
+// renders once per element of the array at rule.Each, a render that is
+// empty after trimming is dropped (text/compose's rule), and rendering stops
+// once limit renders are kept. A render error drops that element, as a
+// lenient render drops an absent value.
+func eachRender(rec any, rule FieldRule, cfg map[string]any) []any {
+	arr, _ := atPaths(rec, []string{rule.Each}).([]any)
+	limit := eachLimit(rule.Limit, cfg)
+	var out []any
+	for _, item := range arr {
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+		s, err := template.RenderItem(rule.Template, item)
+		if err != nil {
+			continue
+		}
+		if s = strings.TrimSpace(s); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// eachLimit resolves an each: limit: a number, or a config reference. Zero
+// means unbounded — no limit declared, or a reference that resolves to no
+// positive number.
+func eachLimit(limit any, cfg map[string]any) int {
+	switch t := limit.(type) {
+	case float64:
+		return int(t)
+	case string:
+		v, ok := tmplContext{Config: cfg}.resolveString(t)
+		if !ok {
+			return 0
+		}
+		switch n := v.(type) {
+		case float64:
+			return int(n)
+		case int:
+			return n
+		case string:
+			i, err := strconv.Atoi(strings.TrimSpace(n))
+			if err == nil {
+				return i
+			}
+		}
+	}
+	return 0
 }
