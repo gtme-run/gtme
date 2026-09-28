@@ -36,14 +36,17 @@ links:
 
 **This needs gtme and nothing else.** No API keys and no accounts, and it spends $0 and sends nothing. If you don't have the binary yet, [install it](/start/install) first.
 
-Make a folder, keep the ledger inside it so demo people stay out of your real one, and run the demo offline:
+Make a folder, keep the ledger inside it so demo people stay out of your real one, install the two Apollo adapters the demo names, and run the demo offline:
 
 ```sh
 mkdir -p gtme-start && cd gtme-start
 export GTME_LEDGER=./ledger.db
 curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/demo.yaml
+gtme adapters add apollo/search apollo/enrich
 gtme run demo.yaml --simulate
 ```
+
+Vendor adapters come from gtme's [registry](/concepts/adapter-tiers), not the binary. `adapters add` downloads each one, checks it against its recorded responses, and installs it; it needs no keys.
 
 The output is similar to the following:
 
@@ -116,7 +119,7 @@ steps:
     idempotency: email
 ```
 
-Search Apollo, keep the people an AI judge says own outbound tooling, and pay for contact details only after the judge says yes. Then write a first line and add them to an Instantly campaign. Each `use:` names an [adapter](/concepts/adapter-tiers) as `vendor/verb`. The next section is about two of these lines: `cache: 30d` on `reveal` and `idempotency: email` on `send`.
+Search Apollo, keep the people an AI judge says own outbound tooling, and pay for contact details only after the judge says yes. Then write a first line and add them to an Instantly campaign. Each `use:` names an adapter as `vendor/verb`. The next section is about two of these lines: `cache: 30d` on `reveal` and `idempotency: email` on `send`.
 
 ## Run something twice
 

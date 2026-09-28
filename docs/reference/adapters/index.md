@@ -44,15 +44,12 @@ links:
 
 # Adapter catalog
 
-The 20 adapters built into the gtme binary, by role. Each row links the adapter's own page: its manifest, every `with:` key it accepts, and an example step. `gtme help --agent` prints the same manifests as JSON, and `gtme adapters` lists what's installed beside them, which the [registry](/reference/cli/adapters) can add to.
+The 16 adapters built into the gtme binary, by role. Each row links the adapter's own page: its manifest, every `with:` key it accepts, and an example step. `gtme help --agent` prints the same manifests as JSON, and `gtme adapters` lists what's installed beside them, which the [registry](/reference/cli/adapters) can add to.
 
 | Adapter | Role | Records | Needs | Provides | Per record | Credentials |
 |---|---|---|---|---|---|---|
-| [`apollo/search`](/reference/adapters/apollo-search) | source | person | nothing | 6 | $0 | `APOLLO_API_KEY` |
 | [`csv/source`](/reference/adapters/csv-source) | source | person | nothing | none declared | not published | none |
-| [`apollo/enrich`](/reference/adapters/apollo-enrich) | enrich | person | `apollo.id` | 17 | $0.0100 | `APOLLO_API_KEY` |
 | [`demo/enrich`](/reference/adapters/demo-enrich) | enrich | person | any of `email` or `full_name` | 2 | $0.0100 | none |
-| [`harvest/profile`](/reference/adapters/harvest-profile) | enrich | person | any of `linkedin_url` or `linkedin_internal_url` or `linkedin_sales_nav_url` | 10 | $0.0120 | `HARVEST_API_KEY` |
 | [`http/enrich`](/reference/adapters/http-enrich) | enrich | person | the step's `uses:` fields | none declared | not published | none |
 | [`agent/filter`](/reference/adapters/agent-filter) | filter | any type | the step's `uses:` fields | none declared | not published | none |
 | [`ai/filter`](/reference/adapters/ai-filter) | filter | any type | the step's `uses:` fields | none declared | not published | `ANTHROPIC_API_KEY` (optional), `ANTHROPIC_WORKSPACE_ID` (optional) |
@@ -64,7 +61,6 @@ The 20 adapters built into the gtme binary, by role. Each row links the adapter'
 | [`agent/review`](/reference/adapters/agent-review) | review | any type | the step's `uses:` fields | none declared | not published | none |
 | [`ai/review`](/reference/adapters/ai-review) | review | any type | the step's `uses:` fields | none declared | not published | `ANTHROPIC_API_KEY` (optional), `ANTHROPIC_WORKSPACE_ID` (optional) |
 | [`human/review`](/reference/adapters/human-review) | review | any type | the step's `uses:` fields | none declared | not published | none |
-| [`attio/assert`](/reference/adapters/attio-assert) | deliver | person | the step's `uses:` fields, `email` | none declared | $0 | `ATTIO_API_KEY` |
 | [`csv/deliver`](/reference/adapters/csv-deliver) | deliver | person | the step's `uses:` fields | none declared | $0 | none |
 | [`http/deliver`](/reference/adapters/http-deliver) | deliver | person | the step's `uses:` fields | none declared | not published | none |
 | [`instantly/add-to-campaign`](/reference/adapters/instantly-add-to-campaign) | deliver | person | the step's `uses:` fields, `email` | none declared | $0 | `INSTANTLY_API_KEY` |
