@@ -9,6 +9,10 @@ learn:
   - "where the docs use it"
 roles: [operator, builder, agent]
 generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+links:
+  - to: /concepts/campaign-is-a-folder
+    type: relates-to
+    description: "Defines bundle"
 ---
 
 # gtme secret
@@ -30,3 +34,7 @@ From [Your CSV](/start/my-csv):
 ```sh
 gtme secret set ANTHROPIC_API_KEY
 ```
+
+## Used in
+
+- [Package and share a campaign](/guides/bundles): Stores a key on the receiving machine, since keys never travel in a bundle

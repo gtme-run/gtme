@@ -13,6 +13,9 @@ links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines fixture"
+  - to: /concepts/campaign-is-a-folder
+    type: relates-to
+    description: "Defines bundle"
   - to: /concepts/gate-ladder
     type: relates-to
     description: "Defines dry-run, gate ladder, preflight, and simulate"
@@ -58,3 +61,4 @@ gtme run hello.yaml
 ## Used in
 
 - [The gate ladder](/concepts/gate-ladder): The flags that pick a rung, --simulate and --dry-run, and --resume after a blocked preflight
+- [Package and share a campaign](/guides/bundles): The command that verifies a bundle's hashes and runs it
