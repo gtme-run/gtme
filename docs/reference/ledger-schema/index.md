@@ -8,7 +8,7 @@ learn:
   - "every table and what its rows hold"
   - "the query shapes a sql step usually takes"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
