@@ -58,7 +58,7 @@ collections:
     - { slug: participants, name: Participants, status: reviewed, part: run }
     - { slug: campaign-is-a-folder, name: A campaign is a folder, status: reviewed, part: run }
     - { slug: adapter-tiers, name: Two adapter tiers, status: reviewed, part: model }
-    - { slug: agent-operable, name: Agent-operable by design, status: planned, part: model }
+    - { slug: agent-operable, name: Agent-operable by design, status: reviewed, part: model }
   guides:
     - { slug: first-pipeline, name: Build your first pipeline from a CSV, status: planned }
     - { slug: connect-your-stack, name: "Connect your stack: secrets, plan, dry-run, arm", status: planned }

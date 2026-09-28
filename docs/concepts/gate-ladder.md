@@ -143,7 +143,7 @@ send surface: 1 deliver step(s)
 plan ok — nothing has been spent
 ```
 
-Plan checks that every field a step needs is provided upstream and that every credential resolves. It prints each step's cost per record: `?` where no estimate exists, as on `keep`, and `unset` where a step needs a rate you haven't set. Plan reads the ledger to check the [groups the file names](/concepts/groups) and the SQL in `sql/*` steps, and writes no rows. When something's wrong, plan names the step and the fix and exits with status 3.
+Plan checks that every field a step needs is provided upstream and that every credential resolves. It prints each step's cost per record: `?` where no estimate exists, as on `keep`, and `unset` where a step needs a rate you haven't set. Plan reads the ledger to check the [groups the file names](/concepts/groups) and the SQL in `sql/*` steps, and writes no rows. When something's wrong, plan names the step and the fix and exits with status 2, or 3 when a credential is missing.
 
 ## Dry-run
 
