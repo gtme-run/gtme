@@ -7,7 +7,7 @@ learn:
   - "what each project term means, in one sentence"
   - "which page owns each term"
 roles: [operator, builder, extender, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 entries:
   - term: "adapter"
     definition: "Whatever a step's use line names, a binding or a process adapter, that reads and writes records in one role."

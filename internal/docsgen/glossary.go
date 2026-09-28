@@ -84,6 +84,15 @@ func rewriteOutline(outline string, s *site) (string, error) {
 		}
 		tail = re.ReplaceAllString(tail, "${1}, children: ["+strings.Join(kids, ", ")+"]${3}")
 	}
+	// The single pages the generator writes are generated, whatever the
+	// outline said before (planned, the first time).
+	for _, slug := range singleSlugs {
+		re := regexp.MustCompile(`(?m)^(\s*- \{ slug: ` + regexp.QuoteMeta(slug) + `, [^}\n]*?status: )[a-z]+`)
+		if !re.MatchString(tail) {
+			return "", fmt.Errorf("_outline.yaml: no reference entry for %s", slug)
+		}
+		tail = re.ReplaceAllString(tail, "${1}generated")
+	}
 	outline = head + tail
 
 	var terms strings.Builder
