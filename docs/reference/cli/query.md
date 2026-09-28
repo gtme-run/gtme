@@ -8,11 +8,14 @@ learn:
   - "each flag and what it changes"
   - "where the docs use it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines NDJSON"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code and stdout"
   - to: /concepts/groups
     type: relates-to
     description: "Defines group and segment"
@@ -22,6 +25,9 @@ links:
   - to: /concepts/ledger
     type: relates-to
     description: "Defines ledger"
+  - to: /concepts/steps-and-roles
+    type: relates-to
+    description: "Defines referent"
   - to: /concepts/types-and-traverse
     type: relates-to
     description: "Defines relation"
@@ -64,4 +70,8 @@ gtme query "SELECT i.identity_key, e.detail ->> 'reason' AS reason
 - [The ledger](/concepts/ledger): Read-only SQL against the ledger's views
 - [Identity keys](/concepts/identity-keys): Read-only SQL against the identities and relations tables
 - [Groups and segments](/concepts/groups): Every gtme query flag, including --save, --name, and --list
-- [Segment](/guides/segment): Every gtme query flag, including --save, --name, --list, and --format
+- [Agent-operable by design](/concepts/agent-operable): Read-only SQL against the ledger, with rows on stdout
+- [Launch](/guides/launch): Every flag of the command the ledger check uses
+- [Report](/guides/report): Read-only SQL against the ledger, used for the check and the monthly total
+- [Interrogate](/guides/interrogate): Read-only SQL, used for a field's history and a referent lookup
+- [Top up](/guides/top-up): Every flag of the command the proof queries use

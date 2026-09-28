@@ -6,8 +6,9 @@
 #
 # status: planned | draft | reviewed | published | generated
 #
-# The reference children and the terms map are written by `make docs-reference`
-# (cmd/docsgen); edit the sources they come from, not the lines here.
+# The reference children, the single reference pages' statuses, and the terms
+# map are written by `make docs-reference` (cmd/docsgen); edit the sources they
+# come from, not the lines here.
 
 budgets: # prose words, code blocks excluded
   start: 600 # raised from 500 on 2026-09-25: See-it-run review asked for the pipeline file on the page
@@ -58,17 +59,17 @@ collections:
     - { slug: participants, name: Participants, status: reviewed, part: run }
     - { slug: campaign-is-a-folder, name: A campaign is a folder, status: reviewed, part: run }
     - { slug: adapter-tiers, name: Two adapter tiers, status: reviewed, part: model }
-    - { slug: agent-operable, name: Agent-operable by design, status: planned, part: model }
+    - { slug: agent-operable, name: Agent-operable by design, status: reviewed, part: model }
   guides:
-    - { slug: first-pipeline, name: Build your first pipeline from a CSV, status: planned }
-    - { slug: connect-your-stack, name: "Connect your stack: secrets, plan, dry-run, arm", status: planned }
-    - { slug: launch, name: Launch, status: planned }
-    - { slug: guard, name: Guard, status: planned }
-    - { slug: report, name: Report, status: planned }
-    - { slug: interrogate, name: Interrogate, status: planned }
-    - { slug: top-up, name: Top up, status: planned }
-    - { slug: iterate, name: Iterate, status: planned }
-    - { slug: recover, name: Recover, status: planned }
+    - { slug: first-pipeline, name: Build your first pipeline from a CSV, status: reviewed }
+    - { slug: connect-your-stack, name: "Connect your stack: secrets, plan, dry-run, arm", status: reviewed }
+    - { slug: launch, name: Launch, status: reviewed }
+    - { slug: guard, name: Guard, status: reviewed }
+    - { slug: report, name: Report, status: reviewed }
+    - { slug: interrogate, name: Interrogate, status: reviewed }
+    - { slug: top-up, name: Top up, status: reviewed }
+    - { slug: iterate, name: Iterate, status: reviewed }
+    - { slug: recover, name: Recover, status: reviewed }
     - { slug: segment, name: Segment, status: reviewed }
     - { slug: multi-stage, name: Multi-stage campaigns with groups, status: planned }
     - { slug: traverse, name: Traverse a relation, status: planned }
@@ -81,15 +82,15 @@ collections:
     - { slug: publish-to-registry, name: Publish to the registry, status: planned }
   reference:
     - { slug: cli, name: CLI, status: generated, children: [init, secret, plan, run, query, show, answer, runs, freeze, groups, vacuum, adapters, help, version] }
-    - { slug: pipeline-yaml, name: pipeline.yaml keys, status: planned }
+    - { slug: pipeline-yaml, name: pipeline.yaml keys, status: generated }
     - { slug: adapters, name: Adapter catalog, status: generated, children: [agent-compose, agent-filter, agent-review, ai-compose, ai-filter, ai-review, csv-deliver, csv-source, demo-enrich, http-deliver, http-enrich, human-compose, human-filter, human-review, instantly-add-to-campaign, text-compose] }
-    - { slug: bundles, name: Bundles, status: planned }
+    - { slug: bundles, name: Bundles, status: generated }
     - { slug: fields, name: Canonical field registry, status: generated, children: [company, person, post] }
     - { slug: ledger-schema, name: Ledger schema and views, status: generated, children: [identities, field_values, relations, runs, run_records, step_events, costs, deliveries, field_value_ranks, current_fields, groups, group_events, group_members, current_values, group_membership, payloads] }
-    - { slug: plugin-skills, name: Plugin skills, status: planned }
-    - { slug: binding-manifest, name: Binding manifest, status: planned }
-    - { slug: wire-protocol, name: Wire protocol, status: planned }
-    - { slug: conformance, name: Conformance kit and fixtures, status: planned }
+    - { slug: plugin-skills, name: Plugin skills, status: generated }
+    - { slug: binding-manifest, name: Binding manifest, status: generated }
+    - { slug: wire-protocol, name: Wire protocol, status: generated }
+    - { slug: conformance, name: Conformance kit and fixtures, status: generated }
 
 # Single pages outside the collections, rendered at the root of the nav.
 pages:
@@ -123,6 +124,7 @@ terms:
   delivery: /concepts/runs-and-receipts
   dry-run: /concepts/gate-ladder
   enrich: /concepts/steps-and-roles
+  exit code: /concepts/agent-operable
   fact: /concepts/facts
   field registry: /concepts/canonical-fields
   filter: /concepts/steps-and-roles
@@ -165,6 +167,8 @@ terms:
   signal: /concepts/types-and-traverse
   simulate: /concepts/gate-ladder
   source: /concepts/pipeline
+  stderr: /concepts/agent-operable
+  stdout: /concepts/agent-operable
   step: /concepts/pipeline
   subject: /concepts/types-and-traverse
   suppression group: /concepts/groups

@@ -251,7 +251,7 @@ total: $0 spent
 
 It's the same run id, and `score` wasn't paid for twice. A rerun gets a new id and a second receipt, with the cache covering what was paid. Resume keeps one id and one `gtme runs` entry.
 
-When a run fails, have your agent run `gtme runs last`, then `gtme run PIPELINE --resume last`, where `PIPELINE` is the pipeline file.
+When a run fails, have your agent run `gtme runs last`, then `gtme run PIPELINE --resume RUN_ID` with the id it printed, where `PIPELINE` is the pipeline file. `--resume last` picks the newest run of any pipeline, so after another pipeline has run it resumes the wrong one.
 
 That's it. That's a run and its receipt.
 
