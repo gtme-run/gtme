@@ -356,7 +356,7 @@ target-accounts  company  1        1      0        0        2026-09-28
 
 `target-accounts` holds companies and `acme-people` holds people, because each group took its run's last leg. Run `gtme show acme.com` ([`gtme show`](/reference/cli/show)) and it prints the company with its two CSV fields and `accounts.account_line`.
 
-**To get the companies out as a file, query the group.** `csv/deliver` takes people only, so it can't write a company leg:
+**To get the companies out as a file, add a `csv/deliver` step with `entity_type: company` under its `with:`, or query the group.** Without that key, `csv/deliver` expects people and plan refuses it on a company leg. The query needs no change to the pipeline:
 
 ```sh
 gtme query --format csv \
