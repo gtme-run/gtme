@@ -13,6 +13,9 @@ links:
   - to: /concepts/agent-operable
     type: relates-to
     description: "Defines exit code"
+  - to: /concepts/campaign-is-a-folder
+    type: relates-to
+    description: "Defines bundle"
   - to: /concepts/gate-ladder
     type: relates-to
     description: "Defines dry-run and plan"
@@ -46,3 +49,4 @@ gtme secret set ANTHROPIC_API_KEY
 - [Agent-operable by design](/concepts/agent-operable): The prompt where you, never the agent, enter a key after exit code 3
 - [Connect your stack: secrets, plan, dry-run, arm](/guides/connect-your-stack): How gtme secret set stores a key without echoing it
 - [Run on cron and events](/guides/cron-and-events): Writes keys to ~/.gtme/secrets, where a cron run can find them
+- [Package and share a campaign](/guides/bundles): Stores a key on the receiving machine, since keys never travel in a bundle
