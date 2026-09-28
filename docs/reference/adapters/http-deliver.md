@@ -75,9 +75,16 @@ The keys `with:` accepts. Plan rejects any other key.
 
 ## Example
 
-A minimal step:
+From [Recover](/guides/recover):
 
 ```yaml
-  - id: deliver
+  - id: crm
     use: http/deliver
+    with:
+      url: http://127.0.0.1:8765/leads
+    variables:
+      email: email
+      full_name: full_name
+      score: demo.score
+    idempotency: email
 ```

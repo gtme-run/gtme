@@ -18,7 +18,7 @@ links:
     description: "Defines step"
   - to: /concepts/runs-and-receipts
     type: relates-to
-    description: "Defines run"
+    description: "Defines resume and run"
   - to: /concepts/steps-and-roles
     type: relates-to
     description: "Defines verdict"
@@ -55,3 +55,7 @@ CREATE TABLE run_records (
   PRIMARY KEY (run_id, identity_id)
 );
 ```
+
+## Used in
+
+- [Recover](/guides/recover): The table that holds each record's last completed step, which is what resume reads

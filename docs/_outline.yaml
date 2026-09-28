@@ -69,7 +69,7 @@ collections:
     - { slug: interrogate, name: Interrogate, status: reviewed }
     - { slug: top-up, name: Top up, status: reviewed }
     - { slug: iterate, name: Iterate, status: reviewed }
-    - { slug: recover, name: Recover, status: planned }
+    - { slug: recover, name: Recover, status: reviewed }
     - { slug: segment, name: Segment, status: planned }
     - { slug: multi-stage, name: Multi-stage campaigns with groups, status: planned }
     - { slug: traverse, name: Traverse a relation, status: planned }
