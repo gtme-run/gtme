@@ -57,3 +57,4 @@ gtme freeze
 
 - [A campaign is a folder](/concepts/campaign-is-a-folder): The command that writes a bundle, or prints a pipeline's YAML without one
 - [Agent-operable by design](/concepts/agent-operable): Prints a run's exact pipeline as YAML on stdout
+- [Report](/guides/report): Prints the pipeline a run used, including the rates behind its cost avoided

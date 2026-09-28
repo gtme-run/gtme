@@ -69,3 +69,4 @@ gtme query "SELECT i.identity_key, e.detail ->> 'reason' AS reason
 - [Groups and segments](/concepts/groups): Every gtme query flag, including --save, --name, and --list
 - [Agent-operable by design](/concepts/agent-operable): Read-only SQL against the ledger, with rows on stdout
 - [Launch](/guides/launch): Every flag of the command the ledger check uses
+- [Report](/guides/report): Read-only SQL against the ledger, used for the check and the monthly total
