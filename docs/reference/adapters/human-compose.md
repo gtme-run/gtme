@@ -97,3 +97,7 @@ From [Report](/guides/report):
     with:
       prompt: never
 ```
+
+## Used in
+
+- [Put a human in the loop](/guides/human-in-the-loop)

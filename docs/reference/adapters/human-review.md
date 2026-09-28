@@ -89,4 +89,5 @@ From [Participants](/concepts/participants):
 
 ## Used in
 
+- [Put a human in the loop](/guides/human-in-the-loop)
 - The `human-review-then-cron` example in `gtme help --agent`
