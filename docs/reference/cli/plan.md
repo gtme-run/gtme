@@ -8,17 +8,23 @@ learn:
   - "each flag and what it changes"
   - "where the docs use it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines adapter"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code"
   - to: /concepts/canonical-fields
     type: relates-to
     description: "Defines canonical field"
   - to: /concepts/gate-ladder
     type: relates-to
     description: "Defines gate ladder and plan"
+  - to: /concepts/groups
+    type: relates-to
+    description: "Defines group"
   - to: /concepts/ledger
     type: relates-to
     description: "Defines projection"
@@ -63,3 +69,7 @@ gtme plan my-csv.yaml
 - [Steps and roles](/concepts/steps-and-roles): The command that prints each step's role, projection, and provides
 - [The gate ladder](/concepts/gate-ladder): Every line plan prints, and the --viz diagram
 - [Canonical fields](/concepts/canonical-fields): The command that prints the namespace and coupling notes
+- [Build your first pipeline from a CSV](/guides/first-pipeline): Every line plan prints, which this guide reads after each edit
+- [Guard](/guides/guard): Every line plan prints, and its exit codes
+- [Iterate](/guides/iterate): Every line plan prints after an edit
+- [Multi-stage campaigns with groups](/guides/multi-stage): Every line plan prints, including the once count and the missing-group error
