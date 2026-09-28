@@ -77,7 +77,7 @@ collections:
     - { slug: bundles, name: Package and share a campaign, status: planned }
     - { slug: claude-code, name: Use gtme from Claude Code, status: planned }
     - { slug: add-a-binding, name: Add a vendor with a binding, status: planned }
-    - { slug: process-adapter, name: Write a process adapter, status: planned }
+    - { slug: process-adapter, name: Write a process adapter, status: reviewed }
     - { slug: publish-to-registry, name: Publish to the registry, status: planned }
   reference:
     - { slug: cli, name: CLI, status: generated, children: [init, secret, plan, run, query, show, answer, runs, freeze, groups, vacuum, adapters, help, version] }

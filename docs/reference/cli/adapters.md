@@ -12,7 +12,7 @@ generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapt
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
-    description: "Defines adapter, binding, bindings registry, and fixture"
+    description: "Defines adapter, binding, bindings registry, fixture, and process adapter"
   - to: /concepts/pipeline
     type: relates-to
     description: "Defines source"
@@ -59,3 +59,4 @@ gtme adapters search jsonplaceholder
 ## Used in
 
 - [Two adapter tiers](/concepts/adapter-tiers): The search, add, verify, and update verbs
+- [Write a process adapter](/guides/process-adapter): Lists installed adapters with their kind and source
