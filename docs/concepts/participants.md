@@ -121,11 +121,11 @@ The output is similar to the following, trimmed with `...`:
 
 ```
 ...
-run 01M3FBDG4ZB2THFN1DB7ZM6AEB — pending — ended awaiting human/review: `gtme answer grading` records, the next `gtme run grading` collects
+run 01M3MST96CK12PNZ831J9NMEK2 — pending — ended awaiting human/review: `gtme answer grading` records, the next `gtme run grading` collects
 step    adapter       in  out  empty  cached  filtered  failed  cost  avoided
 source  csv/source    0   3    -      0       -         -       $0    -
 grade   human/review  3   0    -      0       -         -       $0    -
-grade: 3 in, 0 out — 3 awaiting human/review; `gtme answer grading` records, the next `gtme run grading` collects (or `gtme show --run 01M3FBDG4ZB2THFN1DB7ZM6AEB --pending grade` to read them)
+grade: 3 in, 0 out — 3 awaiting human/review; `gtme answer grading` records, the next `gtme run grading` collects (or `gtme show --run 01M3MST96CK12PNZ831J9NMEK2 --pending grade` to read them)
 total: $0 spent
 ```
 
@@ -153,7 +153,7 @@ grade: 3 awaiting human/review — `gtme answer grading grade <identity-key> --s
   jane.doe@acme.com
     title (the value under review): "VP Marketing"
     full_name: "Jane Doe"
-{"adapter":"human/review","identity_key":"jane.doe@acme.com","outputs":["grading.grade=A|B|C"],"role":"review","run_id":"01M3FBDG4ZB2THFN1DB7ZM6AEB","step":"grade","surface":"title (the value under review): \"VP Marketing\"\nfull_name: \"Jane Doe\"\n","token":"01M3FBDG4ZB2THFN1DB7ZM6AEB/grade"}
+{"adapter":"human/review","identity_key":"jane.doe@acme.com","outputs":["grading.grade=A|B|C"],"role":"review","run_id":"01M3MST96CK12PNZ831J9NMEK2","step":"grade","surface":"title (the value under review): \"VP Marketing\"\nfull_name: \"Jane Doe\"\n","token":"01M3MST96CK12PNZ831J9NMEK2/grade"}
 ...
 ```
 
@@ -163,14 +163,14 @@ The indented text is what a person sees, and the JSON line is the same record fo
 
 ```sh
 gtme answer grading grade jane.doe@acme.com --set grading.grade=A \
-    --note "owns the budget"
+    --note "owns the budget" --as dana
 ```
 
 ```
-grade: jane.doe@acme.com answered by human/trevor — the next `gtme run grading` collects it
+grade: jane.doe@acme.com answered by human/dana — the next `gtme run grading` collects it
 ```
 
-That pair, the pending listing and the `gtme answer` line, is what you'd hand your agent. `trevor` is the logged-in user, the default participant name. The answer is checked on the spot, so a grade outside the enum is refused:
+That pair, the pending listing and the `gtme answer` line, is what you'd hand your agent. `--as` names who answered. Without it, the participant is your login name on this machine. The answer is checked on the spot, so a grade outside the enum is refused:
 
 ```
 gtme: grading.grade must be one of A, B, C (got "D")
@@ -183,7 +183,7 @@ A filter step takes `pass=true|false` and a `reason` instead. The answer is save
 ```
 ...
 grade   human/review  3   1    -      0       -         -       $0    -
-grade: 3 in, 1 out — 2 awaiting human/review; `gtme answer grading` records, the next `gtme run grading` collects (or `gtme show --run 01M3FBDG4ZB2THFN1DB7ZM6AEB --pending grade` to read them)
+grade: 3 in, 1 out — 2 awaiting human/review; `gtme answer grading` records, the next `gtme run grading` collects (or `gtme show --run 01M3MST96CK12PNZ831J9NMEK2 --pending grade` to read them)
 ...
 ```
 
@@ -193,11 +193,11 @@ Jane's grade is now a fact, with this row in `gtme show jane.doe@acme.com --prov
 ...
     "grading.grade": {
       "confidence": 1,
-      "created_at": "2026-09-26T17:15:14.075Z",
+      "created_at": "2026-09-28T20:03:05.139Z",
       "note": "owns the budget",
-      "referent": "01M3FBDG50QFV6HXF0VFG2EMJV",
-      "run_id": "01M3FBDG4ZB2THFN1DB7ZM6AEB",
-      "source": "human/review @ trevor#9638bda88be1",
+      "referent": "01M3MST96DV3ZAPZMMEG4WTCB9",
+      "run_id": "01M3MST96CK12PNZ831J9NMEK2",
+      "source": "human/review @ dana#9638bda88be1",
       "value": "A"
     },
 ...
@@ -205,7 +205,7 @@ Jane's grade is now a fact, with this row in `gtme show jane.doe@acme.com --prov
 
 `source` names the adapter, the participant, and a hash of the step's definition. `referent` is the id of the graded `title` fact. [Facts have provenance](/concepts/facts) covers the rest.
 
-**Agents answer the same way.** An `agent/*` adapter works like its `human/*` twin but never prompts. The agent passes `--as NAME`, and `--cost USD` records what it spent. The prefix follows the adapter, so an answer to a `human/*` step is recorded as `human/NAME` whoever typed it, and `--as` names who answered.
+**Agents answer the same way.** An `agent/*` adapter works like its `human/*` twin but never prompts. The agent passes `--as NAME` too, and `--cost USD` records what it spent. The prefix follows the adapter, so an answer to a `human/*` step is recorded as `human/NAME` whoever typed it.
 
 That's it. That's how a participant answers.
 

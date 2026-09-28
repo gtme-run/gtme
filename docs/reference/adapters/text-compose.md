@@ -8,7 +8,7 @@ learn:
   - "every `with:` key it accepts"
   - "what it costs and which credential it demands"
 roles: [builder, extender, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
@@ -75,4 +75,6 @@ From [A pipeline is a YAML file](/concepts/pipeline):
 
 ## Used in
 
+- [Build your first pipeline from a CSV](/guides/first-pipeline)
+- [Use gtme from Claude Code](/guides/claude-code)
 - The `persona-file-and-text-compose` example in `gtme help --agent`
