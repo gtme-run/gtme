@@ -86,3 +86,4 @@ gtme show jane.doe@acme.com
 - [Interrogate](/guides/interrogate): Every form and flag of gtme show, including --run and --pending
 - [Top up](/guides/top-up): Every flag of gtme show, including --provenance and --fields
 - [Traverse a relation](/guides/traverse): Prints the company the traverse reached, with its fields
+- [Put a human in the loop](/guides/human-in-the-loop): Reads what's pending and who wrote each value
