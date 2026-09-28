@@ -63,7 +63,7 @@ collections:
   guides:
     - { slug: first-pipeline, name: Build your first pipeline from a CSV, status: reviewed }
     - { slug: connect-your-stack, name: "Connect your stack: secrets, plan, dry-run, arm", status: reviewed }
-    - { slug: launch, name: Launch, status: planned }
+    - { slug: launch, name: Launch, status: reviewed }
     - { slug: guard, name: Guard, status: planned }
     - { slug: report, name: Report, status: planned }
     - { slug: interrogate, name: Interrogate, status: planned }
