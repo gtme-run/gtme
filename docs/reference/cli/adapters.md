@@ -13,6 +13,9 @@ links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines adapter, binding, bindings registry, and fixture"
+  - to: /concepts/gate-ladder
+    type: relates-to
+    description: "Defines dry-run and plan"
   - to: /concepts/pipeline
     type: relates-to
     description: "Defines source"
@@ -59,3 +62,4 @@ gtme adapters search jsonplaceholder
 ## Used in
 
 - [Two adapter tiers](/concepts/adapter-tiers): The search, add, verify, and update verbs
+- [Connect your stack: secrets, plan, dry-run, arm](/guides/connect-your-stack): The search, add, verify, and update verbs
