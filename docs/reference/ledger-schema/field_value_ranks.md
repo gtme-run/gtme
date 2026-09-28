@@ -53,3 +53,7 @@ SELECT id, identity_id, field, value, source, confidence, run_id, created_at,
        ) AS rank
 FROM field_values;
 ```
+
+## Used in
+
+- [Interrogate](/guides/interrogate): The view that ranks every row of a field, which the history query reads

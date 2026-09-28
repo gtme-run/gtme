@@ -22,6 +22,9 @@ links:
   - to: /concepts/ledger
     type: relates-to
     description: "Defines ledger"
+  - to: /concepts/steps-and-roles
+    type: relates-to
+    description: "Defines referent"
   - to: /concepts/types-and-traverse
     type: relates-to
     description: "Defines relation"
@@ -64,3 +67,4 @@ gtme query "SELECT i.identity_key, e.detail ->> 'reason' AS reason
 - [The ledger](/concepts/ledger): Read-only SQL against the ledger's views
 - [Identity keys](/concepts/identity-keys): Read-only SQL against the identities and relations tables
 - [Groups and segments](/concepts/groups): Every gtme query flag, including --save, --name, and --list
+- [Interrogate](/guides/interrogate): Read-only SQL, used for a field's history and a referent lookup

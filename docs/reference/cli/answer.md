@@ -61,3 +61,4 @@ gtme answer grading grade jane.doe@acme.com --set grading.grade=A \
 ## Used in
 
 - [Participants](/concepts/participants): Every flag on the write path for a participant's answer
+- [Interrogate](/guides/interrogate): How a person's answer, like the grade here, is recorded

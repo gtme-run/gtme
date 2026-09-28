@@ -77,3 +77,4 @@ gtme show jane.doe@acme.com
 - [The ledger](/concepts/ledger): The command that prints what the ledger knows about one record
 - [Identity keys](/concepts/identity-keys): Prints one record by any key it has held
 - [Facts have provenance](/concepts/facts): Every flag of gtme show, including --provenance
+- [Interrogate](/guides/interrogate): Every form and flag of gtme show, including --run and --pending

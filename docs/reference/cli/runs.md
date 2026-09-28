@@ -15,7 +15,7 @@ links:
     description: "Defines gate ladder"
   - to: /concepts/pipeline
     type: relates-to
-    description: "Defines step"
+    description: "Defines pipeline and step"
   - to: /concepts/runs-and-receipts
     type: relates-to
     description: "Defines receipt and run"
@@ -44,3 +44,4 @@ gtme runs
 ## Used in
 
 - [Runs and receipts](/concepts/runs-and-receipts): Every flag and output of gtme runs
+- [Interrogate](/guides/interrogate): Lists runs with their pipeline, which names the run behind a value
