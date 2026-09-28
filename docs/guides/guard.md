@@ -67,7 +67,7 @@ links:
 
 **You need `gtme` and a [pipeline](/concepts/pipeline) file you didn't write.** [Install](/start/install) covers the first. For the second, this guide uses a colleague's file with three problems in it, built on the practice CSV from [See it run](/start/show-me).
 
-**Steps 1 through 7 need no keys, spend nothing, and send nothing.** They run only plan and simulate, the two rungs of the [gate ladder](/concepts/gate-ladder) that spend nothing. Step 8 needs a vendor file's keys stored, as in [Connect your stack](/guides/connect-your-stack), before plan prints its prices. Plan checks that a key resolves and never calls the vendor with it.
+**Steps 1 through 7 need no keys, spend nothing, and send nothing.** They run only plan and simulate, the two rungs of the [gate ladder](/concepts/gate-ladder) that spend nothing. Step 8 installs a vendor file's adapters from the registry and needs its keys stored, as in [Connect your stack](/guides/connect-your-stack), before plan prints its prices. Plan checks that a key resolves and never calls the vendor with it.
 
 **If you were handed a [bundle](/concepts/campaign-is-a-folder) folder, see the last section.**
 
@@ -137,7 +137,7 @@ links:
     ```
     gtme: 2 plan problems:
       - step "keep": sql/filter: the query does not plan against the ledger: SQL logic error: no such column: valeu (1)
-      - step "opener": needs first_name, which no earlier step provides (available: company_domain, demo.note, demo.score, email, full_name, title); installed adapters provide it: first_name ← apollo/enrich|apollo/search
+      - step "opener": needs first_name, which no earlier step provides (available: company_domain, demo.note, demo.score, email, full_name, title)
     2
     ```
 
@@ -266,14 +266,16 @@ links:
 
     `keep` took 3, filtered 2, and passed 1, which matches the data: only Jane scores 70 or more. If a `sql/filter` row shows `out 0`, check each quoted field name in its query against the `provides:` lines plan printed; plan can't see inside the quotes. On a vendor file, simulate serves recorded responses, so these counts show the file's logic, not your real data.
 
-1. Price a vendor file. Fetch the Apollo-to-Instantly example and plan it:
+1. Price a vendor file. Fetch the Apollo-to-Instantly example, install the adapters its header names, and plan it:
 
     ```sh
     curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/apollo-to-instantly.yaml
+    gtme adapters add apollo/search apollo/enrich \
+      harvest/profile harvest/recent-posts
     gtme plan apollo-to-instantly.yaml
     ```
 
-    Plan prices the file only after every key resolves. With them stored, it prints each step's price per record:
+    Plan prices the file only after every adapter is installed and every key resolves. An adapter that isn't installed is a plan error that prints the `gtme adapters add` command for it. With them stored, it prints each step's price per record:
 
     ```
     ...
@@ -289,16 +291,22 @@ links:
     ...
          est/record: $0.0100
 
-    4. linkedin [enrich] — harvest/profile@1
+    4. linkedin [enrich] — harvest/profile@2
          when:      icp-filter.passed
     ...
          est/record: $0.0120
 
-    5. personalize [compose] — ai/compose@1
+    5. posts [enrich] — harvest/recent-posts@1
+         when:      icp-filter.passed
+    ...
+         est/record: $0.0120
+
+    6. personalize [compose] — ai/compose@1
+         when:      icp-filter.passed
     ...
          est/record: ?
 
-    6. send [deliver] — instantly/add-to-campaign@1
+    7. send [deliver] — instantly/add-to-campaign@1
     ...
          est/record: $0.0000
     ...
@@ -311,9 +319,9 @@ links:
         limit: 500
     ```
 
-    `source` and `send` cost $0.0000, so multiply the limit by the other priced steps: 500 × ($0.0100 + $0.0120) is $11.00 of vendor credits at most. `reveal` and `linkedin` run only on records the [filter](/concepts/steps-and-roles) passes, so the real figure is usually lower. The two AI steps, `icp-filter` and `personalize`, print `est/record: ?` because model tokens are metered, and plan can't price them. `limit:` caps how many records reach them too.
+    `source` and `send` cost $0.0000, so multiply the limit by the other priced steps: 500 × ($0.0100 + $0.0120 + $0.0120) is $17.00 of vendor credits at most. `reveal`, `linkedin`, and `posts` run only on records the [filter](/concepts/steps-and-roles) passes, so the real figure is usually lower. The two AI steps, `icp-filter` and `personalize`, print `est/record: ?` because model tokens are metered, and plan can't price them. `limit:` caps how many records reach them too.
 
-    For a first run, lower `limit:` to 25, which caps vendor credits at $0.55. The runner stops the source at the cap and stops paging the vendor there (the decision record, [ADR-047](/decisions#adr-047)). The dry-run at 25 then gives you the first real number for model spend.
+    For a first run, lower `limit:` to 25, which caps vendor credits at $0.85. The runner stops the source at the cap and stops paging the vendor there (the decision record, [ADR-047](/decisions#adr-047)). The dry-run at 25 then gives you the first real number for model spend.
 
 ## What you have now
 
@@ -326,7 +334,7 @@ Here's what plan caught on this file and on one-line edits to it, each from a re
 | A field nothing upstream provides | `step "opener": needs first_name, which no earlier step provides` | 2 |
 | A bad table or column in a SQL step | `step "keep": sql/filter: the query does not plan against the ledger` | 2 |
 | A group your ledger doesn't have | `group "q3-sent" does not exist` | 2 |
-| A misspelled [adapter](/concepts/adapter-tiers) | `step "score": adapters: unknown adapter "demo/enrcih"` | 2 |
+| A misspelled or uninstalled [adapter](/concepts/adapter-tiers) | `step "score": adapters: unknown adapter "demo/enrcih"`, then `install it: gtme adapters add demo/enrcih` | 2 |
 | A `when:` naming no earlier step | `pipeline: out: when references unknown or later step "fit"` | 2 |
 | A key that doesn't resolve | `step "send": missing credential INSTANTLY_API_KEY` | 3 |
 
