@@ -9,6 +9,10 @@ learn:
   - "where the docs use it"
 roles: [operator, builder, agent]
 generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+links:
+  - to: /concepts/gate-ladder
+    type: relates-to
+    description: "Defines plan"
 ---
 
 # gtme secret
@@ -30,3 +34,7 @@ From [Your CSV](/start/my-csv):
 ```sh
 gtme secret set ANTHROPIC_API_KEY
 ```
+
+## Used in
+
+- [Use gtme from Claude Code](/guides/claude-code): The prompt where you enter a key after plan names it
