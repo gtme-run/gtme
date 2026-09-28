@@ -3673,7 +3673,7 @@ one a person runs and ends in a group; the cron pipeline sources from
 that group. `gtme plan` prints one note when a deliver step follows a
 `human/*` step: "under cron this pipeline waits for a person." (8)
 **Provenance and the cache:** `field_values.source` takes ADR-026's form
-with the participant in the model's place — `human/review @ trevor#<sig>`,
+with the participant in the model's place — `human/review @ <participant>#<sig>`,
 `agent/filter @ claude-code#<sig>`. The ADR-039 judgment signature for
 these adapters is over the step declaration alone — the adapter id,
 `render:`, the declared outputs, `uses:`, `of:` — **never the participant
