@@ -67,7 +67,7 @@ collections:
     - { slug: guard, name: Guard, status: reviewed }
     - { slug: report, name: Report, status: reviewed }
     - { slug: interrogate, name: Interrogate, status: reviewed }
-    - { slug: top-up, name: Top up, status: planned }
+    - { slug: top-up, name: Top up, status: reviewed }
     - { slug: iterate, name: Iterate, status: planned }
     - { slug: recover, name: Recover, status: planned }
     - { slug: segment, name: Segment, status: planned }
