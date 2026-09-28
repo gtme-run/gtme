@@ -8,11 +8,13 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -37,10 +39,10 @@ func cmdAdapters(ctx context.Context, env Env, args []string) error {
 		}
 		return adaptersSearch(env, rest[0])
 	case "add":
-		if len(rest) != 1 {
-			return fail(ExitValidation, "usage: gtme adapters add github.com/<owner>/<repo>/<path>[@ref]")
+		if len(rest) == 0 {
+			return fail(ExitValidation, "usage: gtme adapters add REF... (github.com/<owner>/<repo>/<path>[@ref], or a registry id such as apollo/search)")
 		}
-		return adaptersAdd(env, rest[0])
+		return adaptersAddAll(env, rest)
 	case "verify":
 		if len(rest) != 1 {
 			return fail(ExitValidation, "usage: gtme adapters verify ID")
@@ -62,7 +64,7 @@ func cmdAdapters(ctx context.Context, env Env, args []string) error {
 		return adaptersUpdate(env, rest[0], newRef)
 	default:
 		return fail(ExitValidation,
-			"usage: gtme adapters [search TEXT | add REF | verify ID | update ID [@ref]]")
+			"usage: gtme adapters [search TEXT | add REF... | verify ID | update ID [@ref]]")
 	}
 }
 
@@ -175,11 +177,82 @@ func adaptersSearch(env Env, q string) error {
 	return tw.Flush()
 }
 
-func adaptersAdd(env Env, refStr string) error {
-	ref, err := adapterinstall.ParseRef(refStr)
-	if err != nil {
-		return fail(ExitValidation, "%v", err)
+// adaptersAddAll installs each reference on its own (SPEC §8, ADR-059): a
+// failure is reported and the rest still install; the exit code is the
+// first failure's. A bare registry id reads the index once for them all.
+func adaptersAddAll(env Env, args []string) error {
+	var (
+		ix    *adapterinstall.Index
+		first error
+		n     int
+	)
+	for _, arg := range args {
+		ref, err := resolveAddRef(arg, &ix)
+		if err == nil {
+			err = adaptersAdd(env, ref)
+		}
+		if err == nil {
+			continue
+		}
+		n++
+		if first == nil {
+			first = err
+		}
+		if len(args) > 1 {
+			fmt.Fprintf(env.Stderr, "gtme: %s: %v\n", arg, err)
+		}
 	}
+	if first == nil || len(args) == 1 {
+		return first
+	}
+	code := ExitValidation
+	var ee exitError
+	if errors.As(first, &ee) {
+		code = ee.code
+	}
+	return fail(code, "adapters: %d of %d not installed (each reported above); the rest installed", n, len(args))
+}
+
+// bareIDRE is a registry id as `use:` writes it — vendor/name, no host.
+var bareIDRE = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*(/[a-z0-9][a-z0-9_-]*)+$`)
+
+// resolveAddRef turns one `add` argument into a reference: the §8 address
+// form as written, or a bare registry id resolved through the index to the
+// entry's source pinned at the index's sha (ADR-059) — exactly as pinned as
+// a full reference.
+func resolveAddRef(arg string, ix **adapterinstall.Index) (adapterinstall.Ref, error) {
+	if !bareIDRE.MatchString(arg) {
+		ref, err := adapterinstall.ParseRef(arg)
+		if err != nil {
+			return ref, fail(ExitValidation, "%v", err)
+		}
+		return ref, nil
+	}
+	if *ix == nil {
+		loaded, err := adapterinstall.LoadIndex()
+		if err != nil {
+			return adapterinstall.Ref{}, fail(ExitNetwork, "%v", err)
+		}
+		*ix = loaded
+	}
+	e := (*ix).Find(arg)
+	if e == nil {
+		return adapterinstall.Ref{}, fail(ExitValidation,
+			"adapters: %s is not in the registry index (%s) — `gtme adapters search <text>` lists what is, and `gtme help --bindings` shows how to write one",
+			arg, adapterinstall.RegistryURL())
+	}
+	owner, repo, ok := splitRepoURL(e.Source.URL)
+	if !ok {
+		return adapterinstall.Ref{}, fail(ExitValidation, "adapters: %s: the index lists an unrecognized source url %q", arg, e.Source.URL)
+	}
+	pin := e.Source.SHA
+	if pin == "" {
+		pin = e.Source.Ref
+	}
+	return adapterinstall.Ref{Owner: owner, Repo: repo, Path: e.Source.Path, Ref: pin}, nil
+}
+
+func adaptersAdd(env Env, ref adapterinstall.Ref) error {
 	dir, b, hash, commit, err := fetchAndVerify(env, ref)
 	if err != nil {
 		return err
