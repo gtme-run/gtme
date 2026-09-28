@@ -64,3 +64,7 @@ CREATE TABLE deliveries (
   UNIQUE(target, scope, idempotency)
 );
 ```
+
+## Used in
+
+- [Top up](/guides/top-up)

@@ -49,3 +49,7 @@ CREATE TABLE step_events (
   created_at  TEXT NOT NULL
 );
 ```
+
+## Used in
+
+- [Top up](/guides/top-up)
