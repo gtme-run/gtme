@@ -19,6 +19,9 @@ links:
   - to: /concepts/gate-ladder
     type: relates-to
     description: "Defines gate ladder and plan"
+  - to: /concepts/groups
+    type: relates-to
+    description: "Defines group"
   - to: /concepts/ledger
     type: relates-to
     description: "Defines projection"
@@ -63,3 +66,4 @@ gtme plan my-csv.yaml
 - [Steps and roles](/concepts/steps-and-roles): The command that prints each step's role, projection, and provides
 - [The gate ladder](/concepts/gate-ladder): Every line plan prints, and the --viz diagram
 - [Canonical fields](/concepts/canonical-fields): The command that prints the namespace and coupling notes
+- [Multi-stage campaigns with groups](/guides/multi-stage): Every line plan prints, including the once count and the missing-group error

@@ -55,3 +55,4 @@ gtme groups
 ## Used in
 
 - [Groups and segments](/concepts/groups): Every gtme groups verb and flag
+- [Multi-stage campaigns with groups](/guides/multi-stage): Every gtme groups verb, including show and remove with --note
