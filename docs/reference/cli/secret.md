@@ -8,14 +8,11 @@ learn:
   - "each flag and what it changes"
   - "where the docs use it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
-  - to: /concepts/gate-ladder
+  - to: /concepts/agent-operable
     type: relates-to
-    description: "Defines dry-run and plan"
-  - to: /concepts/runs-and-receipts
-    type: relates-to
-    description: "Defines run"
+    description: "Defines exit code"
 ---
 
 # gtme secret
@@ -40,4 +37,4 @@ gtme secret set ANTHROPIC_API_KEY
 
 ## Used in
 
-- [Connect your stack: secrets, plan, dry-run, arm](/guides/connect-your-stack): How gtme secret set stores a key without echoing it
+- [Agent-operable by design](/concepts/agent-operable): The prompt where you, never the agent, enter a key after exit code 3

@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "type": {"const": "PENDING"},
-    "token": {"type": "string", "minLength": 1, "description": "Provider-opaque handle for the in-flight work (e.g. a Message Batches id). Never interpreted by the runner."},
-    "detail": {"type": "object", "description": "Free-form, for the receipt: e.g. {\"provider\":\"anthropic\",\"records\":25,\"expires_at\":\"...\"}."}
+    "token": {"type": "string", "minLength": 1, "description": "Provider-opaque handle for the in-flight work (such as a Message Batches id). Never interpreted by the runner."},
+    "detail": {"type": "object", "description": "Free-form, for the receipt, for example {\"provider\":\"anthropic\",\"records\":25,\"expires_at\":\"...\"}."}
   }
 }
