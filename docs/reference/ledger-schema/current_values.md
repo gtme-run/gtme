@@ -8,11 +8,14 @@ learn:
   - "what the object holds and who writes it"
   - "the DDL as the spec states it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/facts
     type: relates-to
     description: "Defines confidence"
+  - to: /concepts/groups
+    type: relates-to
+    description: "Defines segment"
   - to: /concepts/ledger
     type: relates-to
     description: "Defines ledger"
@@ -42,3 +45,7 @@ CREATE VIEW current_values AS
 SELECT identity_id, field, json_extract(value, '$') AS value, source, confidence, run_id, created_at
 FROM current_fields;
 ```
+
+## Used in
+
+- [Segment](/guides/segment): The view a slice reads each person's latest values from
