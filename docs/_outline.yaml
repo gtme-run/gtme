@@ -50,7 +50,7 @@ collections:
     - { slug: steps-and-roles, name: Steps and roles, status: reviewed, part: model }
     - { slug: gate-ladder, name: The gate ladder, status: reviewed, part: run }
     - { slug: runs-and-receipts, name: Runs and receipts, status: reviewed, part: run }
-    - { slug: ledger, name: The ledger, status: draft, part: run }
+    - { slug: ledger, name: The ledger, status: reviewed, part: run }
     - { slug: identity-keys, name: Identity keys, status: reviewed, part: model }
     - { slug: canonical-fields, name: Canonical fields, status: reviewed, part: model }
     - { slug: facts, name: Facts have provenance, status: reviewed, part: model }
