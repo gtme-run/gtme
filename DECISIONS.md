@@ -4181,10 +4181,10 @@ Natively idempotent targets lose nothing. Deliver steps give up
 multi-record sessions. No shipped deliver adapter depends on them for
 correctness: `http/deliver`, the deliver bindings, `csv/deliver` and
 `instantly/add-to-campaign` all send and acknowledge one record at a
-time. The cost is per-session setup. `instantly/add-to-campaign`
-resolves its campaign name at every OPEN, so M34 caches the resolved id
-for the life of the process rather than making one extra request per
-lead. A false hold (a crash after `dispatched` commits and before the
+time. The cost is per-session setup, and it adds no vendor requests:
+`instantly/add-to-campaign` already caches a resolved campaign name for
+the life of the process, and a campaign given as an id is never looked
+up. A false hold (a crash after `dispatched` commits and before the
 request leaves) costs one explicit release, which is the safe direction.
 **Rejected:** *Stating an at-least-once window in SPEC and leaving the
 behavior* — it weakens two operator stories to match a bug. *Holding
