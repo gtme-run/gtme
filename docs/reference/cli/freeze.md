@@ -8,11 +8,14 @@ learn:
   - "each flag and what it changes"
   - "where the docs use it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines binding, fixture, and manifest"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code and stdout"
   - to: /concepts/campaign-is-a-folder
     type: relates-to
     description: "Defines bundle and freeze"
@@ -44,13 +47,14 @@ It exits with one of the [exit codes](/reference/cli#exit-codes) every verb shar
 
 ## Example
 
-From [Package and share a campaign](/guides/bundles):
+The first form with every optional part left out:
 
-```sh
-gtme freeze last --bundle renewal-openers-v1
+```
+gtme freeze
 ```
 
 ## Used in
 
 - [A campaign is a folder](/concepts/campaign-is-a-folder): The command that writes a bundle, or prints a pipeline's YAML without one
-- [Package and share a campaign](/guides/bundles): Every form and flag of the command that writes a bundle
+- [Agent-operable by design](/concepts/agent-operable): Prints a run's exact pipeline as YAML on stdout
+- [Report](/guides/report): Prints the pipeline a run used, including the rates behind its cost avoided

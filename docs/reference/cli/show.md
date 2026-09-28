@@ -8,11 +8,14 @@ learn:
   - "each flag and what it changes"
   - "where the docs use it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines NDJSON"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code, stderr, and stdout"
   - to: /concepts/facts
     type: relates-to
     description: "Defines fact and provenance"
@@ -31,6 +34,9 @@ links:
   - to: /concepts/runs-and-receipts
     type: relates-to
     description: "Defines receipt and run"
+  - to: /concepts/types-and-traverse
+    type: relates-to
+    description: "Defines relation and traverse"
 ---
 
 # gtme show
@@ -77,3 +83,7 @@ gtme show jane.doe@acme.com
 - [The ledger](/concepts/ledger): The command that prints what the ledger knows about one record
 - [Identity keys](/concepts/identity-keys): Prints one record by any key it has held
 - [Facts have provenance](/concepts/facts): Every flag of gtme show, including --provenance
+- [Interrogate](/guides/interrogate): Every form and flag of gtme show, including --run and --pending
+- [Top up](/guides/top-up): Every flag of gtme show, including --provenance and --fields
+- [Traverse a relation](/guides/traverse): Prints the company the traverse reached, with its fields
+- [Put a human in the loop](/guides/human-in-the-loop): Reads what's pending and who wrote each value

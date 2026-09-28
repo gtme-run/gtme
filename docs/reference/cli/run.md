@@ -8,14 +8,14 @@ learn:
   - "each flag and what it changes"
   - "where the docs use it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines fixture"
-  - to: /concepts/campaign-is-a-folder
+  - to: /concepts/agent-operable
     type: relates-to
-    description: "Defines bundle"
+    description: "Defines exit code"
   - to: /concepts/gate-ladder
     type: relates-to
     description: "Defines dry-run, gate ladder, preflight, and simulate"
@@ -61,4 +61,7 @@ gtme run hello.yaml
 ## Used in
 
 - [The gate ladder](/concepts/gate-ladder): The flags that pick a rung, --simulate and --dry-run, and --resume after a blocked preflight
-- [Package and share a campaign](/guides/bundles): The command that verifies a bundle's hashes and runs it
+- [Launch](/guides/launch): Every flag of the launch command, including --resume and --dry-run
+- [Guard](/guides/guard): The --simulate flag this guide uses and --dry-run, the next rung and the first that spends
+- [Recover](/guides/recover): Every flag of gtme run, including --resume
+- [Run on cron and events](/guides/cron-and-events): Every flag of the command the crontab line runs
