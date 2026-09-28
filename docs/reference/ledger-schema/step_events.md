@@ -8,11 +8,17 @@ learn:
   - "what the object holds and who writes it"
   - "the DDL as the spec states it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/ledger
     type: relates-to
     description: "Defines ledger"
+  - to: /concepts/pipeline
+    type: relates-to
+    description: "Defines step"
+  - to: /concepts/runs-and-receipts
+    type: relates-to
+    description: "Defines receipt"
   - to: /concepts/types-and-traverse
     type: relates-to
     description: "Defines type"
@@ -52,4 +58,4 @@ CREATE TABLE step_events (
 
 ## Used in
 
-- [Top up](/guides/top-up)
+- [Report](/guides/report): One row per record per step event, which the receipt's counts are
