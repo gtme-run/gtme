@@ -62,3 +62,4 @@ gtme run hello.yaml
 
 - [The gate ladder](/concepts/gate-ladder): The flags that pick a rung, --simulate and --dry-run, and --resume after a blocked preflight
 - [Launch](/guides/launch): Every flag of the launch command, including --resume and --dry-run
+- [Guard](/guides/guard): The --simulate flag this guide uses and --dry-run, the next rung and the first that spends

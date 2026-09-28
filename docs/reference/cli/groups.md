@@ -16,9 +16,12 @@ links:
   - to: /concepts/facts
     type: relates-to
     description: "Defines provenance"
+  - to: /concepts/gate-ladder
+    type: relates-to
+    description: "Defines plan"
   - to: /concepts/groups
     type: relates-to
-    description: "Defines group and segment"
+    description: "Defines group, segment, and suppression group"
   - to: /concepts/pipeline
     type: relates-to
     description: "Defines pipeline"
@@ -58,3 +61,4 @@ gtme groups
 ## Used in
 
 - [Groups and segments](/concepts/groups): Every gtme groups verb and flag
+- [Guard](/guides/guard): Creates and fills a group such as the suppression group plan asked for
