@@ -244,7 +244,7 @@ Run `gtme plan` after every edit, and show me the cost before any run that spend
 
 ## Why it's this way
 
-**Most of the document is adapter manifests, so it grows with every adapter you install.** With the 20 built-in adapters it's about 48 kilobytes. We'd have an agent pull the one key it needs with `jq`, as this page does.
+**Most of the document is adapter manifests, so it grows with every adapter you install.** With the 16 built-in adapters it's about 44 kilobytes. We'd have an agent pull the one key it needs with `jq`, as this page does.
 
 **An agent works from whatever document is in front of it, so gtme generates that document.** A page kept by hand would drift from the binary. The decision record [ADR-007](/decisions#adr-007) made `gtme help --agent` print the whole surface from the binary itself. SPEC.md, the file that fixes what gtme does, sets [the test](/spec#gtme-help---agent-adr-007): an agent given only this document must be able to write a pipeline that passes `gtme plan`.
 
