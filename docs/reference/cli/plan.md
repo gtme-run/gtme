@@ -63,3 +63,4 @@ gtme plan my-csv.yaml
 - [Steps and roles](/concepts/steps-and-roles): The command that prints each step's role, projection, and provides
 - [The gate ladder](/concepts/gate-ladder): Every line plan prints, and the --viz diagram
 - [Canonical fields](/concepts/canonical-fields): The command that prints the namespace and coupling notes
+- [Guard](/guides/guard): Every line plan prints, and its exit codes
