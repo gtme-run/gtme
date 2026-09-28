@@ -300,6 +300,21 @@
                   "skip_if_input": {
                     "type": "boolean",
                     "description": "Omit this output field when the projected input already carried a non-empty value for it (e.g. only emit a resolved public linkedin_url when the record arrived without one)."
+                  },
+                  "each": {
+                    "type": "string",
+                    "description": "The list form (SPEC.md §10a, ADR-059): a dotted path to an array ('|' alternatives allowed, first non-empty wins). The template renders once per element over item.*, a render that is empty after trimming is dropped, rendering stops at limit, and the field provides an array of strings. Does not mix with path, paths or transform."
+                  },
+                  "template": {
+                    "type": "string",
+                    "description": "The each: template, in the ADR-057 dialect over item.* — tags allowed, since it renders text, not a typed value. Only with each."
+                  },
+                  "limit": {
+                    "description": "The most renders each: keeps: a positive integer, or a config reference ({{ config.<key> }}). Only with each; omitted means every element.",
+                    "anyOf": [
+                      { "type": "integer" },
+                      { "type": "string" }
+                    ]
                   }
                 }
               }

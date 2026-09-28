@@ -33,7 +33,7 @@ List installed adapters with their source and pin (.source.json)
 ```
 gtme adapters
 gtme adapters search TEXT
-gtme adapters add github.com/<owner>/<repo>/<path>[@ref]
+gtme adapters add REF...
 gtme adapters verify ID
 gtme adapters update ID [@ref]
 ```
@@ -42,7 +42,7 @@ gtme adapters update ID [@ref]
 |---|---|
 | `gtme adapters` | list installed adapters with their source and pin (.source.json) |
 | `gtme adapters search TEXT` | search the bindings registry index by id, vendor, description and role (GTME_REGISTRY overrides the index URL) |
-| `gtme adapters add github.com/<owner>/<repo>/<path>[@ref]` | fetch a binding at a pinned ref, verify it (schema + fixtures offline; nothing installs unverified), install it under ~/.gtme/adapters/ with .source.json beside it |
+| `gtme adapters add REF...` | install bindings by github.com/\<owner\>/\<repo\>/\<path\>[@ref] or registry id (apollo/search), each pinned and verified first (schema + fixtures offline; nothing installs unverified), under ~/.gtme/adapters/ with .source.json beside it; every vendor adapter but instantly/ installs this way |
 | `gtme adapters verify ID` | validate an installed binding against the schema, run its fixtures offline, print the hosts it will call and the credentials it will demand |
 | `gtme adapters update ID [@ref]` | re-fetch at a newer ref — the only thing that moves a pin |
 

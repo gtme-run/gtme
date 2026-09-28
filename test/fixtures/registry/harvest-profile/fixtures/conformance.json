@@ -1,4 +1,8 @@
 {
+  "config": {},
+  "input": {
+    "linkedin_url": "https://www.linkedin.com/in/jane-doe"
+  },
   "responses": [
     {
       "match": "GET /linkedin/profile",
@@ -10,7 +14,7 @@
           "linkedinUrl": "https://www.linkedin.com/in/jane-doe",
           "firstName": "Jane",
           "lastName": "Doe",
-          "headline": "VP Marketing at Acme \u2014 demand gen, lifecycle, and the occasional spreadsheet",
+          "headline": "VP Marketing at Acme — demand gen, lifecycle, and the occasional spreadsheet",
           "about": "I run marketing at Acme.",
           "followerCount": 4210,
           "openToWork": false,
