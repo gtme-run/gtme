@@ -55,7 +55,7 @@ From [Participants](/concepts/participants):
 
 ```sh
 gtme answer grading grade jane.doe@acme.com --set grading.grade=A \
-    --note "owns the budget"
+    --note "owns the budget" --as dana
 ```
 
 ## Used in
