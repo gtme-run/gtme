@@ -15,7 +15,7 @@ links:
     description: "Defines ledger"
   - to: /concepts/types-and-traverse
     type: relates-to
-    description: "Defines relation and type"
+    description: "Defines relation, traverse, and type"
 ---
 
 # relations
@@ -46,3 +46,7 @@ CREATE TABLE relations (
   PRIMARY KEY (from_id, relation, to_id)
 );
 ```
+
+## Used in
+
+- [Traverse a relation](/guides/traverse): The table the relation rows in this guide come from

@@ -15,7 +15,7 @@ links:
     description: "Defines ledger"
   - to: /concepts/types-and-traverse
     type: relates-to
-    description: "Defines type"
+    description: "Defines relation, traverse, and type"
 ---
 
 # step_events
@@ -49,3 +49,7 @@ CREATE TABLE step_events (
   created_at  TEXT NOT NULL
 );
 ```
+
+## Used in
+
+- [Traverse a relation](/guides/traverse): Where the traversed and coalesced events for each child are logged

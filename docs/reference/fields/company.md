@@ -19,9 +19,12 @@ links:
   - to: /concepts/facts
     type: relates-to
     description: "Defines fact"
+  - to: /concepts/pipeline
+    type: relates-to
+    description: "Defines step"
   - to: /concepts/types-and-traverse
     type: relates-to
-    description: "Defines subject and type"
+    description: "Defines leg, relation, subject, traverse, and type"
 ---
 
 # company
@@ -74,3 +77,7 @@ As the type file states it:
 | `company_linkedin_url` | https://www.linkedin.com/company/acme-corp |
 | `company_employees` | 120 |
 | `company_industry` | Computer Software |
+
+## Used in
+
+- [Traverse a relation](/guides/traverse): The fields a step on the company leg can read

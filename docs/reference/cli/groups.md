@@ -19,9 +19,12 @@ links:
   - to: /concepts/pipeline
     type: relates-to
     description: "Defines pipeline"
+  - to: /concepts/runs-and-receipts
+    type: relates-to
+    description: "Defines run"
   - to: /concepts/types-and-traverse
     type: relates-to
-    description: "Defines type"
+    description: "Defines relation, traverse, and type"
 ---
 
 # gtme groups
@@ -55,3 +58,4 @@ gtme groups
 ## Used in
 
 - [Groups and segments](/concepts/groups): Every gtme groups verb and flag
+- [Traverse a relation](/guides/traverse): Every verb for the typed groups the two runs end in

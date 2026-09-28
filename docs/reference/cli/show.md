@@ -31,6 +31,9 @@ links:
   - to: /concepts/runs-and-receipts
     type: relates-to
     description: "Defines receipt and run"
+  - to: /concepts/types-and-traverse
+    type: relates-to
+    description: "Defines relation and traverse"
 ---
 
 # gtme show
@@ -77,3 +80,4 @@ gtme show jane.doe@acme.com
 - [The ledger](/concepts/ledger): The command that prints what the ledger knows about one record
 - [Identity keys](/concepts/identity-keys): Prints one record by any key it has held
 - [Facts have provenance](/concepts/facts): Every flag of gtme show, including --provenance
+- [Traverse a relation](/guides/traverse): Prints the company the traverse reached, with its fields
