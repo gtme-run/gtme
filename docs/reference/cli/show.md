@@ -81,3 +81,4 @@ gtme show jane.doe@acme.com
 - [Identity keys](/concepts/identity-keys): Prints one record by any key it has held
 - [Facts have provenance](/concepts/facts): Every flag of gtme show, including --provenance
 - [Interrogate](/guides/interrogate): Every form and flag of gtme show, including --run and --pending
+- [Top up](/guides/top-up): Every flag of gtme show, including --provenance and --fields

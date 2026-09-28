@@ -59,3 +59,4 @@ CREATE TABLE step_events (
 ## Used in
 
 - [Report](/guides/report): One row per record per step event, which the receipt's counts are
+- [Top up](/guides/top-up)
