@@ -218,7 +218,8 @@ type agentExample struct {
 // offline, the full real-provider funnel with uses: on a filter step, and a
 // CSV-sourced compose-only funnel with uses: on a compose step — chosen so an
 // agent sees uses: on both AI-backed roles and a source other than
-// apollo/search. Every adapter named here is a real, implemented v0 adapter,
+// apollo/search. Every adapter named here is a real, implemented v0 adapter
+// (the vendor ones installed from the registry, ADR-059: an example says so),
 // because this document's own acceptance criterion is that an agent can use
 // it alone to write a pipeline that passes `gtme plan` — an example that
 // doesn't itself pass plan would contradict that.
@@ -240,7 +241,7 @@ steps:
 	},
 	{
 		Name:        "full-funnel-with-uses",
-		Description: "source (masked) -> ai/filter (uses:, provides:) -> apollo/enrich (reveal past the filter, ADR-043) -> enrich -> ai/compose (uses:) -> deliver, the shape in SPEC.md §9. provides: (ADR-033) declares the judgment fields the filter stores beside its verdict, namespaced by pipeline (apollo-to-instantly.fit) unless marked canonical: true.",
+		Description: "source (masked) -> ai/filter (uses:, provides:) -> apollo/enrich (reveal past the filter, ADR-043) -> enrich -> ai/compose (uses:) -> deliver, the shape in SPEC.md §9. The vendor adapters are registry entries: install them first with `gtme adapters add apollo/search apollo/enrich harvest/profile harvest/recent-posts`. provides: (ADR-033) declares the judgment fields the filter stores beside its verdict, namespaced by pipeline (apollo-to-instantly.fit) unless marked canonical: true.",
 		Yaml: `name: apollo-to-instantly
 version: 1
 source:
@@ -266,6 +267,10 @@ steps:
     cache: 30d
   - id: linkedin
     use: harvest/profile
+    when: icp-filter.passed
+    cache: 30d
+  - id: posts
+    use: harvest/recent-posts
     when: icp-filter.passed
     cache: 30d
   - id: personalize
@@ -336,7 +341,7 @@ steps:
 	},
 	{
 		Name:        "csv-sourced-compose-with-uses",
-		Description: "csv/source -> cached enrich -> ai/compose (uses: on a compose step, not a filter), no AI filter in the chain. A uses: field can be absent for a record at run time even though the plan validated it; on_missing: run (the default) still dispatches and the receipt prints `(N missing <field>)`, on_missing: skip advances the record untouched, on_missing: fail fails it naming the field (ADR-053).",
+		Description: "csv/source -> cached enrich -> ai/compose (uses: on a compose step, not a filter), no AI filter in the chain. Install the Harvest entries first: `gtme adapters add harvest/profile harvest/recent-posts`. A uses: field can be absent for a record at run time even though the plan validated it; on_missing: run (the default) still dispatches and the receipt prints `(N missing <field>)`, on_missing: skip advances the record untouched, on_missing: fail fails it naming the field (ADR-053).",
 		Yaml: `name: csv-personalize
 version: 1
 source:
@@ -346,6 +351,9 @@ source:
 steps:
   - id: linkedin
     use: harvest/profile
+    cache: 30d
+  - id: posts
+    use: harvest/recent-posts
     cache: 30d
   - id: personalize
     use: ai/compose
