@@ -418,8 +418,41 @@ func (m *Manifest) ValidateConfig(config map[string]any) error {
 	if config == nil {
 		config = map[string]any{}
 	}
+	if err := m.refusedConfig(config); err != nil {
+		return err
+	}
 	if err := m.config.Validate(normalizeForSchema(config)); err != nil {
 		return fmt.Errorf("adapters: %s: invalid config: %w", m.ID, err)
+	}
+	return nil
+}
+
+// refusedConfig names a config key the schema refuses on purpose — a
+// property declared `not: {}` (a key a new version dropped) — with the
+// property's description as the reason, so the operator reads where the key
+// went ("moved to harvest/recent-posts", ADR-059) instead of a bare
+// additionalProperties error.
+func (m *Manifest) refusedConfig(config map[string]any) error {
+	var doc struct {
+		Properties map[string]struct {
+			Not         json.RawMessage `json:"not"`
+			Description string          `json:"description"`
+		} `json:"properties"`
+	}
+	if json.Unmarshal(m.ConfigSchema, &doc) != nil {
+		return nil
+	}
+	keys := make([]string, 0, len(config))
+	for k := range config {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		p, ok := doc.Properties[k]
+		if !ok || len(p.Not) == 0 || strings.TrimSpace(p.Description) == "" {
+			continue
+		}
+		return fmt.Errorf("adapters: %s@%d: config %s is not accepted: %s", m.ID, m.Version, k, strings.TrimSpace(p.Description))
 	}
 	return nil
 }

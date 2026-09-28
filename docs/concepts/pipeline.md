@@ -197,7 +197,7 @@ gtme plan hello.yaml
 The output is the following:
 
 ```
-gtme: step "subject": needs company_name, which no earlier step provides (available: company_domain, demo.note, demo.score, email, full_name, title); installed adapters provide it: company_name ← apollo/enrich|apollo/search
+gtme: step "subject": needs company_name, which no earlier step provides (available: company_domain, demo.note, demo.score, email, full_name, title)
 ```
 
 The CSV has a company domain and no company name, so nothing upstream provides it. Change both mentions of `company_name` to `company_domain`, run plan again, and the new step reads:
