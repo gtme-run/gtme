@@ -8,7 +8,7 @@ learn:
   - "every `with:` key it accepts"
   - "what it costs and which credential it demands"
 roles: [builder, extender, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
@@ -87,17 +87,13 @@ The keys `with:` accepts. Plan rejects any other key.
 
 ## Example
 
-From [Put a human in the loop](/guides/human-in-the-loop):
+From [Report](/guides/report):
 
 ```yaml
   - id: opener
     use: human/compose
-    uses: [full_name, title, company_domain]
-    provides: [first_line]
+    uses: [full_name, title]
+    provides: [opener]
     with:
       prompt: never
 ```
-
-## Used in
-
-- [Put a human in the loop](/guides/human-in-the-loop)
