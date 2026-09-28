@@ -60,3 +60,4 @@ CREATE TABLE step_events (
 
 - [Report](/guides/report): One row per record per step event, which the receipt's counts are
 - [Top up](/guides/top-up)
+- [Iterate](/guides/iterate): The events and details the reuse queries read, including the judgment signature
