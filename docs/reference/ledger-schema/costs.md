@@ -56,3 +56,7 @@ CREATE TABLE costs (
   created_at  TEXT NOT NULL
 );
 ```
+
+## Used in
+
+- [Report](/guides/report): One row per identity per step that spent, with amount_usd and basis

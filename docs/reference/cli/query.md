@@ -64,3 +64,4 @@ gtme query "SELECT i.identity_key, e.detail ->> 'reason' AS reason
 - [The ledger](/concepts/ledger): Read-only SQL against the ledger's views
 - [Identity keys](/concepts/identity-keys): Read-only SQL against the identities and relations tables
 - [Groups and segments](/concepts/groups): Every gtme query flag, including --save, --name, and --list
+- [Report](/guides/report): Read-only SQL against the ledger, used for the check and the monthly total

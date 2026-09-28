@@ -53,3 +53,4 @@ gtme freeze
 ## Used in
 
 - [A campaign is a folder](/concepts/campaign-is-a-folder): The command that writes a bundle, or prints a pipeline's YAML without one
+- [Report](/guides/report): Prints the pipeline a run used, including the rates behind its cost avoided

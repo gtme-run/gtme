@@ -61,3 +61,4 @@ gtme answer grading grade jane.doe@acme.com --set grading.grade=A \
 ## Used in
 
 - [Participants](/concepts/participants): Every flag on the write path for a participant's answer
+- [Report](/guides/report): The --cost and --measured flags that record a participant's cost
