@@ -592,3 +592,27 @@ anything before a second timestamp and an "ended" event are designed.
 When it comes back: an `ended_at` column, the append-then-derive pattern
 (a `current_relations` view), and which adapters could ever assert an
 end.
+
+## Re-reading held deliveries on resume
+
+Named 2026-09-28 by ADR-060, which holds a record whose delivery was in
+flight at a crash as `unconfirmed` and leaves the release to the
+operator (`--resend-unconfirmed`). An adapter that declares `attests`
+can already re-read what the target stored, so on resume it could answer
+the question itself: a re-read that finds the record settles the row as
+`confirmed`, and one that finds nothing makes the resend safe. That
+needs a session shape the protocol does not have yet (an attestation for
+a record that was not sent in this session), so it is spec-visible and
+takes its own packet. Held for receipts: the first crashes against an
+attesting target will say whether checking by hand is a real burden.
+
+## Batch delivery
+
+ADR-060 runs an adapter-backed deliver step one record per session, so
+the ledger can name exactly which record was in flight at a crash. No
+shipped deliver adapter sends in bulk. A target with a bulk endpoint
+(adding many leads in one request) would want a session that carries a
+batch, and its in-flight window is then the whole batch: every record in
+it is `dispatched` together and held together. A manifest declaration
+for that, with the receipt saying how large the window is, waits for an
+adapter that needs it.

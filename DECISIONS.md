@@ -4135,6 +4135,127 @@ gains the engine's `resolve:`/`preflight:`/`attest:` and amends the
 registry entry's "reference twins" line. `spec/binding-schema.json` gains
 `each` in M33.
 
+### ADR-060: A delivery in flight at a crash is held, not sent again
+**Status:** Accepted (2026-09-28 — from issue #134, found while writing
+the recover guide; human-approved by merging this packet; build queued as
+M34)
+**Context:** §8 inserts a record's `deliveries` row after the adapter's
+RECORD comes back, as it must: a row is a claim that the target took the
+request. A deliver step today streams a chunk of records into each
+session (the chunk is the work divided across the pool, at most 64), and
+the adapters send them one at a time. A process killed mid-step therefore
+leaves one record per open session that reached the target with no row,
+and `--resume` sends it again: four records, the pool size, in four of
+four reproductions with `http/deliver` against a local target (`kill -9`
+three times, Ctrl-C once). The ledger cannot say which records those
+were, because `claimed` is logged for the whole chunk before the send (40
+claimed on a 40-record crash with 12 done). The Recover story promises
+that resume never redoes completed work, and Top-up promises that nothing
+is delivered twice; this window broke both without saying so.
+**Decision:** (1) **An adapter-backed deliver step runs one record per
+session**, and the runner commits a `dispatched` step event for the
+record before it opens that session. A record with `dispatched` and no
+later `done` or `failed` at that step is *unconfirmed*: its request may
+have reached the target. `group/deliver` is unchanged; it has no session
+and sends nothing outside the ledger. (2) **An unconfirmed record is
+held, not sent again.** When a run resumes, and when an interrupted run
+finishes, the runner writes the record's `deliveries` row with the new
+status `unconfirmed` and does not send it. §8's pre-send check skips an
+`unconfirmed` row with reason `unconfirmed`, so no later run sends it by
+habit either. (3) **A natively idempotent target is the exception.**
+Where the manifest declares `idempotency: native` (§6), the target
+upserts, so the record is sent again and gets an ordinary row; this is
+ADR-045's rule that repeat-safety belongs to the adapter. (4) **Release
+is explicit.** `gtme run PIPELINE --resume RUN_ID --resend-unconfirmed`
+sends that run's unconfirmed records, and the adapter's answer replaces
+each row's status. Nothing else sends a held record. (5) **`http/deliver`
+sends `Idempotency-Key`**, the hex SHA-256 of the delivery's `target`,
+`scope` and idempotency key joined by NUL, identical on every run and
+resume, so a target that honors the header can dedupe the one case the
+ledger cannot see. A `headers.Idempotency-Key` in config overrides it.
+(6) **The receipt names the held records** and prints the release command.
+**Consequences:** At-most-once delivery holds across a crash for every
+target that is not natively idempotent, and the receipt names the few
+records (at most `--concurrency`) that need a person to check the target.
+Natively idempotent targets lose nothing. Deliver steps give up
+multi-record sessions. No shipped deliver adapter depends on them for
+correctness: `http/deliver`, the deliver bindings, `csv/deliver` and
+`instantly/add-to-campaign` all send and acknowledge one record at a
+time. The cost is per-session setup. `instantly/add-to-campaign`
+resolves its campaign name at every OPEN, so M34 caches the resolved id
+for the life of the process rather than making one extra request per
+lead. A false hold (a crash after `dispatched` commits and before the
+request leaves) costs one explicit release, which is the safe direction.
+**Rejected:** *Stating an at-least-once window in SPEC and leaving the
+behavior* — it weakens two operator stories to match a bug. *Holding
+every claimed record* — 28 held for 4 in flight in the reproduction.
+*A wire message in which the adapter announces each send* — it is only
+safe if the adapter waits for the runner's commit before sending, a
+protocol round-trip for what one record per session gives for free.
+*Asking an adapter that declares `attests` to re-read held records on
+resume* — a real refinement, deferred to ROADMAP.md with batch delivery.
+**Spec impact:** AMEND §3 (the `step_events.event` and `deliveries.status`
+vocabularies; both columns are TEXT, so there is no migration), §8 (the
+`run` line, deliver idempotency, record accounting), §10a (`http/deliver`
+sends `Idempotency-Key`), §11 (M34 queued), the Top-up and Recover
+stories, Changelog (v0.54). ROADMAP.md gains re-reading held records and
+batch delivery.
+
+### ADR-061: A run holds a lock while it executes; a dead `running` run reads as `interrupted`
+**Status:** Accepted (2026-09-28 — from issues #136 and #122, found while
+writing the recover and launch guides; human-approved by merging this
+packet; build queued as M34)
+**Context:** A run's status is written when it finishes, so a process
+killed without finishing (`kill -9`, an out-of-memory kill, a closed
+laptop, a reboot) leaves `running` behind for good. `runs` records no
+process, host or heartbeat, so `gtme runs` cannot tell a dead run from a
+live one, and the operator has to go looking for a gtme process. Nothing
+stops `--resume` from reopening a run that another process is still
+executing, which puts two writers, and with ADR-060 two senders, on one
+run. Separately, `--resume` of a run that finished `done` reopens it and
+prints an empty receipt, which reads as if something happened.
+**Decision:** (1) **Every executing run holds an exclusive advisory lock**
+(`flock`) on `locks/<run_id>.lock` in the ledger file's directory, from
+the moment it creates or reopens the run until the process exits. The
+kernel releases the lock on any death, and a reboot clears it. (2) **`runs`
+gains `pid` and `host`**, written at create and at reopen. They are for
+display: liveness is the lock, never the pid, because pids are reused
+after a reboot. (3) **`gtme runs` derives `interrupted`** for a `running`
+run whose lock it can take, taking and releasing it at once.
+`interrupted` is never stored; `runs.status` keeps its four values and
+`gtme runs` stays read-only. A run recorded on another host shows
+`running (on HOST)`, since this machine cannot test that lock. (4)
+**`--resume` takes the lock or refuses** with exit 2, naming the pid and
+host. (5) **An interrupted run's receipt prints the command that resumes
+it.** A plain `gtme run` whose pipeline's latest run is interrupted says
+so on stderr with the same command and sources anew; it never resumes an
+interrupted run by itself, because a crashed deliver step may hold
+unconfirmed records (ADR-060) that need a person to look first.
+Collect-first for a `pending` run (ADR-038) is unchanged. (6) **`--resume`
+of a `done` run refuses** with exit 2: `run RUN_ID is done; nothing to
+resume`. A `failed`, `pending` or interrupted run resumes as before.
+**Consequences:** `gtme runs` tells the truth about a crash with no clock
+and no daemon. Two processes can never execute one run, which also closes
+a double-send path. A ledger on a network filesystem gets no liveness,
+which is already an unsupported place for SQLite. Runs created before
+the migration have no `pid`, no `host` and no lock file, so a `running`
+one reads as `interrupted`, which is true of any run older than the
+upgraded binary. `test/e2e/resume_test.go`'s
+`TestResumeLastAndUnknownRun` asserts today that resuming a finished run
+is a no-op; M34 changes that assertion to the refusal.
+**Rejected:** *A heartbeat column* — it needs a staleness threshold and a
+periodic write, a suspended process comes back to life after being
+declared dead, and it gives no mutual exclusion. *Liveness by
+`kill(pid, 0)`* — pid reuse after a reboot is the case the issue names.
+*Having `gtme runs` store `interrupted`* — a read verb that writes, and a
+status that goes stale when a process was only unreachable. *Resuming an
+interrupted run on a plain `gtme run`* — resuming after a crash is a
+decision, not a habit.
+**Spec impact:** AMEND §3 (`runs.pid`, `runs.host`; migration `0014`),
+§8 (a subsection on the run lock and interrupted runs; the `--resume`
+refusals), §11 (M34 queued), the Recover story, Changelog (v0.54). The
+ledger's directory gains `locks/`.
+
 ### ADR-054: `traverse` — a run is a sequence of typed segments, and a type is a file
 **Status:** Accepted (2026-09-05 — design session; answers ADR-008's parked
 question and ROADMAP.md's "Entity types" (until this packet, "Object
