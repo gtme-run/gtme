@@ -58,3 +58,4 @@ gtme run hello.yaml
 ## Used in
 
 - [The gate ladder](/concepts/gate-ladder): The flags that pick a rung, --simulate and --dry-run, and --resume after a blocked preflight
+- [Recover](/guides/recover): Every flag of gtme run, including --resume

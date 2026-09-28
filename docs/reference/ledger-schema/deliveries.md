@@ -16,9 +16,15 @@ links:
   - to: /concepts/ledger
     type: relates-to
     description: "Defines ledger"
+  - to: /concepts/pipeline
+    type: relates-to
+    description: "Defines step"
   - to: /concepts/runs-and-receipts
     type: relates-to
     description: "Defines idempotency"
+  - to: /concepts/steps-and-roles
+    type: relates-to
+    description: "Defines deliver"
   - to: /concepts/types-and-traverse
     type: relates-to
     description: "Defines type"
@@ -64,3 +70,7 @@ CREATE TABLE deliveries (
   UNIQUE(target, scope, idempotency)
 );
 ```
+
+## Used in
+
+- [Recover](/guides/recover): The table a deliver step checks before it sends

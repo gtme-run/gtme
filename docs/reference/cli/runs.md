@@ -44,3 +44,4 @@ gtme runs
 ## Used in
 
 - [Runs and receipts](/concepts/runs-and-receipts): Every flag and output of gtme runs
+- [Recover](/guides/recover): Every flag and output of gtme runs, the command that shows a run's status and per-step counts
