@@ -22,8 +22,8 @@ func TestBundleFreezeMoveSimulateDry(t *testing.T) {
 	// Harness A: an external binding source feeding the built-in attio/assert
 	// binding, run dry to mint the run the freeze snapshots.
 	a := newHarness(t)
-	a.writeBinding("apollox/search", filepath.Join(repoRoot(), "spec", "bindings", "apollo-search", "binding.yaml"))
-	a.writeBinding("apollox/enrich", filepath.Join(repoRoot(), "spec", "bindings", "apollo-enrich", "binding.yaml"))
+	a.writeBinding("apollox/search", filepath.Join(registryDir(), "apollo-search", "binding.yaml"))
+	a.writeBinding("apollox/enrich", filepath.Join(registryDir(), "apollo-enrich", "binding.yaml"))
 	a.write("p.yaml", `name: bundle-proof
 source:
   use: apollox/search

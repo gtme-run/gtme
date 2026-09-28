@@ -1,4 +1,8 @@
-# The pipeline from SPEC §9, ready to run once the four credentials are set:
+# The pipeline from SPEC §9, ready to run once its adapters are installed and
+# the four credentials are set. Apollo and Harvest are registry entries, not
+# built in (ADR-059); Instantly ships with gtme:
+#
+#   gtme adapters add apollo/search apollo/enrich harvest/profile harvest/recent-posts
 #
 #   gtme secret set APOLLO_API_KEY
 #   gtme secret set HARVEST_API_KEY
@@ -38,6 +42,11 @@ steps:
 
   - id: linkedin
     use: harvest/profile
+    when: icp-filter.passed
+    cache: 30d
+
+  - id: posts           # ADR-059: posts are their own call, asked for by name
+    use: harvest/recent-posts
     when: icp-filter.passed
     cache: 30d
     with:

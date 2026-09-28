@@ -194,6 +194,11 @@ func Resolve(id string) (*Resolved, error) {
 
 	msg := &strings.Builder{}
 	fmt.Fprintf(msg, "adapters: unknown adapter %q", id)
+	if strings.Contains(id, "/") {
+		// ADR-059: vendor adapters are registry entries; name the command that
+		// installs one. Offline — whether the index lists the id is add's job.
+		fmt.Fprintf(msg, " — if it is a registry entry, install it: gtme adapters add %s", id)
+	}
 	if names := Builtins(); len(names) > 0 {
 		fmt.Fprintf(msg, "\n  built-in: %s", strings.Join(names, ", "))
 	}
