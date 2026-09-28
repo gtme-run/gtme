@@ -8,14 +8,17 @@ learn:
   - "each flag and what it changes"
   - "where the docs use it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code"
   - to: /concepts/gate-ladder
     type: relates-to
     description: "Defines gate ladder"
   - to: /concepts/pipeline
     type: relates-to
-    description: "Defines pipeline and step"
+    description: "Defines step"
   - to: /concepts/runs-and-receipts
     type: relates-to
     description: "Defines receipt and run"
@@ -44,4 +47,4 @@ gtme runs
 ## Used in
 
 - [Runs and receipts](/concepts/runs-and-receipts): Every flag and output of gtme runs
-- [Interrogate](/guides/interrogate): Lists runs with their pipeline, which names the run behind a value
+- [Report](/guides/report): Every form of the command this guide reads receipts with

@@ -8,11 +8,14 @@ learn:
   - "each flag and what it changes"
   - "where the docs use it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines adapter"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code"
   - to: /concepts/identity-keys
     type: relates-to
     description: "Defines identity key"
@@ -55,10 +58,11 @@ From [Participants](/concepts/participants):
 
 ```sh
 gtme answer grading grade jane.doe@acme.com --set grading.grade=A \
-    --note "owns the budget"
+    --note "owns the budget" --as dana
 ```
 
 ## Used in
 
 - [Participants](/concepts/participants): Every flag on the write path for a participant's answer
-- [Interrogate](/guides/interrogate): How a person's answer, like the grade here, is recorded
+- [Agent-operable by design](/concepts/agent-operable): How an agent records its judgment on a pending record
+- [Report](/guides/report): The --cost and --measured flags that record a participant's cost
