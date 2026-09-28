@@ -65,3 +65,4 @@ gtme answer grading grade jane.doe@acme.com --set grading.grade=A \
 
 - [Participants](/concepts/participants): Every flag on the write path for a participant's answer
 - [Agent-operable by design](/concepts/agent-operable): How an agent records its judgment on a pending record
+- [Report](/guides/report): The --cost and --measured flags that record a participant's cost

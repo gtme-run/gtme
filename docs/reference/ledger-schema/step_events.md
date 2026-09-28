@@ -13,6 +13,12 @@ links:
   - to: /concepts/ledger
     type: relates-to
     description: "Defines ledger"
+  - to: /concepts/pipeline
+    type: relates-to
+    description: "Defines step"
+  - to: /concepts/runs-and-receipts
+    type: relates-to
+    description: "Defines receipt"
   - to: /concepts/types-and-traverse
     type: relates-to
     description: "Defines type"
@@ -49,3 +55,7 @@ CREATE TABLE step_events (
   created_at  TEXT NOT NULL
 );
 ```
+
+## Used in
+
+- [Report](/guides/report): One row per record per step event, which the receipt's counts are

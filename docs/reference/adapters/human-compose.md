@@ -87,9 +87,13 @@ The keys `with:` accepts. Plan rejects any other key.
 
 ## Example
 
-A minimal step:
+From [Report](/guides/report):
 
 ```yaml
-  - id: compose
+  - id: opener
     use: human/compose
+    uses: [full_name, title]
+    provides: [opener]
+    with:
+      prompt: never
 ```

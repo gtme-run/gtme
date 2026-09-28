@@ -47,3 +47,4 @@ gtme runs
 ## Used in
 
 - [Runs and receipts](/concepts/runs-and-receipts): Every flag and output of gtme runs
+- [Report](/guides/report): Every form of the command this guide reads receipts with
