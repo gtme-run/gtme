@@ -71,7 +71,7 @@ collections:
     - { slug: iterate, name: Iterate, status: reviewed }
     - { slug: recover, name: Recover, status: reviewed }
     - { slug: segment, name: Segment, status: reviewed }
-    - { slug: multi-stage, name: Multi-stage campaigns with groups, status: planned }
+    - { slug: multi-stage, name: Multi-stage campaigns with groups, status: reviewed }
     - { slug: traverse, name: Traverse a relation, status: planned }
     - { slug: human-in-the-loop, name: Put a human in the loop, status: planned }
     - { slug: cron-and-events, name: Run on cron and events, status: planned }
