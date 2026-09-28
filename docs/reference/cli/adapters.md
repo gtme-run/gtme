@@ -68,3 +68,4 @@ gtme adapters search jsonplaceholder
 - [Connect your stack: secrets, plan, dry-run, arm](/guides/connect-your-stack): The search, add, verify, and update verbs
 - [Add a vendor with a binding](/guides/add-a-binding): The verify verb this guide runs until it passes, and the verbs that install from the registry
 - [Write a process adapter](/guides/process-adapter): Lists installed adapters with their kind and source
+- [Publish to the registry](/guides/publish-to-registry): The search, add, verify, and update verbs this guide runs
