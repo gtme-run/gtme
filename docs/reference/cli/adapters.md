@@ -59,3 +59,4 @@ gtme adapters search jsonplaceholder
 ## Used in
 
 - [Two adapter tiers](/concepts/adapter-tiers): The search, add, verify, and update verbs
+- [Publish to the registry](/guides/publish-to-registry): The search, add, verify, and update verbs this guide runs
