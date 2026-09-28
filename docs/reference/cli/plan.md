@@ -22,6 +22,9 @@ links:
   - to: /concepts/gate-ladder
     type: relates-to
     description: "Defines gate ladder and plan"
+  - to: /concepts/groups
+    type: relates-to
+    description: "Defines group"
   - to: /concepts/ledger
     type: relates-to
     description: "Defines projection"
@@ -69,3 +72,4 @@ gtme plan my-csv.yaml
 - [Build your first pipeline from a CSV](/guides/first-pipeline): Every line plan prints, which this guide reads after each edit
 - [Guard](/guides/guard): Every line plan prints, and its exit codes
 - [Iterate](/guides/iterate): Every line plan prints after an edit
+- [Multi-stage campaigns with groups](/guides/multi-stage): Every line plan prints, including the once count and the missing-group error
