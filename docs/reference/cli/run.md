@@ -13,6 +13,9 @@ links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines fixture"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code"
   - to: /concepts/gate-ladder
     type: relates-to
     description: "Defines dry-run, gate ladder, preflight, and simulate"

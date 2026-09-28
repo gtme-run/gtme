@@ -13,6 +13,9 @@ links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines binding, fixture, and manifest"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code and stdout"
   - to: /concepts/campaign-is-a-folder
     type: relates-to
     description: "Defines bundle and freeze"
@@ -53,3 +56,4 @@ gtme freeze
 ## Used in
 
 - [A campaign is a folder](/concepts/campaign-is-a-folder): The command that writes a bundle, or prints a pipeline's YAML without one
+- [Agent-operable by design](/concepts/agent-operable): Prints a run's exact pipeline as YAML on stdout

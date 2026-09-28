@@ -10,6 +10,9 @@ learn:
 roles: [operator, builder, agent]
 generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code"
   - to: /concepts/gate-ladder
     type: relates-to
     description: "Defines gate ladder"

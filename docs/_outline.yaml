@@ -59,7 +59,7 @@ collections:
     - { slug: participants, name: Participants, status: reviewed, part: run }
     - { slug: campaign-is-a-folder, name: A campaign is a folder, status: reviewed, part: run }
     - { slug: adapter-tiers, name: Two adapter tiers, status: reviewed, part: model }
-    - { slug: agent-operable, name: Agent-operable by design, status: planned, part: model }
+    - { slug: agent-operable, name: Agent-operable by design, status: reviewed, part: model }
   guides:
     - { slug: first-pipeline, name: Build your first pipeline from a CSV, status: planned }
     - { slug: connect-your-stack, name: "Connect your stack: secrets, plan, dry-run, arm", status: planned }
@@ -124,6 +124,7 @@ terms:
   delivery: /concepts/runs-and-receipts
   dry-run: /concepts/gate-ladder
   enrich: /concepts/steps-and-roles
+  exit code: /concepts/agent-operable
   fact: /concepts/facts
   field registry: /concepts/canonical-fields
   filter: /concepts/steps-and-roles
@@ -166,6 +167,8 @@ terms:
   signal: /concepts/types-and-traverse
   simulate: /concepts/gate-ladder
   source: /concepts/pipeline
+  stderr: /concepts/agent-operable
+  stdout: /concepts/agent-operable
   step: /concepts/pipeline
   subject: /concepts/types-and-traverse
   suppression group: /concepts/groups

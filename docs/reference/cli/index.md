@@ -13,6 +13,9 @@ links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines adapter"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code, stderr, and stdout"
   - to: /concepts/campaign-is-a-folder
     type: relates-to
     description: "Defines freeze"

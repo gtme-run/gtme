@@ -13,6 +13,9 @@ links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines adapter"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code"
   - to: /concepts/identity-keys
     type: relates-to
     description: "Defines identity key"
@@ -61,3 +64,4 @@ gtme answer grading grade jane.doe@acme.com --set grading.grade=A \
 ## Used in
 
 - [Participants](/concepts/participants): Every flag on the write path for a participant's answer
+- [Agent-operable by design](/concepts/agent-operable): How an agent records its judgment on a pending record

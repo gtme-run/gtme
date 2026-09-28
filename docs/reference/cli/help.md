@@ -13,6 +13,9 @@ links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines adapter, binding, and fixture"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code"
 ---
 
 # gtme help
@@ -51,3 +54,4 @@ gtme help --bindings > bindings.json
 ## Used in
 
 - [For agents](/start/for-agents): The help verb, including the --agent output the agent reads
+- [Agent-operable by design](/concepts/agent-operable): The forms of gtme help, including --agent and --bindings
