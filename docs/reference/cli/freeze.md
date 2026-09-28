@@ -47,10 +47,10 @@ It exits with one of the [exit codes](/reference/cli#exit-codes) every verb shar
 
 ## Example
 
-The first form with every optional part left out:
+From [Package and share a campaign](/guides/bundles):
 
-```
-gtme freeze
+```sh
+gtme freeze last --bundle renewal-openers-v1
 ```
 
 ## Used in
@@ -58,3 +58,4 @@ gtme freeze
 - [A campaign is a folder](/concepts/campaign-is-a-folder): The command that writes a bundle, or prints a pipeline's YAML without one
 - [Agent-operable by design](/concepts/agent-operable): Prints a run's exact pipeline as YAML on stdout
 - [Report](/guides/report): Prints the pipeline a run used, including the rates behind its cost avoided
+- [Package and share a campaign](/guides/bundles): Every form and flag of the command that writes a bundle

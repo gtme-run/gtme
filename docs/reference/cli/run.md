@@ -16,6 +16,9 @@ links:
   - to: /concepts/agent-operable
     type: relates-to
     description: "Defines exit code"
+  - to: /concepts/campaign-is-a-folder
+    type: relates-to
+    description: "Defines bundle"
   - to: /concepts/gate-ladder
     type: relates-to
     description: "Defines dry-run, gate ladder, preflight, and simulate"
@@ -65,3 +68,4 @@ gtme run hello.yaml
 - [Guard](/guides/guard): The --simulate flag this guide uses and --dry-run, the next rung and the first that spends
 - [Recover](/guides/recover): Every flag of gtme run, including --resume
 - [Run on cron and events](/guides/cron-and-events): Every flag of the command the crontab line runs
+- [Package and share a campaign](/guides/bundles): The command that verifies a bundle's hashes and runs it
