@@ -74,9 +74,10 @@ The keys `with:` accepts. Plan rejects any other key.
 
 ## Example
 
-A minimal step:
+From [Run on cron and events](/guides/cron-and-events):
 
 ```yaml
-  - id: filter
-    use: human/filter
+- id: approve
+  use: human/filter
+  uses: [full_name, csv.plan]
 ```

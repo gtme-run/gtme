@@ -13,6 +13,9 @@ links:
   - to: /concepts/gate-ladder
     type: relates-to
     description: "Defines gate ladder"
+  - to: /concepts/participants
+    type: relates-to
+    description: "Defines pending"
   - to: /concepts/pipeline
     type: relates-to
     description: "Defines step"
@@ -44,3 +47,4 @@ gtme runs
 ## Used in
 
 - [Runs and receipts](/concepts/runs-and-receipts): Every flag and output of gtme runs
+- [Run on cron and events](/guides/cron-and-events): Lists each scheduled run with its status, including pending

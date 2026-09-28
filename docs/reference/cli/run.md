@@ -58,3 +58,4 @@ gtme run hello.yaml
 ## Used in
 
 - [The gate ladder](/concepts/gate-ladder): The flags that pick a rung, --simulate and --dry-run, and --resume after a blocked preflight
+- [Run on cron and events](/guides/cron-and-events): Every flag of the command the crontab line runs

@@ -18,7 +18,7 @@ links:
     description: "Defines ledger"
   - to: /concepts/runs-and-receipts
     type: relates-to
-    description: "Defines idempotency"
+    description: "Defines idempotency and run"
   - to: /concepts/types-and-traverse
     type: relates-to
     description: "Defines type"
@@ -64,3 +64,7 @@ CREATE TABLE deliveries (
   UNIQUE(target, scope, idempotency)
 );
 ```
+
+## Used in
+
+- [Run on cron and events](/guides/cron-and-events)
