@@ -82,7 +82,7 @@ collections:
   reference:
     - { slug: cli, name: CLI, status: generated, children: [init, secret, plan, run, query, show, answer, runs, freeze, groups, vacuum, adapters, help, version] }
     - { slug: pipeline-yaml, name: pipeline.yaml keys, status: planned }
-    - { slug: adapters, name: Adapter catalog, status: generated, children: [agent-compose, agent-filter, agent-review, ai-compose, ai-filter, ai-review, apollo-enrich, apollo-search, attio-assert, csv-deliver, csv-source, demo-enrich, harvest-profile, http-deliver, http-enrich, human-compose, human-filter, human-review, instantly-add-to-campaign, text-compose] }
+    - { slug: adapters, name: Adapter catalog, status: generated, children: [agent-compose, agent-filter, agent-review, ai-compose, ai-filter, ai-review, csv-deliver, csv-source, demo-enrich, http-deliver, http-enrich, human-compose, human-filter, human-review, instantly-add-to-campaign, text-compose] }
     - { slug: bundles, name: Bundles, status: planned }
     - { slug: fields, name: Canonical field registry, status: generated, children: [company, person, post] }
     - { slug: ledger-schema, name: Ledger schema and views, status: generated, children: [identities, field_values, relations, runs, run_records, step_events, costs, deliveries, field_value_ranks, current_fields, groups, group_events, group_members, current_values, group_membership, payloads] }
