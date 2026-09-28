@@ -76,7 +76,7 @@ collections:
     - { slug: human-in-the-loop, name: Put a human in the loop, status: reviewed }
     - { slug: cron-and-events, name: Run on cron and events, status: reviewed }
     - { slug: bundles, name: Package and share a campaign, status: reviewed }
-    - { slug: claude-code, name: Use gtme from Claude Code, status: planned }
+    - { slug: claude-code, name: Use gtme from Claude Code, status: reviewed }
     - { slug: add-a-binding, name: Add a vendor with a binding, status: planned }
     - { slug: process-adapter, name: Write a process adapter, status: planned }
     - { slug: publish-to-registry, name: Publish to the registry, status: planned }
