@@ -21,7 +21,7 @@ links:
     description: "Defines receipt"
   - to: /concepts/types-and-traverse
     type: relates-to
-    description: "Defines type"
+    description: "Defines relation, traverse, and type"
 ---
 
 # step_events
@@ -61,3 +61,4 @@ CREATE TABLE step_events (
 - [Report](/guides/report): One row per record per step event, which the receipt's counts are
 - [Top up](/guides/top-up)
 - [Iterate](/guides/iterate): The events and details the reuse queries read, including the judgment signature
+- [Traverse a relation](/guides/traverse): Where the traversed and coalesced events for each child are logged
