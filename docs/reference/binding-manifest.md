@@ -187,9 +187,31 @@ The `session` block, optional. Optional pagination-consistency session: a UUID m
 
 ## Example
 
-From `spec/bindings/apollo-search/binding.yaml`, without its header comment:
+From `spec/bindings/apollo-search/binding.yaml`:
 
 ```yaml
+# apollo/search — THE apollo/search adapter (built into gtme until ADR-059),
+# rewritten for the masked API surface (ADR-043). Apollo withdrew value
+# fields from API search 2026-08-30: `mixed_people/search` 422s for API
+# callers, and its replacement `mixed_people/api_search` returns masked rows
+# (no email, no linkedin, `has_*` booleans, obfuscated last name). This
+# binding is honest about that: it provides the masked surface at $0, and
+# the revealed person is apollo/enrich's job — the canonical composition
+# filters on these free fields first and reveals only past the filter.
+#
+# Identity (§4): a masked row carries no email, no linkedin and no company
+# domain, so identity derives from the name-hash tier — which needs a first
+# AND last name. `last_name` therefore carries Apollo's own obfuscated form
+# (e.g. "D.") rather than being dropped: it keys the record, `gtme plan`
+# notes the weak tier, and apollo/enrich supersedes it with the real value
+# on reveal. Distinct people who share a first name and an obfuscated
+# initial in one pull would collide on this tier — reveal early if that
+# matters.
+#
+# Endpoint: POST https://api.apollo.io/api/v1/mixed_people/api_search
+# Auth:     X-Api-Key header
+# Docs:     https://docs.apollo.io/reference/people-api-search
+
 id: apollo/search
 version: 2
 role: source

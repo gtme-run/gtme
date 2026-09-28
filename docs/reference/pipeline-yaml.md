@@ -105,9 +105,19 @@ The only pipeline authoring surface in v0 (SPEC.md §9, ADR-005). Validate the Y
 
 ## Example
 
-From `examples/hello.yaml`, without its header comment: a source and 3 steps, `score`, `keep`, and `out`.
+From `examples/hello.yaml`: a source and 3 steps, `score`, `keep`, and `out`.
 
 ```yaml
+# See it run's second file (START.md): the top-up receipt with zero keys, on a
+# ledger that persists. demo/enrich is the binary's own synthetic enrichment
+# (SPEC §10 item 9): no vendor, no key, no network — deterministic scores,
+# labelled synthetic in the value itself, at a stated pretend price of
+# $0.01 per record so the receipt's arithmetic is real.
+#
+#   gtme run examples/hello.yaml      # 3 scored at $0.01 each; 1 kept; out.csv written
+#   gtme run examples/hello.yaml      # again: 3 cached, $0.03 avoided, nothing delivered twice
+#
+# Every dollar it prints is labelled demo/enrich wherever it appears.
 name: hello
 version: 1
 

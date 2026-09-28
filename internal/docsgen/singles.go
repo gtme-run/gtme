@@ -130,8 +130,8 @@ func (s *site) pipelineYAMLPage(r repoFiles) (*page, error) {
 		ids = append(ids, code(st.ID))
 	}
 	b.WriteString("\n## Example\n\n")
-	fmt.Fprintf(&b, "From `examples/hello.yaml`, without its header comment: a source and %d steps, %s.\n\n", len(ids), joinAnd(ids))
-	b.WriteString("```yaml\n" + stripHeaderComment(string(hello)) + "\n```\n")
+	fmt.Fprintf(&b, "From `examples/hello.yaml`: a source and %d steps, %s.\n\n", len(ids), joinAnd(ids))
+	b.WriteString("```yaml\n" + strings.TrimRight(string(hello), "\n") + "\n```\n")
 	b.WriteString(seeAlsoList([][2]string{{"`gtme plan`", "/reference/cli/plan"}, {"Adapter catalog", "/reference/adapters"}, {"Canonical field registry", "/reference/fields"}}))
 	b.WriteString(s.usedIn("/reference/pipeline-yaml"))
 	return &page{
@@ -254,8 +254,8 @@ func (s *site) bindingManifestPage(r repoFiles) (*page, error) {
 		return nil, err
 	}
 	b.WriteString("\n## Example\n\n")
-	fmt.Fprintf(&b, "From `%s`, without its header comment:\n\n", example)
-	b.WriteString("```yaml\n" + stripHeaderComment(string(yamlText)) + "\n```\n")
+	fmt.Fprintf(&b, "From `%s`:\n\n", example)
+	b.WriteString("```yaml\n" + strings.TrimRight(string(yamlText), "\n") + "\n```\n")
 	b.WriteString(seeAlsoList([][2]string{{"Adapter catalog", "/reference/adapters"}, {"Wire protocol", "/reference/wire-protocol"}, {"Conformance kit and fixtures", "/reference/conformance"}, {"`gtme adapters`", "/reference/cli/adapters"}}))
 	b.WriteString(s.usedIn("/reference/binding-manifest"))
 	return &page{
@@ -375,19 +375,6 @@ func (s *site) pluginSkillsPage(r repoFiles) (*page, error) {
 		roles:       []string{"operator", "builder", "extender", "agent"},
 		body:        b.String(),
 	}, nil
-}
-
-// stripHeaderComment drops a YAML file's leading comment block (the prose
-// its author wrote above the document; a page shows the document) and the
-// blank lines after it. A comment line at column 0 would otherwise read as
-// a heading to the docs lint.
-func stripHeaderComment(s string) string {
-	lines := strings.Split(s, "\n")
-	i := 0
-	for i < len(lines) && (strings.HasPrefix(lines[i], "#") || strings.TrimSpace(lines[i]) == "") {
-		i++
-	}
-	return strings.TrimRight(strings.Join(lines[i:], "\n"), "\n")
 }
 
 // pageWithBlock finds the first authored page with a code block containing s.

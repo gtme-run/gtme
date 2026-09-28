@@ -94,8 +94,8 @@ func TestSinglePagesRenderWithMarker(t *testing.T) {
 				t.Errorf("%s: link to %s has no description", path, l.To)
 			}
 		}
-		if strings.Count(body, "\n# ") != 1 {
-			t.Errorf("%s: want exactly one h1 (a column-0 comment in an example reads as one)", path)
+		if n := countH1(body); n != 1 {
+			t.Errorf("%s: want exactly one h1 outside code blocks, got %d", path, n)
 		}
 	}
 }
@@ -138,9 +138,29 @@ func TestPipelineYAMLRowsComeFromSchema(t *testing.T) {
 			t.Errorf("pipeline-yaml lacks %q", want)
 		}
 	}
-	if strings.Contains(page, "See it run's second file") {
-		t.Error("the example kept hello.yaml's header comment")
+	hello, err := os.ReadFile(filepath.Join(repoRoot(t), "examples", "hello.yaml"))
+	if err != nil {
+		t.Fatal(err)
 	}
+	if !strings.Contains(page, strings.TrimRight(string(hello), "\n")) {
+		t.Error("the example is not examples/hello.yaml verbatim")
+	}
+}
+
+// countH1 counts level-1 headings outside fenced code blocks, where a YAML
+// comment at column 0 is code, not a heading.
+func countH1(body string) int {
+	n, fenced := 0, false
+	for _, line := range strings.Split(body, "\n") {
+		if strings.HasPrefix(line, "```") {
+			fenced = !fenced
+			continue
+		}
+		if !fenced && strings.HasPrefix(line, "# ") {
+			n++
+		}
+	}
+	return n
 }
 
 // The binding page splits the schema into the manifest surface (keys a
