@@ -10,6 +10,9 @@ learn:
 roles: [operator, builder, agent]
 generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code"
   - to: /concepts/facts
     type: relates-to
     description: "Defines provenance"

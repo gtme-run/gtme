@@ -111,3 +111,7 @@ From [A pipeline is a YAML file](/concepts/pipeline):
     with:
       cost_per_record_usd: 0.01
 ```
+
+## Used in
+
+- [Agent-operable by design](/concepts/agent-operable)

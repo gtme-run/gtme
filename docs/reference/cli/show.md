@@ -13,6 +13,9 @@ links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines NDJSON"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code, stderr, and stdout"
   - to: /concepts/facts
     type: relates-to
     description: "Defines fact and provenance"

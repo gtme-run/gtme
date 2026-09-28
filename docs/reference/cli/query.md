@@ -13,6 +13,9 @@ links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines NDJSON"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code and stdout"
   - to: /concepts/groups
     type: relates-to
     description: "Defines group and segment"
@@ -64,3 +67,4 @@ gtme query "SELECT i.identity_key, e.detail ->> 'reason' AS reason
 - [The ledger](/concepts/ledger): Read-only SQL against the ledger's views
 - [Identity keys](/concepts/identity-keys): Read-only SQL against the identities and relations tables
 - [Groups and segments](/concepts/groups): Every gtme query flag, including --save, --name, and --list
+- [Agent-operable by design](/concepts/agent-operable): Read-only SQL against the ledger, with rows on stdout

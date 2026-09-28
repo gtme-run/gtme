@@ -63,6 +63,9 @@ entries:
   - term: "enrich"
     definition: "The role that reads the fields its manifest requires and writes new fields, skipping a record whose values are still fresher than its cache window."
     page: /concepts/steps-and-roles
+  - term: "exit code"
+    definition: "The number a gtme command ends with, one per kind of failure: 0 ok, 2 a refused file or value, 3 a missing credential, 4 rate-limited, 5 network, 1 anything else."
+    page: /concepts/agent-operable
   - term: "fact"
     definition: "One row in field_values saying who wrote what value for which field of which identity, how sure it was, and when."
     page: /concepts/facts
@@ -189,6 +192,12 @@ entries:
   - term: "source"
     definition: "The top of a pipeline file, which brings records in from a file, an API, or a group before any step runs."
     page: /concepts/pipeline
+  - term: "stderr"
+    definition: "The output stream gtme writes everything meant for a person to, such as plans, progress, receipts, and errors."
+    page: /concepts/agent-operable
+  - term: "stdout"
+    definition: "The output stream gtme reserves for data, such as query rows, record JSON, and frozen YAML, so a program can read it without cleanup."
+    page: /concepts/agent-operable
   - term: "step"
     definition: "One entry in a pipeline's steps list, named by its id, that runs one adapter in one role and reads and writes the ledger."
     page: /concepts/pipeline
@@ -223,6 +232,9 @@ links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines NDJSON, adapter, binding, bindings registry, fixture, floor, manifest, process adapter, and wire protocol"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code, stderr, and stdout"
   - to: /concepts/campaign-is-a-folder
     type: relates-to
     description: "Defines bundle, bundle manifest, and freeze"
@@ -263,7 +275,7 @@ links:
 
 # Glossary
 
-The 70 words the docs use with one fixed meaning, one sentence each. Every entry links the concept page that defines it, and that page is where the meaning is explained with an example.
+The 73 words the docs use with one fixed meaning, one sentence each. Every entry links the concept page that defines it, and that page is where the meaning is explained with an example.
 
 | Term | Means | Defined on |
 |---|---|---|
@@ -285,6 +297,7 @@ The 70 words the docs use with one fixed meaning, one sentence each. Every entry
 | delivery | The row a deliver step writes when a record is sent or handed off, carrying its target, scope, idempotency key, and status. | [Runs and receipts](/concepts/runs-and-receipts) |
 | dry-run | gtme run --dry-run, a real run with every deliver step held back, so it spends and writes facts and sends nothing. | [The gate ladder](/concepts/gate-ladder) |
 | enrich | The role that reads the fields its manifest requires and writes new fields, skipping a record whose values are still fresher than its cache window. | [Steps and roles](/concepts/steps-and-roles) |
+| exit code | The number a gtme command ends with, one per kind of failure: 0 ok, 2 a refused file or value, 3 a missing credential, 4 rate-limited, 5 network, 1 anything else. | [Agent-operable by design](/concepts/agent-operable) |
 | fact | One row in field_values saying who wrote what value for which field of which identity, how sure it was, and when. | [Facts have provenance](/concepts/facts) |
 | field registry | The file per record type under spec/fields that lists its canonical fields with their tier, type, and normalization rule. | [Canonical fields](/concepts/canonical-fields) |
 | filter | The role that reads the uses fields and writes a verdict, pass or fail with a reason, the only role that can stop a record. | [Steps and roles](/concepts/steps-and-roles) |
@@ -327,6 +340,8 @@ The 70 words the docs use with one fixed meaning, one sentence each. Every entry
 | signal | A type a pipeline finds and traverses from and can never deliver to, like post, marked kind signal in its file. | [Types and traverse](/concepts/types-and-traverse) |
 | simulate | gtme run --simulate, which runs the whole pipeline offline from fixtures, spends nothing, sends nothing, and keeps nothing. | [The gate ladder](/concepts/gate-ladder) |
 | source | The top of a pipeline file, which brings records in from a file, an API, or a group before any step runs. | [A pipeline is a YAML file](/concepts/pipeline) |
+| stderr | The output stream gtme writes everything meant for a person to, such as plans, progress, receipts, and errors. | [Agent-operable by design](/concepts/agent-operable) |
+| stdout | The output stream gtme reserves for data, such as query rows, record JSON, and frozen YAML, so a program can read it without cleanup. | [Agent-operable by design](/concepts/agent-operable) |
 | step | One entry in a pipeline's steps list, named by its id, that runs one adapter in one role and reads and writes the ledger. | [A pipeline is a YAML file](/concepts/pipeline) |
 | subject | A type a pipeline delivers to, like person or company, marked kind subject in its file. | [Types and traverse](/concepts/types-and-traverse) |
 | suppression group | A group named by a suppress rule on a deliver step, which withholds a send from anyone touched in that group within a window. | [Groups and segments](/concepts/groups) |

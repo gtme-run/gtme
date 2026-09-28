@@ -123,6 +123,7 @@ terms:
   delivery: /concepts/runs-and-receipts
   dry-run: /concepts/gate-ladder
   enrich: /concepts/steps-and-roles
+  exit code: /concepts/agent-operable
   fact: /concepts/facts
   field registry: /concepts/canonical-fields
   filter: /concepts/steps-and-roles
@@ -165,6 +166,8 @@ terms:
   signal: /concepts/types-and-traverse
   simulate: /concepts/gate-ladder
   source: /concepts/pipeline
+  stderr: /concepts/agent-operable
+  stdout: /concepts/agent-operable
   step: /concepts/pipeline
   subject: /concepts/types-and-traverse
   suppression group: /concepts/groups
