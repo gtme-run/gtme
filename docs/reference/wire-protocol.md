@@ -13,6 +13,9 @@ links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines NDJSON, adapter, binding, fixture, manifest, process adapter, and wire protocol"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines stderr and stdout"
   - to: /concepts/campaign-is-a-folder
     type: relates-to
     description: "Defines freeze"
