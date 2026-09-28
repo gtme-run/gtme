@@ -62,7 +62,7 @@ collections:
     - { slug: agent-operable, name: Agent-operable by design, status: reviewed, part: model }
   guides:
     - { slug: first-pipeline, name: Build your first pipeline from a CSV, status: reviewed }
-    - { slug: connect-your-stack, name: "Connect your stack: secrets, plan, dry-run, arm", status: planned }
+    - { slug: connect-your-stack, name: "Connect your stack: secrets, plan, dry-run, arm", status: reviewed }
     - { slug: launch, name: Launch, status: planned }
     - { slug: guard, name: Guard, status: planned }
     - { slug: report, name: Report, status: planned }

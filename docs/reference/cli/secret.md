@@ -13,6 +13,12 @@ links:
   - to: /concepts/agent-operable
     type: relates-to
     description: "Defines exit code"
+  - to: /concepts/gate-ladder
+    type: relates-to
+    description: "Defines dry-run and plan"
+  - to: /concepts/runs-and-receipts
+    type: relates-to
+    description: "Defines run"
 ---
 
 # gtme secret
@@ -38,3 +44,4 @@ gtme secret set ANTHROPIC_API_KEY
 ## Used in
 
 - [Agent-operable by design](/concepts/agent-operable): The prompt where you, never the agent, enter a key after exit code 3
+- [Connect your stack: secrets, plan, dry-run, arm](/guides/connect-your-stack): How gtme secret set stores a key without echoing it
