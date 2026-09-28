@@ -51,10 +51,13 @@ docs-adapters:
 
 # docs-reference regenerates the generated half of docs/: reference/cli,
 # reference/adapters, reference/fields, reference/ledger-schema (an index
-# page plus one node per item) and glossary.md, from `gtme help --agent`
-# captured from a clean home, docs/_adapters.json, spec/fields/*.json,
-# spec/ledger.sql, and each concept page's `defines:`. It also rewrites the
-# reference children and the terms map in docs/_outline.yaml. The e2e suite
+# page plus one node per item), the single pages reference/pipeline-yaml,
+# binding-manifest, wire-protocol, bundles, plugin-skills and conformance,
+# and glossary.md, from `gtme help --agent` captured from a clean home,
+# docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/,
+# plugin/skills, test/conformance, and each concept page's `defines:`. It
+# also rewrites the reference children and statuses and the terms map in
+# docs/_outline.yaml. The e2e suite
 # fails when the committed pages drift (test/e2e/docs_reference_test.go).
 docs-reference: docs-adapters
 	@tmp=$$(mktemp -d); go build -o $$tmp/gtme ./cmd/gtme; \
