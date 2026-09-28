@@ -73,7 +73,7 @@ collections:
     - { slug: multi-stage, name: Multi-stage campaigns with groups, status: planned }
     - { slug: traverse, name: Traverse a relation, status: planned }
     - { slug: human-in-the-loop, name: Put a human in the loop, status: planned }
-    - { slug: cron-and-events, name: Run on cron and events, status: planned }
+    - { slug: cron-and-events, name: Run on cron and events, status: reviewed }
     - { slug: bundles, name: Package and share a campaign, status: planned }
     - { slug: claude-code, name: Use gtme from Claude Code, status: planned }
     - { slug: add-a-binding, name: Add a vendor with a binding, status: planned }
