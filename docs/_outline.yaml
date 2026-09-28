@@ -64,7 +64,7 @@ collections:
     - { slug: connect-your-stack, name: "Connect your stack: secrets, plan, dry-run, arm", status: planned }
     - { slug: launch, name: Launch, status: planned }
     - { slug: guard, name: Guard, status: planned }
-    - { slug: report, name: Report, status: planned }
+    - { slug: report, name: Report, status: reviewed }
     - { slug: interrogate, name: Interrogate, status: planned }
     - { slug: top-up, name: Top up, status: planned }
     - { slug: iterate, name: Iterate, status: planned }
