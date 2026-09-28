@@ -61,3 +61,4 @@ gtme answer grading grade jane.doe@acme.com --set grading.grade=A \
 ## Used in
 
 - [Participants](/concepts/participants): Every flag on the write path for a participant's answer
+- [Put a human in the loop](/guides/human-in-the-loop): Every flag on gtme answer

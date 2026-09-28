@@ -87,9 +87,17 @@ The keys `with:` accepts. Plan rejects any other key.
 
 ## Example
 
-A minimal step:
+From [Put a human in the loop](/guides/human-in-the-loop):
 
 ```yaml
-  - id: compose
+  - id: opener
     use: human/compose
+    uses: [full_name, title, company_domain]
+    provides: [first_line]
+    with:
+      prompt: never
 ```
+
+## Used in
+
+- [Put a human in the loop](/guides/human-in-the-loop)
