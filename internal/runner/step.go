@@ -292,17 +292,23 @@ func (r *runner) preflight(ctx context.Context, st *planner.Step) error {
 	if err := r.l.LogStepEvent(ctx, r.prov(st.ID), "", "preflight", detail); err != nil {
 		return err
 	}
+	// The destination names what a step configured by id delivers to
+	// (SPEC §8, ADR-062).
+	dest := ""
+	if destination != "" {
+		dest = destination + " — "
+	}
 	switch status {
 	case protocol.PreflightInconclusive:
-		fmt.Fprintf(r.stderr, "%s [warn]: preflight inconclusive — %s; proceeding\n", st.ID, reason)
+		fmt.Fprintf(r.stderr, "%s [warn]: preflight inconclusive — %s%s; proceeding\n", st.ID, dest, reason)
 	case protocol.PreflightBlocked:
-		fmt.Fprintf(r.stderr, "%s: preflight BLOCKED — %s\n", st.ID, reason)
+		fmt.Fprintf(r.stderr, "%s: preflight BLOCKED — %s%s\n", st.ID, dest, reason)
 		if r.dry {
 			return nil
 		}
 		return fmt.Errorf("runner: %s: preflight blocked — %s (nothing was sent; fix the target and run again, or --resume)", st.ID, reason)
 	default:
-		fmt.Fprintf(r.stderr, "%s: preflight ok — %d check(s)\n", st.ID, len(checks))
+		fmt.Fprintf(r.stderr, "%s: preflight ok — %s%d check(s)\n", st.ID, dest, len(checks))
 	}
 	return nil
 }
