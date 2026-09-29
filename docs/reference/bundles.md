@@ -67,7 +67,7 @@ From `bundles/email-waterfall/manifest.json`, a pattern bundle frozen from a run
     "adapters/finder-b-email/binding.yaml": "b32cf83fdcadff0fcb5e64de6f41ed3ff2d254ca4b9fa22dbdadb51135e983f6",
     "adapters/finder-b-email/fixtures/conformance.json": "c83411dfab546e1630743e1931eb34d77a592f88fefe8408c7800c4f8e322d76",
     "adapters/verifier-email-status/binding.yaml": "6a8e271f83f50209d54ed693661f5d3d8d5917b3bbb0a00c9b365dbcc1cf3154",
-    "adapters/verifier-email-status/fixtures/conformance.json": "fb7ecd7c126488c0e9df08d9bc743643b639ce61134e637d03f9e0fb13eb329e",
+    "adapters/verifier-email-status/fixtures/conformance.json": "dfe6762a1784fb6c58b536ee7495e686dde0ad195675f241676a866fd4eecd9c",
     "pipeline.yaml": "5fc1102450cbfcdfdafbeb8d84c907f816b2e79e04addae84591a77033d45e98",
     "registry/company.json": "56a4a6434fbb77bd24e2fc7f013abb28129a23f2d88d367ae591b9f7230814b5",
     "registry/person.json": "2666a0850834b1542364a8c5deb7ce27e6033f931fb0fbe74397cb858f3457bc",

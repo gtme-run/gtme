@@ -2780,6 +2780,33 @@ Reading an unambiguous answer as the array it denotes is decoding, the
 same kind of choice as stripping a markdown fence, and the system
 prompt's wording is not a contract.
 
+### 2026-09-29 — Fixture matches on query parameters are exact (#166)
+
+**Question:** A fixture's `match` was a substring of "METHOD path" or of
+the full URL, so `page=2&` also answered a request carrying
+`per_page=2&`, and `gtme adapters verify` passed with a page served
+twice. SPEC names fixtures (§10a, §8) but not how a response is chosen.
+How should a match pick its request?
+**Choice:** A match made only of `key=value` pairs (an optional leading
+`?` or `&` and trailing `&` are anchoring and ignored) is parsed as a
+query: every pair must be one of the request's parameters, key and
+decoded value exact, in any order. A match with a `?` splits there: the
+part before is a substring of "METHOD path", the part after is matched
+the same way. Anything else ("GET /verify", "jane-doe") stays a
+substring of "METHOD path" or of the full URL. The first matching
+response still answers. The email-waterfall bundle's verifier fixture
+matched on value prefixes (`email=bob`), so it now names the full
+addresses, and its manifest hash moves with it; its simulated receipt
+is unchanged. `gtme help --bindings` and the create-adapter skill say
+the new rule.
+**Why:** the issue's own fix; the path and plain forms that every
+registry binding uses keep working, and the only value-prefix matches
+in the tree were two hand-written stand-ins. A verify warning for a
+fixture that answers two requests was also suggested; exact matching
+removes the case it was meant to catch, so it is not added.
+**Spec impact:** None to SPEC.md or the schemas; the fixture file's
+`match` rule lives in `gtme help --bindings`, which now states it.
+
 ### 2026-09-29 — Binding retry.backoff_seconds is the base delay (#163)
 
 **Question:** `retry.backoff_seconds` was parsed and never read; httpx
