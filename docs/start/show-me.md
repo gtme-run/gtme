@@ -42,7 +42,7 @@ Make a folder, keep the ledger inside it so demo people stay out of your real on
 mkdir -p gtme-start && cd gtme-start
 export GTME_LEDGER=./ledger.db
 curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/demo.yaml
-gtme adapters add apollo/search apollo/enrich
+gtme adapters add apollo/search apollo/enrich instantly/add-to-campaign
 gtme run demo.yaml --simulate
 ```
 

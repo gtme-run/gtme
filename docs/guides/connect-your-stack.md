@@ -121,16 +121,16 @@ steps:
    The output is similar to the following:
 
    ```
-   gtme: 4 plan problems:
+   gtme: 5 plan problems:
      - step "source": adapters: unknown adapter "hubspot/contact-search" — if it is a registry entry, install it: gtme adapters add hubspot/contact-search
-     built-in: agent/compose, agent/filter, agent/review, ai/compose, ai/filter, ai/review, csv/deliver, csv/source, demo/enrich, http/deliver, http/enrich, human/compose, human/filter, human/review, instantly/add-to-campaign, text/compose
+     built-in: agent/compose, agent/filter, agent/review, ai/compose, ai/filter, ai/review, csv/deliver, csv/source, demo/enrich, http/deliver, http/enrich, human/compose, human/filter, human/review, text/compose
    ...
      - step "lines": needs first_name, title, company_name, which no earlier step provides (available: nothing)
-     - step "send": missing credential INSTANTLY_API_KEY (set it in the environment or run `gtme secret set INSTANTLY_API_KEY`)
+     - step "send": adapters: unknown adapter "instantly/add-to-campaign" — if it is a registry entry, install it: gtme adapters add instantly/add-to-campaign
      - step "send": needs email, which no earlier step provides (available: first_line, ps_line)
    ```
 
-   The problem is in the file itself, not a missing key. The `built-in` line is every [adapter](/concepts/adapter-tiers) this binary ships, and the only vendor on it is Instantly. `hubspot/contact-search` isn't one, so plan prints the command that installs it from the registry. The two `needs` lines are fallout from it: with no source, no step downstream gets a field. Fix unknown adapters first.
+   The problem is in the file itself, not a missing key. The `built-in` line is every [adapter](/concepts/adapter-tiers) this binary ships, and no vendor is on it. Neither `hubspot/contact-search` nor `instantly/add-to-campaign` is one, so plan prints the command that installs each from the registry. The two `needs` lines are fallout from it: with no source, no step downstream gets a field. Fix unknown adapters first.
 
 1. Find the missing adapter in the registry. Searching reads GitHub and spends nothing:
 
@@ -145,10 +145,10 @@ steps:
    hubspot/contact-search  source  verified  gtme adapters add github.com/gtme-run/gtme-bindings/hubspot-contact-search@main  Source HubSpot contacts via the CRM v3 Search API, filtered…
    ```
 
-   Install it by its ID, the command plan printed:
+   Install both by ID, the commands plan printed:
 
    ```sh
-   gtme adapters add hubspot/contact-search
+   gtme adapters add hubspot/contact-search instantly/add-to-campaign
    ```
 
    The output is similar to the following:
@@ -164,7 +164,7 @@ steps:
    ...
    ```
 
-   `hubspot/contact-search` is a binding, a vendor adapter written as YAML. `calls:` lists every host it reaches, and `demands:` is the key it needs. The install is pinned to commit `bcf671b9e1df`, the one the registry's index names (the decision record, [ADR-042](/decisions#adr-042)). The `INSTALL` column's longer reference also works, and pins whatever commit `main` points to. If search finds nothing, [Add a vendor](/start/add-a-vendor) shows how to write the binding.
+   `hubspot/contact-search` is a binding, a vendor adapter written as YAML. `instantly/add-to-campaign` prints the same surface as a process adapter, built for your platform and pinned to a gtme release (the decision record, [ADR-063](/decisions#adr-063)). `calls:` lists every host it reaches, and `demands:` is the key it needs. The install is pinned to commit `bcf671b9e1df`, the one the registry's index names (the decision record, [ADR-042](/decisions#adr-042)). The `INSTALL` column's longer reference also works, and pins whatever commit `main` points to. If search finds nothing, [Add a vendor](/start/add-a-vendor) shows how to write the binding.
 
 1. Plan again until only keys are left:
 

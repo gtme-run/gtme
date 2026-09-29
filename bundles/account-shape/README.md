@@ -56,6 +56,7 @@ What the receipts show:
 
 ```sh
 gtme secret set ANTHROPIC_API_KEY
+gtme adapters add instantly/add-to-campaign
 gtme secret set INSTANTLY_API_KEY
 cd 4-outreach
 gtme plan .                   # $0

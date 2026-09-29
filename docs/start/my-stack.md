@@ -53,7 +53,7 @@ This is [See it run](/start/show-me) on live vendors. You'll climb the [gate lad
 ```sh
 curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/apollo-to-instantly.yaml
 gtme adapters add apollo/search apollo/enrich \
-  harvest/profile harvest/recent-posts
+  harvest/profile harvest/recent-posts instantly/add-to-campaign
 ```
 
 Here it is without comments:
@@ -228,7 +228,7 @@ dry run: deliver steps will resolve and receipt their variables, but nothing sen
 run 01M3D1ZTKBQBS57C9WPK8NQM60 (apollo-to-instantly)
 source [info]: apollo/search: 5 records
 ...
-send: preflight ok — 3 check(s)
+send: preflight ok — campaign "Q3 VP Marketing" (0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b) — 3 check(s)
 send: 5 in, 0 out, 0 cached, 0 filtered, 0 failed, 5 held (dry run)
 
 run 01M3D1ZTKBQBS57C9WPK8NQM60 — done (dry run — nothing sent)

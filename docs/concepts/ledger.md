@@ -165,11 +165,12 @@ step    adapter      in  out  empty  cached  filtered  failed  cost  avoided
 source  csv/source   0   3    -      0       -         -       $0    -
 score   demo/enrich  3   0    -      3       -         -       $0    $0.0300
 keep    sql/filter   3   1    -      0       2         -       $0    -
-out     csv/deliver  1   0    -      1       -         -       $0    $0.0000
-total: $0 spent, $0.0300 avoided via cache (4 records skipped)
+out     csv/deliver  1   0    -      0       -         -       $0    -
+out: 1 already delivered
+total: $0 spent, $0.0300 avoided via cache (3 records skipped)
 ```
 
-The enrichment step saw three records, found a `demo.score` for each still inside `demo/enrich`'s 30-day cache window, and called nothing. The delivery step saw Jane, found a delivery row with the same idempotency key, her email, and wrote nothing. The same key, delivered to the same target, is skipped the second time.
+The enrichment step saw three records, found a `demo.score` for each still inside `demo/enrich`'s 30-day cache window, and called nothing. The delivery step saw Jane, found a delivery row with the same idempotency key, her email, and wrote nothing, which the receipt counts as `already delivered`. The same key, delivered to the same target, is skipped the second time.
 
 Neither the cache nor the dedupe is a step of its own. The pipeline names the key with `idempotency: email`, and the rest comes from the tables. Each fact has a source, a time, and an identity, so a step checks what the ledger already has before it does anything.
 

@@ -175,11 +175,12 @@ The file has to be on the machine cron runs on. A hosted tool such as Zapier or 
     source      csv/source    0   4    -      0       -         -       $0    -
     paid-trial  sql/filter    4   2    -      0       2         -       $0    -
     note        text/compose  2   1    -      1       -         -       $0    ?
-    welcome     csv/deliver   2   1    -      1       -         -       $0    $0.0000
-    total: $0 spent, $0.0000+? avoided via cache (2 records skipped)
+    welcome     csv/deliver   2   1    -      0       -         -       $0    -
+    welcome: 1 already delivered
+    total: $0 spent, $0.0000+? avoided via cache (1 records skipped)
     ```
 
-    Five rows became four records, because Jane's second row carries her [identity key](/concepts/identity-keys) and lands on the person the ledger already has. `note` and `welcome` both count Jane as `cached`, so only Dave is new.
+    Five rows became four records, because Jane's second row carries her [identity key](/concepts/identity-keys) and lands on the person the ledger already has. `note` counts Jane as `cached`, and `welcome: 1 already delivered` is Jane too, so only Dave is new.
 
 1. Check the `deliveries` table, one row per delivery made:
 
@@ -252,11 +253,12 @@ The file has to be on the machine cron runs on. A hosted tool such as Zapier or 
     source      csv/source    0   5    -      0       -         -       $0    -
     paid-trial  sql/filter    5   3    -      0       2         -       $0    -
     note        text/compose  3   1    -      2       -         -       $0    ?
-    welcome     csv/deliver   3   1    -      2       -         -       $0    $0.0000
-    total: $0 spent, $0.0000+? avoided via cache (4 records skipped)
+    welcome     csv/deliver   3   1    -      0       -         -       $0    -
+    welcome: 2 already delivered
+    total: $0 spent, $0.0000+? avoided via cache (2 records skipped)
     ```
 
-    Erin is the one new delivery. Jane and Dave are cached.
+    Erin is the one new delivery. Jane and Dave are already delivered, and their lines are cached.
 
 ## When a scheduled run fails or waits
 

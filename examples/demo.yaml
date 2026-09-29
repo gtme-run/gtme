@@ -4,8 +4,9 @@
 # is held with its variables resolved into the receipt. No API keys, no
 # network, no spend, nothing persisted.
 #
-# The Apollo adapters are registry entries (ADR-059), so install them first:
-#   gtme adapters add apollo/search apollo/enrich
+# The Apollo and Instantly adapters are registry entries (ADR-059, ADR-063),
+# so install them first:
+#   gtme adapters add apollo/search apollo/enrich instantly/add-to-campaign
 #
 # With real keys set (gtme secret set APOLLO_API_KEY / ANTHROPIC_API_KEY /
 # INSTANTLY_API_KEY) and the Instantly campaign below existing (its id), the

@@ -201,7 +201,7 @@ what the binary carries. Adapters marked *(registry)* install with
 | **Judge** | `ai/filter` · `sql/filter` · `ai/review` |
 | **Write** | `ai/compose` · `text/compose` (a template, no model) |
 | **Ask** | `human/filter` · `human/compose` · `human/review` · `agent/*` (the same three, answered by an agent) |
-| **Out** | `instantly/add-to-campaign` · `attio/assert` *(registry)* · `http/deliver` (any URL) · `csv/deliver` · `group/deliver` (the next stage) |
+| **Out** | `instantly/add-to-campaign` *(registry)* · `attio/assert` *(registry)* · `http/deliver` (any URL) · `csv/deliver` · `group/deliver` (the next stage) |
 
 Adding your own doesn't require touching this repo: drop a `binding.yaml`
 into `~/.gtme/adapters/<name>/` and the id resolves immediately.
@@ -302,6 +302,7 @@ below works with that path.
 **The zero-key demo** — run a whole campaign, offline, right now:
 
 ```sh
+gtme adapters add apollo/search apollo/enrich instantly/add-to-campaign   # keyless: verified, then pinned
 gtme run examples/demo.yaml --simulate
 ```
 
