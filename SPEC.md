@@ -1410,7 +1410,10 @@ A `running` run recorded on another host shows `running (on HOST)`.
 `--resume` MUST take the lock; when the lock is held it refuses with exit
 2 — `run 01J… is still running (pid 4312 on mbp); wait for it, or stop
 that process and resume` — and touches nothing. `--resume` of a `done`
-run refuses with exit 2 — `run 01J… is done; nothing to resume`; a
+run refuses with exit 2 — `run 01J… is done; nothing to resume` — unless
+the run holds unconfirmed deliveries (§8 deliver idempotency): their
+release, `--resume RUN_ID --resend-unconfirmed`, is the one thing a
+`done` run can still do, and without the flag the refusal says so. A
 `failed`, `pending` or interrupted run resumes. A plain `gtme run` whose
 pipeline's latest run is interrupted says so on stderr with the resume
 command and sources anew; it never resumes an interrupted run by itself,
@@ -2793,7 +2796,7 @@ decided contract, not shipped behavior.
   plan naming `harvest/recent-posts`; `make check` and the plugin e2e
   pass with the entries installed from a local path.
 - **M34 — crash and resume (ADR-060, ADR-061; §3, §8, §10a, §11).
-  Queued 2026-09-28.** Migration `0014` adds `runs.pid` and `runs.host`,
+  Built 2026-09-29 (changelog v0.57).** Migration `0014` adds `runs.pid` and `runs.host`,
   mirrored in `spec/ledger.sql`. An adapter-backed deliver step runs one
   record per session and commits `dispatched` before each;
   resume and an interrupted finish hold unconfirmed records as
@@ -3219,6 +3222,27 @@ no reconstruction required from raw table scans.
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.57 — 2026-09-29 (M34 build: crash and resume, built)
+**Changed:** §11 M34 marked built. §8's run-lock subsection gains one
+clause the build found: a resumed run that holds unconfirmed deliveries
+finishes `done`, and its receipt prints `--resume RUN_ID
+--resend-unconfirmed`, so the `done` refusal does not apply to that
+release; without the flag the refusal names it. Behavioural notes from
+the build: any armed run's deliver step holds what a dead run left
+dispatched to the same target and scope, so a plain `gtme run` after a
+crash holds them too, under the dead run's id; a held record is not
+counted as cached, skipped or failed —
+the step line counts it `N unconfirmed` and it stays at the previous
+step's state; an interrupt during a deliver step prints the step line
+and ends `gtme: runner: <step>: interrupted`; `gtme runs RUN_ID` prints
+one `held:` line per target with the release command; `http/deliver`
+receives its key from the runner as a reserved record field the engine
+removes before templates see the record; `gtme runs` derives
+`interrupted` by probing the lock with a shared, non-blocking `flock` and
+never creates a lock file; the resume command `gtme runs` prints names
+the file `<pipeline>.yaml`, since the ledger records the pipeline's name,
+not its path.
 
 ### v0.56 — 2026-09-29 (ADR-062/063 reconciliation: a delivery's scope is the destination's stable identifier; process entries in the registry, Instantly leaves the binary; build queued as M35)
 **Changed:** §6 `idempotency_scope` MUST name a stable identifier of the

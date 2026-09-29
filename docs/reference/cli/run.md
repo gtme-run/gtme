@@ -35,12 +35,12 @@ links:
 
 # gtme run
 
-Execute a pipeline; --resume continues a run that stopped partway; --dry-run holds deliver steps back and receipts their resolved variables instead of sending; --simulate executes everything offline from fixtures (no network, no spend, nothing persists)
+Execute a pipeline; --resume continues a run that stopped partway; --resend-unconfirmed, with --resume, sends the deliveries the run held because they may have reached the target before it stopped; --dry-run holds deliver steps back and receipts their resolved variables instead of sending; --simulate executes everything offline from fixtures (no network, no spend, nothing persists)
 
 ## Forms
 
 ```
-gtme run pipeline.yaml [--resume RUN_ID] [--dry-run] [--simulate]
+gtme run pipeline.yaml [--resume RUN_ID [--resend-unconfirmed]] [--dry-run] [--simulate]
 ```
 
 ## Flags
@@ -48,6 +48,7 @@ gtme run pipeline.yaml [--resume RUN_ID] [--dry-run] [--simulate]
 | Flag | Takes | What it does |
 |---|---|---|
 | `--resume` | `RUN_ID` | --resume continues a run that stopped partway. |
+| `--resend-unconfirmed` | nothing | --resend-unconfirmed, with --resume, sends the deliveries the run held because they may have reached the target before it stopped. |
 | `--dry-run` | nothing | --dry-run holds deliver steps back and receipts their resolved variables instead of sending. |
 | `--simulate` | nothing | --simulate executes everything offline from fixtures (no network, no spend, nothing persists) |
 

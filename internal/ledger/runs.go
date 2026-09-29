@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"time"
 
@@ -25,6 +26,11 @@ const (
 	EventPending   = "pending"
 	EventCollected = "collected"
 )
+
+// EventDispatched is committed for a deliver step's record just before its
+// session opens (SPEC §8, ADR-060): a record with it and no later done or
+// failed at that step may have reached the target.
+const EventDispatched = "dispatched"
 
 // StateSourced is a record's state before any step has touched it.
 const StateSourced = "sourced"
@@ -47,6 +53,34 @@ type Run struct {
 	// run in every other respect, but it finishes nothing a once: source
 	// counts.
 	Dry bool
+	// Pid and Host name the process that last created or resumed the run
+	// (SPEC §3, ADR-061), for display: liveness is the run lock, never these.
+	Pid  int
+	Host string
+}
+
+// runColumns is every runs column a Run carries, in scanRun's order.
+const runColumns = `id, pipeline, config_json, started_at, finished_at, status, dry, pid, host`
+
+type scanner interface{ Scan(dest ...any) error }
+
+func scanRun(row scanner) (Run, error) {
+	var r Run
+	var finished, host sql.NullString
+	var pid sql.NullInt64
+	if err := row.Scan(&r.ID, &r.Pipeline, &r.ConfigJSON, &r.StartedAt, &finished, &r.Status, &r.Dry, &pid, &host); err != nil {
+		return Run{}, err
+	}
+	r.FinishedAt = finished.String
+	r.Pid = int(pid.Int64)
+	r.Host = host.String
+	return r, nil
+}
+
+// processIdentity is this process's pid and hostname, as a run records them.
+func processIdentity() (int, string) {
+	host, _ := os.Hostname()
+	return os.Getpid(), host
 }
 
 // CreateRun opens a run with a snapshot of the resolved config; dry marks a
@@ -59,6 +93,7 @@ func (l *Ledger) CreateRun(ctx context.Context, pipeline string, config any, dry
 			return Run{}, fmt.Errorf("ledger: encoding run config: %w", err)
 		}
 	}
+	pid, host := processIdentity()
 	run := Run{
 		ID:         ulid.New(),
 		Pipeline:   pipeline,
@@ -66,10 +101,12 @@ func (l *Ledger) CreateRun(ctx context.Context, pipeline string, config any, dry
 		StartedAt:  l.stamp(l.now()),
 		Status:     StatusRunning,
 		Dry:        dry,
+		Pid:        pid,
+		Host:       host,
 	}
 	_, err := l.db.ExecContext(ctx,
-		`INSERT INTO runs (id, pipeline, config_json, started_at, status, dry) VALUES (?, ?, ?, ?, ?, ?)`,
-		run.ID, run.Pipeline, run.ConfigJSON, run.StartedAt, run.Status, run.Dry)
+		`INSERT INTO runs (id, pipeline, config_json, started_at, status, dry, pid, host) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		run.ID, run.Pipeline, run.ConfigJSON, run.StartedAt, run.Status, run.Dry, run.Pid, run.Host)
 	if err != nil {
 		return Run{}, fmt.Errorf("ledger: inserting run: %w", err)
 	}
@@ -99,24 +136,19 @@ func (l *Ledger) RecordRunConfig(ctx context.Context, runID string, config any) 
 
 // GetRun reads one run.
 func (l *Ledger) GetRun(ctx context.Context, id string) (Run, error) {
-	var r Run
-	var finished sql.NullString
-	err := l.db.QueryRowContext(ctx,
-		`SELECT id, pipeline, config_json, started_at, finished_at, status, dry FROM runs WHERE id = ?`, id).
-		Scan(&r.ID, &r.Pipeline, &r.ConfigJSON, &r.StartedAt, &finished, &r.Status, &r.Dry)
+	r, err := scanRun(l.db.QueryRowContext(ctx, `SELECT `+runColumns+` FROM runs WHERE id = ?`, id))
 	if err == sql.ErrNoRows {
 		return Run{}, ErrNotFound
 	}
 	if err != nil {
 		return Run{}, fmt.Errorf("ledger: reading run: %w", err)
 	}
-	r.FinishedAt = finished.String
 	return r, nil
 }
 
 // ListRuns returns runs newest first, at most limit (0 = all).
 func (l *Ledger) ListRuns(ctx context.Context, limit int) ([]Run, error) {
-	q := `SELECT id, pipeline, config_json, started_at, finished_at, status, dry FROM runs ORDER BY id DESC`
+	q := `SELECT ` + runColumns + ` FROM runs ORDER BY id DESC`
 	args := []any{}
 	if limit > 0 {
 		q += " LIMIT ?"
@@ -129,12 +161,10 @@ func (l *Ledger) ListRuns(ctx context.Context, limit int) ([]Run, error) {
 	defer rows.Close()
 	var out []Run
 	for rows.Next() {
-		var r Run
-		var finished sql.NullString
-		if err := rows.Scan(&r.ID, &r.Pipeline, &r.ConfigJSON, &r.StartedAt, &finished, &r.Status, &r.Dry); err != nil {
+		r, err := scanRun(rows)
+		if err != nil {
 			return nil, fmt.Errorf("ledger: listing runs: %w", err)
 		}
-		r.FinishedAt = finished.String
 		out = append(out, r)
 	}
 	if err := rows.Err(); err != nil {
@@ -157,19 +187,14 @@ func (l *Ledger) LastRun(ctx context.Context) (Run, error) {
 
 // LastRunForPipeline is the most recent run of a named pipeline.
 func (l *Ledger) LastRunForPipeline(ctx context.Context, pipeline string) (Run, error) {
-	var run Run
-	var finished sql.NullString
-	err := l.db.QueryRowContext(ctx,
-		`SELECT id, pipeline, config_json, started_at, finished_at, status, dry FROM runs
-		 WHERE pipeline = ? ORDER BY started_at DESC, id DESC LIMIT 1`, pipeline).
-		Scan(&run.ID, &run.Pipeline, &run.ConfigJSON, &run.StartedAt, &finished, &run.Status, &run.Dry)
+	run, err := scanRun(l.db.QueryRowContext(ctx,
+		`SELECT `+runColumns+` FROM runs WHERE pipeline = ? ORDER BY started_at DESC, id DESC LIMIT 1`, pipeline))
 	if err == sql.ErrNoRows {
 		return Run{}, ErrNotFound
 	}
 	if err != nil {
 		return Run{}, fmt.Errorf("ledger: reading runs: %w", err)
 	}
-	run.FinishedAt = finished.String
 	return run, nil
 }
 
@@ -275,10 +300,12 @@ func (l *Ledger) FinishRun(ctx context.Context, runID, status string) error {
 	return nil
 }
 
-// ReopenRun marks a run running again, for --resume.
+// ReopenRun marks a run running again, for --resume, under this process's
+// pid and host (ADR-061).
 func (l *Ledger) ReopenRun(ctx context.Context, runID string) error {
+	pid, host := processIdentity()
 	if _, err := l.db.ExecContext(ctx,
-		`UPDATE runs SET status = ?, finished_at = NULL WHERE id = ?`, StatusRunning, runID); err != nil {
+		`UPDATE runs SET status = ?, finished_at = NULL, pid = ?, host = ? WHERE id = ?`, StatusRunning, pid, host, runID); err != nil {
 		return fmt.Errorf("ledger: reopening run: %w", err)
 	}
 	return nil
@@ -650,21 +677,111 @@ func (l *Ledger) StepIDs(ctx context.Context, runID string) ([]string, error) {
 	return out, nil
 }
 
+// PriorDelivery is what the ledger knows about an earlier delivery of one
+// (target, scope, idempotency) triple (SPEC §8, ADR-044).
+type PriorDelivery struct {
+	VariablesHash string // what it was delivered with (ADR-045)
+	Status        string // accepted|confirmed|contradicted|sent|unconfirmed
+	RunID         string // the run that delivered, or held, it
+}
+
 // DeliveredState reports whether this (target, scope, idempotency) triple was
-// delivered before — in this run or any earlier one (SPEC §8, ADR-044) — and
-// the variables hash it was delivered with (ADR-045).
-func (l *Ledger) DeliveredState(ctx context.Context, target, scope, idempotency string) (bool, string, error) {
-	var hash string
+// delivered before — in this run or any earlier one (SPEC §8, ADR-044) — or
+// held unconfirmed after a crash (ADR-060).
+func (l *Ledger) DeliveredState(ctx context.Context, target, scope, idempotency string) (bool, PriorDelivery, error) {
+	var d PriorDelivery
+	var runID sql.NullString
 	err := l.db.QueryRowContext(ctx,
-		`SELECT variables_hash FROM deliveries WHERE target = ? AND scope = ? AND idempotency = ?`,
-		target, scope, idempotency).Scan(&hash)
+		`SELECT variables_hash, status, run_id FROM deliveries WHERE target = ? AND scope = ? AND idempotency = ?`,
+		target, scope, idempotency).Scan(&d.VariablesHash, &d.Status, &runID)
 	if err == sql.ErrNoRows {
-		return false, "", nil
+		return false, PriorDelivery{}, nil
 	}
 	if err != nil {
-		return false, "", fmt.Errorf("ledger: reading deliveries: %w", err)
+		return false, PriorDelivery{}, fmt.Errorf("ledger: reading deliveries: %w", err)
 	}
-	return true, hash, nil
+	d.RunID = runID.String
+	return true, d, nil
+}
+
+// HoldDelivery records a delivery that may have reached the target before a
+// crash (SPEC §8, ADR-060): a row with status unconfirmed, so no run sends it
+// again by habit. A row already there — delivered, or held before — stands.
+func (l *Ledger) HoldDelivery(ctx context.Context, identityID, target, scope, idempotency, variablesHash, runID string) error {
+	_, err := l.db.ExecContext(ctx,
+		`INSERT INTO deliveries (id, identity_id, target, scope, idempotency, variables_hash, run_id, created_at, status)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(target, scope, idempotency) DO NOTHING`,
+		ulid.New(), identityID, target, scope, idempotency, variablesHash, runID, l.stamp(l.now()), DeliveryUnconfirmed)
+	if err != nil {
+		return fmt.Errorf("ledger: holding delivery: %w", err)
+	}
+	return nil
+}
+
+// OpenDispatch is a deliver send that was dispatched and never answered
+// (SPEC §8, ADR-060): it may have reached the target.
+type OpenDispatch struct {
+	IdentityID    string
+	RunID         string
+	Idempotency   string
+	VariablesHash string
+}
+
+// OpenDispatches lists, across every run, the sends to one (target, scope)
+// whose dispatched event has no done or failed after it at the same run and
+// step (ADR-060). The dispatched event's detail carries the delivery's key,
+// so any later run can hold what a dead one left in flight.
+func (l *Ledger) OpenDispatches(ctx context.Context, target, scope string) ([]OpenDispatch, error) {
+	rows, err := l.db.QueryContext(ctx,
+		`SELECT d.identity_id, d.run_id,
+		        json_extract(d.detail, '$.idempotency'), json_extract(d.detail, '$.variables_hash')
+		 FROM step_events d
+		 WHERE d.event = ? AND d.identity_id IS NOT NULL
+		   AND json_extract(d.detail, '$.target') = ? AND json_extract(d.detail, '$.scope') = ?
+		   AND NOT EXISTS (
+		     SELECT 1 FROM step_events a
+		     WHERE a.run_id = d.run_id AND a.step_id = d.step_id AND a.identity_id = d.identity_id
+		       AND a.event IN ('done', 'failed') AND (a.created_at > d.created_at OR (a.created_at = d.created_at AND a.id > d.id)))
+		 ORDER BY d.created_at, d.id`, EventDispatched, target, scope)
+	if err != nil {
+		return nil, fmt.Errorf("ledger: reading dispatched events: %w", err)
+	}
+	defer rows.Close()
+	var out []OpenDispatch
+	for rows.Next() {
+		var d OpenDispatch
+		var idem, hash sql.NullString
+		if err := rows.Scan(&d.IdentityID, &d.RunID, &idem, &hash); err != nil {
+			return nil, err
+		}
+		d.Idempotency, d.VariablesHash = idem.String, hash.String
+		if d.Idempotency != "" {
+			out = append(out, d)
+		}
+	}
+	return out, rows.Err()
+}
+
+// UnconfirmedByRun counts a run's held deliveries per target (ADR-060), for
+// its receipt in `gtme runs`.
+func (l *Ledger) UnconfirmedByRun(ctx context.Context, runID string) (map[string]int, error) {
+	rows, err := l.db.QueryContext(ctx,
+		`SELECT target, count(*) FROM deliveries WHERE run_id = ? AND status = ? GROUP BY target`, runID, DeliveryUnconfirmed)
+	if err != nil {
+		return nil, fmt.Errorf("ledger: counting held deliveries: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var target string
+		var n int
+		if err := rows.Scan(&target, &n); err != nil {
+			return nil, err
+		}
+		out[target] = n
+	}
+	return out, rows.Err()
 }
 
 // RecordDelivery marks a record delivered. A duplicate key is not an error: it
@@ -696,6 +813,9 @@ const (
 	DeliveryConfirmed    = "confirmed"
 	DeliveryContradicted = "contradicted"
 	DeliverySent         = "sent"
+	// DeliveryUnconfirmed is a send that may have reached the target before a
+	// crash (ADR-060): held, never sent again but by --resend-unconfirmed.
+	DeliveryUnconfirmed = "unconfirmed"
 )
 
 // Delivery is one deliveries row, as gtme show reports it.

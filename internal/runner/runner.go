@@ -59,6 +59,20 @@ type Options struct {
 	// to hand in an ephemeral ledger — nothing a simulated run writes may
 	// reach the durable identity layer.
 	Simulate bool
+	// ResendUnconfirmed releases the resumed run's held deliveries (SPEC §8,
+	// ADR-060): they are sent, and the adapter's answer replaces each row's
+	// status. Valid only with ResumeRunID.
+	ResendUnconfirmed bool
+	// PipelinePath is the file the operator ran, for the commands the
+	// receipt prints.
+	PipelinePath string
+}
+
+// HeldRecord is a delivery held unconfirmed (ADR-060), and the run that
+// held it — the run --resend-unconfirmed must resume to release it.
+type HeldRecord struct {
+	IdentityKey string
+	RunID       string
 }
 
 // StepStat is one step's contribution to the receipt.
@@ -122,6 +136,9 @@ type StepStat struct {
 	InFlight int
 	Tokens   []string
 	Awaiting string
+	// Unconfirmed are the deliveries this step held rather than sent: they
+	// may have reached the target before a crash (SPEC §8, ADR-060).
+	Unconfirmed []HeldRecord
 	// Answered counts the records a participant answered in this
 	// invocation — in-run at a terminal, or collected from the ledger.
 	Answered int
@@ -163,12 +180,14 @@ type RecordVariables struct {
 
 // Result is the outcome of a run.
 type Result struct {
-	RunID     string
-	Pipeline  string
-	Status    string
-	DryRun    bool
-	Simulated bool
-	Steps     []StepStat
+	RunID    string
+	Pipeline string
+	// PipelinePath is the file the operator ran (the release command names it).
+	PipelinePath string
+	Status       string
+	DryRun       bool
+	Simulated    bool
+	Steps        []StepStat
 	// Interrupted marks a run whose in-run walk was cut short (Ctrl-C):
 	// the rest stayed pending (SPEC §8, ADR-049).
 	Interrupted bool
@@ -202,6 +221,8 @@ type runner struct {
 	runID    string
 	dry      bool
 	simulate bool
+	// resend releases this run's held deliveries (ADR-060).
+	resend bool
 	// stdin and interactive are the in-run walk's terminal (ADR-049).
 	stdin       io.Reader
 	interactive bool
@@ -252,6 +273,7 @@ func Execute(ctx context.Context, o Options) (*Result, error) {
 		conc:         Concurrency(o.Concurrency),
 		dry:          o.DryRun || o.Simulate,
 		simulate:     o.Simulate,
+		resend:       o.ResendUnconfirmed,
 		stdin:        o.Stdin,
 		interactive:  o.Interactive && o.Stdin != nil,
 		reg:          reg,
@@ -296,6 +318,37 @@ func Execute(ctx context.Context, o Options) (*Result, error) {
 		if err != nil {
 			return nil, fmt.Errorf("runner: run %s: %w", o.ResumeRunID, err)
 		}
+		// A finished run has nothing to resume, and a run another process is
+		// still executing is not this process's to reopen (SPEC §8, ADR-061):
+		// both refuse and touch nothing.
+		// A done run that still holds unconfirmed deliveries (ADR-060) has
+		// one thing left: their release, which is what its receipt printed.
+		if run.Status == ledger.StatusDone {
+			held, err := r.l.UnconfirmedByRun(ctx, run.ID)
+			if err != nil {
+				return nil, err
+			}
+			n := 0
+			for _, c := range held {
+				n += c
+			}
+			switch {
+			case n > 0 && !o.ResendUnconfirmed:
+				return nil, &RefusedError{fmt.Sprintf("run %s is done; it holds %d unconfirmed deliver%s — check the target, then add --resend-unconfirmed to send them",
+					run.ID, n, map[bool]string{true: "y", false: "ies"}[n == 1])}
+			case n == 0:
+				return nil, &RefusedError{fmt.Sprintf("run %s is done; nothing to resume", run.ID)}
+			}
+		}
+		lock, err := r.l.LockRun(run.ID)
+		if errors.Is(err, ledger.ErrRunLocked) {
+			return nil, &RefusedError{fmt.Sprintf("run %s is still running (%s); wait for it, or stop that process and resume",
+				run.ID, ProcessLabel(run))}
+		}
+		if err != nil {
+			return nil, err
+		}
+		defer lock.Release()
 		r.runID = run.ID
 		if err := r.l.ReopenRun(ctx, run.ID); err != nil {
 			return nil, err
@@ -324,6 +377,13 @@ func Execute(ctx context.Context, o Options) (*Result, error) {
 		if err != nil {
 			return nil, err
 		}
+		// Held until this process finishes the run or dies (ADR-061): a free
+		// lock on a running run is how `gtme runs` knows it was interrupted.
+		lock, err := r.l.LockRun(run.ID)
+		if err != nil {
+			return nil, err
+		}
+		defer lock.Release()
 		r.runID = run.ID
 		fmt.Fprintf(r.stderr, "run %s (%s)\n", run.ID, run.Pipeline)
 	}
@@ -361,7 +421,7 @@ func Execute(ctx context.Context, o Options) (*Result, error) {
 		runErr = err
 	}
 
-	return &Result{RunID: r.runID, Pipeline: r.plan.Pipeline.Name, Status: status, DryRun: r.dry && !r.simulate,
+	return &Result{RunID: r.runID, Pipeline: r.plan.Pipeline.Name, PipelinePath: o.PipelinePath, Status: status, DryRun: r.dry && !r.simulate,
 		Simulated: r.simulate, Steps: r.collect(), Interrupted: interrupted,
 		TerminusGroup: r.terminusGroup, TerminusAdded: r.terminusAdded,
 		TerminusWould: r.terminusWould}, runErr
@@ -418,6 +478,27 @@ func (r *runner) stubbed(st *planner.Step) bool {
 		return true
 	}
 	return st.Manifest != nil && len(st.Manifest.Credentials) > 0
+}
+
+// RefusedError is a resume the run's state does not allow (SPEC §8,
+// ADR-061): the run is done, or a living process holds it. Nothing was
+// touched; the CLI exits 2.
+type RefusedError struct{ msg string }
+
+func (e *RefusedError) Error() string { return e.msg }
+
+// ProcessLabel names the process a run records, "pid 4312 on mbp", for the
+// messages about who holds or held it.
+func ProcessLabel(run ledger.Run) string {
+	switch {
+	case run.Pid != 0 && run.Host != "":
+		return fmt.Sprintf("pid %d on %s", run.Pid, run.Host)
+	case run.Pid != 0:
+		return fmt.Sprintf("pid %d", run.Pid)
+	case run.Host != "":
+		return "on " + run.Host
+	}
+	return "process unknown"
 }
 
 // errInterrupted is the in-run walk cut short (SPEC §8, ADR-049): the run

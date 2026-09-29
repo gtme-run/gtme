@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gtme-run/gtme/internal/adapters"
+	"github.com/gtme-run/gtme/internal/binding"
 	"github.com/gtme-run/gtme/internal/identity"
 	"github.com/gtme-run/gtme/internal/ledger"
 	"github.com/gtme-run/gtme/internal/pipeline"
@@ -80,6 +81,11 @@ func (r *runner) runStep(ctx context.Context, i int) error {
 	}
 
 	stub := r.stubbed(st)
+	if heldOnCrash(st) && !r.dry {
+		if err := r.holdOpenDispatches(ctx, st); err != nil {
+			return err
+		}
+	}
 	// Deliver preflight (SPEC §8, ADR-040): before any record moves, ask a
 	// preflighting adapter whether the live target is fit to send to. A
 	// dry run reports; an armed run stops the step on blocked. A simulated
@@ -455,16 +461,25 @@ func (r *runner) prepare(ctx context.Context, st *planner.Step, identityID, toke
 		// redeliver: on_change, "the same delivery" means the same values.
 		rv := resolveVariables(st.Variables, it)
 		it.varsHash = hashVariables(rv.Resolved)
-		delivered, storedHash, err := r.l.DeliveredState(ctx, st.Target(), deliveryScope(st), idem)
+		delivered, prior, err := r.l.DeliveredState(ctx, st.Target(), deliveryScope(st), idem)
 		if err != nil {
 			return nil, err
 		}
-		if delivered {
+		if delivered && prior.Status == ledger.DeliveryUnconfirmed {
+			// Only --resend-unconfirmed on the run that held it sends it;
+			// every other run skips it, whatever redeliver: says.
+			if !r.resend || prior.RunID != r.runID {
+				r.bump(st, func(s *StepStat) {
+					s.Unconfirmed = append(s.Unconfirmed, HeldRecord{IdentityKey: it.key.IdentityKey, RunID: prior.RunID})
+				})
+				return nil, nil
+			}
+		} else if delivered {
 			switch st.RedeliverMode {
 			case "always":
 				// A natively idempotent target re-delivers on request.
 			case "on_change":
-				if it.varsHash == storedHash {
+				if it.varsHash == prior.VariablesHash {
 					if err := r.skip(ctx, st, it, "unchanged"); err != nil {
 						return nil, err
 					}
@@ -730,7 +745,13 @@ func (r *runner) dispatch(ctx context.Context, st *planner.Step, work []*item) e
 		case <-ctx.Done():
 			close(queue)
 			wg.Wait()
-			return ctx.Err()
+			// The records already dispatched are settled above — answered,
+			// failed, or held (ADR-060); the rest never left.
+			r.printStepLine(st)
+			if fatal != nil {
+				return fatal
+			}
+			return fmt.Errorf("runner: %s: interrupted", st.ID)
 		}
 	}
 	close(queue)
@@ -762,6 +783,9 @@ func (r *runner) printStepLine(st *planner.Step) {
 	}
 	if n := len(stat.DryRun); n > 0 {
 		line += fmt.Sprintf(", %d held (dry run)", n)
+	}
+	if n := len(stat.Unconfirmed); n > 0 {
+		line += fmt.Sprintf(", %d unconfirmed", n)
 	}
 	switch {
 	case stat.InFlight > 0 && stat.Awaiting != "":
@@ -951,25 +975,43 @@ func (r *runner) processChunk(ctx context.Context, st *planner.Step, items []*it
 		byKey[it.key.String()] = it
 	}
 
-	sess, err := r.openSession(ctx, st)
-	if err != nil {
-		return err
-	}
-
 	msgs := make([]protocol.Message, 0, len(items)+2)
 	msgs = append(msgs, r.openMessage(st, items))
 	for _, it := range items {
 		if err := r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, "claimed", nil); err != nil {
 			return err
 		}
-		msgs = append(msgs, protocol.Record(it.key, it.fields, nil))
+		// A deliver's send may leave the moment the session opens, so the
+		// ledger says so first (SPEC §8, ADR-060).
+		if st.IsDeliver {
+			if err := r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, ledger.EventDispatched, map[string]any{
+				"target": st.Target(), "scope": deliveryScope(st), "idempotency": it.idem, "variables_hash": it.varsHash,
+			}); err != nil {
+				return err
+			}
+		}
+		msgs = append(msgs, protocol.Record(it.key, r.recordFields(st, it), nil))
 	}
 	msgs = append(msgs, protocol.End())
+
+	sess, err := r.openSession(ctx, st)
+	if err != nil {
+		return err
+	}
 	sendErr := sess.SendStream(msgs)
 	// What the session says from here on is work already done, often paid
 	// for: it is recorded even when an interrupt kills the adapter mid-stream
 	// (#135). The signal ends the stream; it does not cancel the bookkeeping.
+	signal := ctx
 	ctx = context.WithoutCancel(ctx)
+	// A deliver session the interrupt killed may have sent: its records are
+	// held, not failed (ADR-060), so no run sends them again by habit.
+	crashed := func(cause error) error {
+		if heldOnCrash(st) && signal.Err() != nil {
+			return r.holdInterrupted(ctx, st, items, cause)
+		}
+		return r.chunkFailed(ctx, st, items, cause)
+	}
 
 	for {
 		m, err := sess.Next()
@@ -982,7 +1024,7 @@ func (r *runner) processChunk(ctx context.Context, st *planner.Step, items []*it
 			if werr := sess.Wait(); werr != nil {
 				err = werr
 			}
-			return r.chunkFailed(ctx, st, items, err)
+			return crashed(err)
 		}
 
 		switch m.Type {
@@ -1027,12 +1069,12 @@ func (r *runner) processChunk(ctx context.Context, st *planner.Step, items []*it
 	}
 
 	if err := sess.Wait(); err != nil {
-		return r.chunkFailed(ctx, st, items, err)
+		return crashed(err)
 	}
 	// A write error only matters once the adapter has had its say: a filter that
 	// stops reading early is not a failure.
 	if err := <-sendErr; err != nil && !isBrokenPipe(err) {
-		return r.chunkFailed(ctx, st, items, err)
+		return crashed(err)
 	}
 
 	// A collected record is settled either way (ADR-038): note which token
@@ -1437,6 +1479,88 @@ func (r *runner) failStat(st *planner.Step, reason string) {
 	})
 }
 
+// heldOnCrash reports a deliver step whose unanswered sends are held after
+// a crash (SPEC §8, ADR-060): any adapter-backed deliver, unless the target
+// declares idempotency: native — it upserts, so those are simply sent again.
+func heldOnCrash(st *planner.Step) bool {
+	return st.IsDeliver && !st.IsGroupDeliver &&
+		!(st.Manifest != nil && st.Manifest.Idempotency == "native")
+}
+
+// holdOpenDispatches holds every send to this step's target that a dead run
+// — this one before a crash, or any other whose process is gone — left
+// dispatched and unanswered (SPEC §8, ADR-060). Each gets an unconfirmed
+// row under the run that sent it, so the check in prepare skips it here and
+// in every later run, resumed or not. A living run's sends are in flight,
+// not crashed, and are left alone.
+func (r *runner) holdOpenDispatches(ctx context.Context, st *planner.Step) error {
+	open, err := r.l.OpenDispatches(ctx, st.Target(), deliveryScope(st))
+	if err != nil {
+		return err
+	}
+	alive := map[string]bool{}
+	for _, d := range open {
+		if d.RunID != r.runID {
+			live, seen := alive[d.RunID]
+			if !seen {
+				if live, err = r.l.RunAlive(d.RunID); err != nil {
+					return err
+				}
+				alive[d.RunID] = live
+			}
+			if live {
+				continue
+			}
+		}
+		if err := r.l.HoldDelivery(ctx, d.IdentityID, st.Target(), deliveryScope(st), d.Idempotency, d.VariablesHash, d.RunID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// holdInterrupted holds every unanswered record of a deliver session the
+// interrupt killed (ADR-060): each may have reached the target, so each gets
+// an unconfirmed row instead of a failed event, and the run stops.
+func (r *runner) holdInterrupted(ctx context.Context, st *planner.Step, items []*item, cause error) error {
+	for _, it := range items {
+		if it.advanced || it.failed {
+			continue
+		}
+		if err := r.l.HoldDelivery(ctx, it.identityID, st.Target(), deliveryScope(st), it.idem, it.varsHash, r.runID); err != nil {
+			return err
+		}
+		r.bump(st, func(s *StepStat) {
+			s.Unconfirmed = append(s.Unconfirmed, HeldRecord{IdentityKey: it.key.IdentityKey, RunID: r.runID})
+		})
+	}
+	r.logStepFailure(ctx, st, cause)
+	return fmt.Errorf("runner: %s: interrupted: %w", st.ID, cause)
+}
+
+// recordFields is what a record's RECORD carries. http/deliver also gets the
+// delivery's Idempotency-Key (SPEC §10a, ADR-060), under a reserved name the
+// binding engine takes out before anything else sees the record.
+func (r *runner) recordFields(st *planner.Step, it *item) map[string]any {
+	if !st.IsDeliver || st.Manifest == nil || st.Manifest.ID != binding.HTTPDeliverID {
+		return it.fields
+	}
+	out := make(map[string]any, len(it.fields)+1)
+	for k, v := range it.fields {
+		out[k] = v
+	}
+	out[binding.IdempotencyKeyField] = DeliveryKey(st.Target(), deliveryScope(st), it.idem)
+	return out
+}
+
+// DeliveryKey is a delivery's Idempotency-Key (SPEC §10a, ADR-060): the hex
+// SHA-256 of target, scope and idempotency key joined by NUL — the same on
+// every run and resume.
+func DeliveryKey(target, scope, idem string) string {
+	sum := sha256.Sum256([]byte(target + "\x00" + scope + "\x00" + idem))
+	return hex.EncodeToString(sum[:])
+}
+
 // chunkFailed marks every record in a crashed session as failed and returns the
 // fatal error. Output written before the crash stays in the ledger.
 func (r *runner) chunkFailed(ctx context.Context, st *planner.Step, items []*item, cause error) error {
@@ -1469,6 +1593,11 @@ func chunkSize(st *planner.Step, n, conc int) int {
 	if st.IsTraverse {
 		// One parent per session (ADR-054): a child RECORD carries no parent
 		// reference on the wire, so the session is the attribution.
+		return 1
+	}
+	if st.IsDeliver {
+		// One record per session (SPEC §8, ADR-060), so the dispatched event
+		// committed before it names exactly what may be in flight.
 		return 1
 	}
 	if st.Batch {
