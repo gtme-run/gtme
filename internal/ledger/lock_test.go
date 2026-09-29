@@ -3,6 +3,7 @@ package ledger
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -31,6 +32,9 @@ func TestRunLockIsExclusiveAndProbed(t *testing.T) {
 	lock.Release()
 	if alive, err := l.RunAlive("01RUN"); err != nil || alive {
 		t.Fatalf("after release: alive=%v err=%v, want false", alive, err)
+	}
+	if _, err := os.Stat(l.lockPath("01RUN")); !os.IsNotExist(err) {
+		t.Fatalf("a released lock leaves its file behind: %v", err)
 	}
 	again, err := l.LockRun("01RUN")
 	if err != nil {

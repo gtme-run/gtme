@@ -2785,7 +2785,10 @@ Creating a run locks right after the insert; resuming locks before
 `ReopenRun`, so a refused resume writes nothing. A refusal is retried
 four times at 50 ms, because a `gtme runs` probe holds a shared lock
 for an instant. The probe opens the file read-only and treats a missing
-file as free, so `gtme runs` creates nothing. (6) **A `done` run with
+file as free, so `gtme runs` creates nothing. A run that finishes removes
+its lock file before unlocking it, so `locks/` holds files only for runs
+whose process died; a process that locked the file just as it was
+removed sees the path no longer names what it locked and starts over. (6) **A `done` run with
 held deliveries can be resumed for their release.** ADR-061 refused
 every resume of a `done` run, while ADR-060's receipt prints `--resume
 RUN_ID --resend-unconfirmed` for exactly such a run. The release is

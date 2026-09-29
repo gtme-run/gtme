@@ -217,6 +217,10 @@ steps:
 	if got := h.queryStrings(`SELECT status FROM runs WHERE id = ?`, runID)[0]; got != "done" {
 		t.Errorf("status after resume = %s, want done", got)
 	}
+	// Finished runs leave no lock file behind; only a dead process's would.
+	if left, _ := filepath.Glob(filepath.Join(filepath.Dir(h.ledger), "locks", "*.lock")); len(left) != 0 {
+		t.Errorf("lock files left after every run finished: %v", left)
+	}
 }
 
 // ledgerContent fingerprints every row of every table, to prove a read verb

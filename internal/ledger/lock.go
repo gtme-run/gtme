@@ -21,13 +21,20 @@ var ErrRunLocked = errors.New("ledger: run is locked by a living process")
 
 // RunLock is a held run lock. Release it when the run finishes; the process
 // exiting releases it too.
-type RunLock struct{ f *os.File }
+type RunLock struct {
+	f    *os.File
+	path string
+}
 
-// Release drops the lock.
+// Release drops the lock and removes its file, so locks/ holds files only
+// for runs whose process died. The file goes before the lock does: a
+// process that opened it in between finds, once it holds the lock, that the
+// path no longer names what it locked, and starts over (LockRun).
 func (k *RunLock) Release() {
 	if k == nil || k.f == nil {
 		return
 	}
+	os.Remove(k.path)
 	syscall.Flock(int(k.f.Fd()), syscall.LOCK_UN)
 	k.f.Close()
 	k.f = nil
@@ -45,25 +52,43 @@ func (l *Ledger) LockRun(runID string) (*RunLock, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, fmt.Errorf("ledger: creating the run lock directory: %w", err)
 	}
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
-	if err != nil {
-		return nil, fmt.Errorf("ledger: opening the run lock: %w", err)
-	}
 	for attempt := 0; ; attempt++ {
+		f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
+		if err != nil {
+			return nil, fmt.Errorf("ledger: opening the run lock: %w", err)
+		}
 		err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
 		if err == nil {
-			return &RunLock{f: f}, nil
-		}
-		if !errors.Is(err, syscall.EWOULDBLOCK) {
+			if samePath(f, path) {
+				return &RunLock{f: f, path: path}, nil
+			}
+			// The holder released and removed the file while this process
+			// waited on it: lock the file at the path now, not the old one.
 			f.Close()
+			continue
+		}
+		f.Close()
+		if !errors.Is(err, syscall.EWOULDBLOCK) {
 			return nil, fmt.Errorf("ledger: taking the run lock: %w", err)
 		}
-		if attempt == 4 {
-			f.Close()
+		if attempt >= 4 {
 			return nil, ErrRunLocked
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
+}
+
+// samePath reports whether the open file is still the one at path.
+func samePath(f *os.File, path string) bool {
+	held, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	now, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return os.SameFile(held, now)
 }
 
 // RunAlive reports whether a living process holds the run's lock. It writes
