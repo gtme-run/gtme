@@ -9,6 +9,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gtme-run/gtme/internal/adapters"
 	"github.com/gtme-run/gtme/internal/httpx"
@@ -377,6 +378,10 @@ func (e *Engine) buildRequest(tctx tmplContext, p adapters.Ports, page, offset i
 	}
 	if b.Retry != nil && b.Retry.MaxAttempts > 0 {
 		req.Attempts = b.Retry.MaxAttempts
+	}
+	if b.Retry != nil && b.Retry.BackoffSeconds != nil {
+		d := time.Duration(*b.Retry.BackoffSeconds * float64(time.Second))
+		req.Backoff = &d
 	}
 	if len(b.Errors) > 0 {
 		req.Retryable = e.retryable

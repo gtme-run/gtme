@@ -1,10 +1,13 @@
 package binding
 
 import (
+	"context"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gtme-run/gtme/internal/adapters/adaptertest"
 	"github.com/gtme-run/gtme/internal/httpx"
@@ -152,5 +155,54 @@ retry:
 	}
 	if !strings.Contains(err.Error(), "index still building") {
 		t.Errorf("error %q does not carry the rule's reason", err)
+	}
+}
+
+// recordSleeps swaps httpx's sleep for one that records each wait and
+// returns at once.
+func recordSleeps(t *testing.T) *[]time.Duration {
+	t.Helper()
+	var waits []time.Duration
+	old := httpx.Sleep
+	httpx.Sleep = func(ctx context.Context, d time.Duration) error {
+		waits = append(waits, d)
+		return ctx.Err()
+	}
+	t.Cleanup(func() { httpx.Sleep = old })
+	return &waits
+}
+
+// TestRetryBackoffSecondsIsTheBaseDelay (#163): backoff_seconds is the
+// first wait, doubling per retry, in place of httpx's own 1s base.
+func TestRetryBackoffSecondsIsTheBaseDelay(t *testing.T) {
+	waits := recordSleeps(t)
+	doer := &seqDoer{statuses: []int{503}}
+	_, err := runErrors(t, `
+retry:
+  max_attempts: 3
+  backoff_seconds: 2.5
+`, doer)
+	if err == nil {
+		t.Fatal("run succeeded against a steady 503")
+	}
+	want := []time.Duration{2500 * time.Millisecond, 5 * time.Second}
+	if !reflect.DeepEqual(*waits, want) {
+		t.Errorf("waits = %v, want %v", *waits, want)
+	}
+}
+
+// TestRetryBackoffSecondsZeroMeansNoWait (#163): an explicit 0 is a
+// declared value (the schema's minimum), not "unset".
+func TestRetryBackoffSecondsZeroMeansNoWait(t *testing.T) {
+	waits := recordSleeps(t)
+	doer := &seqDoer{statuses: []int{503}}
+	_, _ = runErrors(t, `
+retry:
+  max_attempts: 3
+  backoff_seconds: 0
+`, doer)
+	want := []time.Duration{0, 0}
+	if !reflect.DeepEqual(*waits, want) {
+		t.Errorf("waits = %v, want %v", *waits, want)
 	}
 }

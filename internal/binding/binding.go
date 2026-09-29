@@ -261,7 +261,7 @@ func (c *Cost) rate(tctx tmplContext) (float64, bool) {
 // Retry is primitive 8.
 type Retry struct {
 	MaxAttempts    int      `json:"max_attempts,omitempty"`
-	BackoffSeconds float64  `json:"backoff_seconds,omitempty"`
+	BackoffSeconds *float64 `json:"backoff_seconds,omitempty"` // nil: httpx's default base; 0 is a declared "no wait"
 	RatePerHour    int      `json:"rate_per_hour,omitempty"`
 	Windows        []string `json:"windows,omitempty"`
 }

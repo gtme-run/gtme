@@ -26,6 +26,22 @@ type Doer interface {
 // to zero so classified-error cases do not sleep.
 var RetryBase = time.Second
 
+// Sleep waits d between attempts, returning early with the context's error
+// when it is cancelled. Tests swap it to observe waits without sleeping.
+var Sleep = func(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return ctx.Err()
+	}
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
+}
+
 // DefaultAttempts bounds tries, the first included, when a Request sets none.
 const DefaultAttempts = 3
 
@@ -124,6 +140,9 @@ type Request struct {
 	// another attempt, in place of Error.Retryable. A binding's errors: map
 	// uses it to make a status retryable (verdict retry, SPEC §10a).
 	Retryable func(*Error) bool
+	// Backoff, when set, is the first retry's wait in place of RetryBase;
+	// each retry doubles it. A binding's retry.backoff_seconds sets it.
+	Backoff *time.Duration
 }
 
 // JSON performs the request and decodes the response body into out. It retries
@@ -140,11 +159,8 @@ func JSON(ctx context.Context, client Doer, r Request, out any) error {
 	var last error
 	for attempt := 0; attempt < attempts; attempt++ {
 		if attempt > 0 {
-			wait := backoff(attempt, last)
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(wait):
+			if err := Sleep(ctx, backoff(attempt, last, r.Backoff)); err != nil {
+				return err
 			}
 		}
 
@@ -234,14 +250,27 @@ func once(ctx context.Context, client Doer, r Request, out any) error {
 	return nil
 }
 
-func backoff(attempt int, last error) time.Duration {
+// maxBackoff caps the doubling, unless a request's own base is larger.
+const maxBackoff = 30 * time.Second
+
+// backoff is the wait before the given retry: the provider's Retry-After
+// when it sent one, else base (RetryBase unless the request set its own)
+// doubled per retry, capped at maxBackoff or at base, whichever is larger.
+func backoff(attempt int, last error, base *time.Duration) time.Duration {
 	var perr *Error
 	if errors.As(last, &perr) && perr.RetryAfter > 0 {
 		return perr.RetryAfter
 	}
-	d := time.Duration(1<<uint(attempt-1)) * RetryBase
-	if d > 30*time.Second {
-		d = 30 * time.Second
+	b, limit := RetryBase, maxBackoff
+	if base != nil {
+		b = *base
+		if b > limit {
+			limit = b
+		}
+	}
+	d := time.Duration(1<<uint(attempt-1)) * b
+	if d > limit {
+		d = limit
 	}
 	return d
 }

@@ -2780,6 +2780,24 @@ Reading an unambiguous answer as the array it denotes is decoding, the
 same kind of choice as stripping a markdown fence, and the system
 prompt's wording is not a contract.
 
+### 2026-09-29 — Binding retry.backoff_seconds is the base delay (#163)
+
+**Question:** `retry.backoff_seconds` was parsed and never read; httpx
+backed off from its own 1s base. How should a declared value act?
+**Choice:** It is the first retry's wait, doubling per retry, in place
+of the 1s base. A provider's `Retry-After` still wins when it sends one.
+The 30s cap on the doubling stays, but never falls below the declared
+base, so a binding that asks for 60s gets 60s. An explicit
+`backoff_seconds: 0` (the schema's minimum) means no wait; an absent
+key keeps the 1s default, so the field is a pointer in the Go struct.
+The wait goes through a swappable `httpx.Sleep`, which is how the tests
+observe it without sleeping.
+**Why:** the field's name says what it is, the schema already allows
+it, and refusing it at load would break the registry bindings that
+declare it. Honouring it beats refusing it.
+**Spec impact:** None. The schema already declares the field; this is
+the engine conforming to it.
+
 ### 2026-09-29 — Binding error verdicts: what fail_run and retry do (#162)
 
 **Question:** `spec/binding-schema.json` accepts four `errors:` verdicts,
