@@ -722,8 +722,13 @@ func (r *runner) dispatch(ctx context.Context, st *planner.Step, work []*item) e
 
 	queue := make(chan []*item)
 	var wg sync.WaitGroup
-	var once sync.Once
+	var once, halt sync.Once
 	var fatal error
+	// stop closes on a runner-side failure (#82): the ledger or the runner,
+	// not the adapter, failed, so every further chunk would be dispatched —
+	// and for a paid step billed — with nothing recordable. Chunks already in
+	// a session finish; the rest stay at the previous state for a resume.
+	stop := make(chan struct{})
 
 	for w := 0; w < workers; w++ {
 		wg.Add(1)
@@ -735,6 +740,10 @@ func (r *runner) dispatch(ctx context.Context, st *planner.Step, work []*item) e
 			for c := range queue {
 				if err := r.processChunk(ctx, st, c); err != nil {
 					once.Do(func() { fatal = err })
+					var crash *sessionCrash
+					if !errors.As(err, &crash) {
+						halt.Do(func() { close(stop) })
+					}
 				}
 			}
 		}()
@@ -742,6 +751,11 @@ func (r *runner) dispatch(ctx context.Context, st *planner.Step, work []*item) e
 	for _, c := range chunks {
 		select {
 		case queue <- c:
+		case <-stop:
+			close(queue)
+			wg.Wait()
+			r.printStepLine(st)
+			return fatal
 		case <-ctx.Done():
 			close(queue)
 			wg.Wait()
@@ -1573,8 +1587,17 @@ func (r *runner) chunkFailed(ctx context.Context, st *planner.Step, items []*ite
 		}
 	}
 	r.logStepFailure(ctx, st, cause)
-	return fmt.Errorf("runner: %s: %w", st.ID, cause)
+	return &sessionCrash{fmt.Errorf("runner: %s: %w", st.ID, cause)}
 }
+
+// sessionCrash is an adapter session that died or broke protocol (SPEC §5):
+// its records are failed and the step fails, but the pool keeps draining —
+// the next chunk's session may well succeed. Any other error out of a chunk
+// is the runner's or the ledger's, and stops dispatch (#82).
+type sessionCrash struct{ err error }
+
+func (e *sessionCrash) Error() string { return e.err.Error() }
+func (e *sessionCrash) Unwrap() error { return e.err }
 
 // isBrokenPipe reports whether an error is just the adapter having closed its
 // input.
