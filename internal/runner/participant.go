@@ -68,7 +68,10 @@ func (r *runner) runParticipantStep(ctx context.Context, st *planner.Step, work 
 			}
 		}
 		for _, it := range fresh {
-			if it.advanced || it.failed || it.pending {
+			// A record the walk already judged is settled, whichever way:
+			// a rejection neither advances nor fails, and must not be
+			// pended behind the verdict (#147).
+			if it.advanced || it.failed || it.pending || it.verdict {
 				continue
 			}
 			if err := r.pend(ctx, st, it, token); err != nil {
