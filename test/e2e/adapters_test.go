@@ -613,6 +613,67 @@ func TestAdaptersSkipAnUnreadableIndexRow(t *testing.T) {
 	}
 }
 
+// TestAdaptersUpdateFollowsTheIndexForABareID (#175): a binding added by
+// bare id is pinned at the index row's sha, and `update` moves it to the
+// sha the index lists now, hash-checked, instead of re-resolving the old
+// commit forever.
+func TestAdaptersUpdateFollowsTheIndexForABareID(t *testing.T) {
+	w := newRegistryWorld(t)
+	h := newHarness(t)
+	res := h.runWithEnv(w.env(), "", "adapters", "add", "pets/list")
+	if res.code != 0 {
+		t.Fatalf("add exit = %d\n%s", res.code, res.stderr)
+	}
+	readSource := func() adapterinstall.Source {
+		t.Helper()
+		raw, err := os.ReadFile(filepath.Join(h.home, ".gtme", "adapters", "pets-list", adapterinstall.SourceFile))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var src adapterinstall.Source
+		if err := json.Unmarshal(raw, &src); err != nil {
+			t.Fatal(err)
+		}
+		return src
+	}
+	if src := readSource(); src.Ref != fakeSHA || src.Commit != fakeSHA {
+		t.Fatalf("bare-id add pinned ref %q commit %q, want the index sha %q", src.Ref, src.Commit, fakeSHA)
+	}
+
+	// The index has not moved: update leaves the pin where it is.
+	res = h.runWithEnv(w.env(), "", "adapters", "update", "pets/list")
+	if res.code != 0 {
+		t.Fatalf("update exit = %d\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "pin unchanged", "update with an unchanged index")
+
+	// The registry publishes a new commit: update follows the index's pin.
+	w.headSHA = fakeSHA2
+	w.repo["pets-list/binding.yaml"] = strings.Replace(petsBindingYAML, "version: 1", "version: 2", 1)
+	w.index["bindings"] = []map[string]any{w.entry("pets/list", "pets-list", "")}
+	res = h.runWithEnv(w.env(), "", "adapters", "update", "pets/list")
+	if res.code != 0 {
+		t.Fatalf("update exit = %d\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, fakeSHA[:12]+" → "+fakeSHA2[:12], "update moves the pin")
+	if src := readSource(); src.Ref != fakeSHA2 || src.Commit != fakeSHA2 {
+		t.Errorf("after update: ref %q commit %q, want the index's new sha %q", src.Ref, src.Commit, fakeSHA2)
+	}
+	raw, _ := os.ReadFile(filepath.Join(h.home, ".gtme", "adapters", "pets-list", "binding.yaml"))
+	contains(t, string(raw), "version: 2", "updated binding content")
+
+	// The new pin is still hash-checked against the index.
+	w.headSHA = "3333333333333333333333333333333333333333"
+	w.repo["pets-list/binding.yaml"] = strings.Replace(petsBindingYAML, "version: 1", "version: 3", 1)
+	e := w.entry("pets/list", "pets-list", "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
+	w.index["bindings"] = []map[string]any{e}
+	res = h.runWithEnv(w.env(), "", "adapters", "update", "pets/list")
+	if res.code == 0 {
+		t.Fatalf("update past a content-hash mismatch exited 0\n%s", res.stderr)
+	}
+	contains(t, res.stderr, "hash mismatch", "update refuses a mismatch")
+}
+
 // TestAdaptersFailedAddLeavesNoTempDir (#184): every refusal after the fetch
 // (failing fixtures, no fixtures, a content-hash mismatch, a failed update)
 // removes the fetched directory instead of leaving it in TMPDIR.

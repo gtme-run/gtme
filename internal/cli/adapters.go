@@ -355,6 +355,8 @@ func adaptersUpdate(env Env, id, newRef string) error {
 	ref := adapterinstall.Ref{Owner: owner, Repo: repo, Path: src.Path, Ref: src.Ref}
 	if newRef != "" {
 		ref.Ref = newRef
+	} else if pin, ok := indexPin(env, id, src); ok {
+		ref.Ref = pin
 	}
 	tmp, b, hash, commit, err := fetchAndVerify(env, ref)
 	if err != nil {
@@ -388,6 +390,35 @@ func adaptersUpdate(env Env, id, newRef string) error {
 	}
 	fmt.Fprintf(env.Stderr, "updated %s — pin moved %s → %s\n", id, shortCommit(src.Commit), shortCommit(commit))
 	return nil
+}
+
+// commitRE is a full commit sha: the ref a bare-id add records (ADR-059).
+var commitRE = regexp.MustCompile(`^[0-9a-f]{40}$`)
+
+// indexPin is where `update` with no @ref moves a binding pinned to a
+// commit (#175): a bare-id add records the index row's sha as its ref, and
+// re-resolving that sha would never move. When the index lists this id at
+// the same source, the pin it lists now is the one to fetch. A branch or
+// tag ref keeps following itself, and an unreachable index leaves the pin
+// where it is, with a warning.
+func indexPin(env Env, id string, src *adapterinstall.Source) (string, bool) {
+	if !commitRE.MatchString(src.Ref) {
+		return "", false
+	}
+	ix, err := loadIndex(env)
+	if err != nil {
+		fmt.Fprintf(env.Stderr, "warning: registry index unreachable, %s stays at its pinned commit: %v\n", id, err)
+		return "", false
+	}
+	e := ix.FindSource(src.URL, src.Path)
+	if e == nil || e.ID != id || e.IsProcess() {
+		return "", false
+	}
+	pin := e.Source.SHA
+	if pin == "" {
+		pin = e.Source.Ref
+	}
+	return pin, pin != ""
 }
 
 // fetchAndVerify is the shared front half of add and update: resolve, fetch,

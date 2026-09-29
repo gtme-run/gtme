@@ -2749,6 +2749,36 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-29 — `adapters update` moves a bare-id install to the index's current pin (#175)
+
+**Question:** A bare-id `add` pins the binding at the index row's `sha`
+(ADR-059) and records that sha as the ref in `.source.json`. `update`
+re-resolved the recorded ref, so it re-fetched the same commit forever
+and reported "pin unchanged" after the index had moved. How does
+`update` with no `@ref` find the new pin?
+**Choice:** When the recorded ref is a full commit sha and the registry
+index lists the same id at the same source (url and path) as a binding
+entry, `update` fetches the sha that row lists now. The fetch is
+verified and hash-checked against the index as on any add, and
+`.source.json` records the new sha as its ref. A branch or tag ref keeps
+following itself, as before. An explicit `@ref` always wins. If the
+index is unreachable, the pin stays where it is and `update` says so. A
+row whose id or source no longer matches is not followed: moving an
+install to a different repository or path is a remove and re-add.
+`.source.json` gains no field, so installs made by v0.7.0 and earlier
+update the same way.
+**Why:** `update` is the explicit request that SPEC §8 says moves a pin,
+and for a bare-id install the index is where the pin came from. This
+matches `update` of a process entry, which already moves to the release
+the index lists. Reading the recorded ref (a sha) rather than adding an
+"installed by id" marker covers the installs that already exist; an
+explicit full-sha install of the index's own source also follows the
+index, which is the only pin such an install could move to without an
+`@ref`.
+**Spec impact:** None. §8's "`update` re-fetches only when asked;
+nothing moves a pin implicitly" holds: the move happens only on an
+explicit `update`.
+
 ### 2026-09-29 — The registry index lists every SPEC role, and a row the binary cannot read is skipped (#174)
 
 **Question:** `spec/schemas/registry-index.schema.json` limited `role` to
