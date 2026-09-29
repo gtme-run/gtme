@@ -548,3 +548,166 @@ source:
 	}
 	contains(t, res.stderr, `"widget"`, "csv plan problem names the type")
 }
+
+// TestAdaptersVerifyHandInstalledProcessAdapter (#168): a process adapter
+// put on GTME_ADAPTER_PATH by hand, as manifest.json + run, is one that
+// `gtme adapters` lists and `gtme adapters verify` checks, not "not
+// installed".
+func TestAdaptersVerifyHandInstalledProcessAdapter(t *testing.T) {
+	h := newHarness(t)
+	root := t.TempDir()
+	dir := filepath.Join(root, "territory-owner")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := `{"id": "territory/owner", "version": 1, "role": "enrich", "entity_type": "person",
+  "needs": {"type": "object", "required": ["company_domain"], "properties": {"company_domain": {"type": "string"}}},
+  "provides": {"type": "object", "additionalProperties": false, "properties": {"territory.owner": {"type": "string"}}},
+  "cost_estimate_usd": 0}`
+	if err := os.WriteFile(filepath.Join(dir, "manifest.json"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "run"), []byte("#!/bin/sh\ncat >/dev/null\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	env := []string{"GTME_ADAPTER_PATH=" + root}
+
+	list := h.runWithEnv(env, "", "adapters")
+	contains(t, list.stderr, "territory/owner", "adapters list")
+	contains(t, list.stderr, "installed by hand", "adapters list")
+
+	res := h.runWithEnv(env, "", "adapters", "verify", "territory/owner")
+	if res.code != 0 {
+		t.Fatalf("verify exit = %d, want 0 for a hand-installed process adapter\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "territory/owner v1 — enrich (person), process adapter", "verify output")
+}
+
+// TestAdaptersSkipAnUnreadableIndexRow (#174): a traverse row is listed, and
+// a row this binary cannot read is skipped with a warning naming it, while
+// search and a bare-id add still work for every other row.
+func TestAdaptersSkipAnUnreadableIndexRow(t *testing.T) {
+	w := newRegistryWorld(t)
+	traverse := w.entry("pets/siblings", "pets-list", "")
+	traverse["role"] = "traverse"
+	future := w.entry("pets/future", "pets-list", "")
+	future["kind"] = "wasm"
+	w.index["bindings"] = []map[string]any{future, w.entry("pets/list", "pets-list", ""), traverse}
+	h := newHarness(t)
+
+	res := h.runWithEnv(w.env(), "", "adapters", "search", "pets")
+	if res.code != 0 {
+		t.Fatalf("search exit = %d, want 0 with one unreadable row\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "warning: registry index: skipped pets/future", "search warns about the row")
+	contains(t, res.stderr, "pets/siblings", "search lists the traverse row")
+	contains(t, res.stderr, "pets/list", "search lists the good row")
+
+	res = h.runWithEnv(w.env(), "", "adapters", "add", "pets/list")
+	if res.code != 0 {
+		t.Fatalf("bare-id add exit = %d\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "skipped pets/future", "add warns about the row")
+	if _, err := os.Stat(filepath.Join(h.home, ".gtme", "adapters", "pets-list", "binding.yaml")); err != nil {
+		t.Fatalf("pets/list not installed: %v", err)
+	}
+}
+
+// TestAdaptersUpdateFollowsTheIndexForABareID (#175): a binding added by
+// bare id is pinned at the index row's sha, and `update` moves it to the
+// sha the index lists now, hash-checked, instead of re-resolving the old
+// commit forever.
+func TestAdaptersUpdateFollowsTheIndexForABareID(t *testing.T) {
+	w := newRegistryWorld(t)
+	h := newHarness(t)
+	res := h.runWithEnv(w.env(), "", "adapters", "add", "pets/list")
+	if res.code != 0 {
+		t.Fatalf("add exit = %d\n%s", res.code, res.stderr)
+	}
+	readSource := func() adapterinstall.Source {
+		t.Helper()
+		raw, err := os.ReadFile(filepath.Join(h.home, ".gtme", "adapters", "pets-list", adapterinstall.SourceFile))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var src adapterinstall.Source
+		if err := json.Unmarshal(raw, &src); err != nil {
+			t.Fatal(err)
+		}
+		return src
+	}
+	if src := readSource(); src.Ref != fakeSHA || src.Commit != fakeSHA {
+		t.Fatalf("bare-id add pinned ref %q commit %q, want the index sha %q", src.Ref, src.Commit, fakeSHA)
+	}
+
+	// The index has not moved: update leaves the pin where it is.
+	res = h.runWithEnv(w.env(), "", "adapters", "update", "pets/list")
+	if res.code != 0 {
+		t.Fatalf("update exit = %d\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "pin unchanged", "update with an unchanged index")
+
+	// The registry publishes a new commit: update follows the index's pin.
+	w.headSHA = fakeSHA2
+	w.repo["pets-list/binding.yaml"] = strings.Replace(petsBindingYAML, "version: 1", "version: 2", 1)
+	w.index["bindings"] = []map[string]any{w.entry("pets/list", "pets-list", "")}
+	res = h.runWithEnv(w.env(), "", "adapters", "update", "pets/list")
+	if res.code != 0 {
+		t.Fatalf("update exit = %d\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, fakeSHA[:12]+" → "+fakeSHA2[:12], "update moves the pin")
+	if src := readSource(); src.Ref != fakeSHA2 || src.Commit != fakeSHA2 {
+		t.Errorf("after update: ref %q commit %q, want the index's new sha %q", src.Ref, src.Commit, fakeSHA2)
+	}
+	raw, _ := os.ReadFile(filepath.Join(h.home, ".gtme", "adapters", "pets-list", "binding.yaml"))
+	contains(t, string(raw), "version: 2", "updated binding content")
+
+	// The new pin is still hash-checked against the index.
+	w.headSHA = "3333333333333333333333333333333333333333"
+	w.repo["pets-list/binding.yaml"] = strings.Replace(petsBindingYAML, "version: 1", "version: 3", 1)
+	e := w.entry("pets/list", "pets-list", "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
+	w.index["bindings"] = []map[string]any{e}
+	res = h.runWithEnv(w.env(), "", "adapters", "update", "pets/list")
+	if res.code == 0 {
+		t.Fatalf("update past a content-hash mismatch exited 0\n%s", res.stderr)
+	}
+	contains(t, res.stderr, "hash mismatch", "update refuses a mismatch")
+}
+
+// TestAdaptersFailedAddLeavesNoTempDir (#184): every refusal after the fetch
+// (failing fixtures, no fixtures, a content-hash mismatch, a failed update)
+// removes the fetched directory instead of leaving it in TMPDIR.
+func TestAdaptersFailedAddLeavesNoTempDir(t *testing.T) {
+	w := newRegistryWorld(t)
+	h := newHarness(t)
+	tmp := t.TempDir()
+	env := append(w.env(), "TMPDIR="+tmp)
+
+	for _, ref := range []string{
+		"github.com/petco/bindings/bad-fix@main",
+		"github.com/petco/bindings/no-fix@main",
+		"github.com/petco/bindings/tampered@main",
+	} {
+		if res := h.runWithEnv(env, "", "adapters", "add", ref); res.code == 0 {
+			t.Fatalf("add %s should refuse\n%s", ref, res.stderr)
+		}
+	}
+	// An update whose new commit fails verify cleans up too.
+	if res := h.runWithEnv(env, "", "adapters", "add", "github.com/petco/bindings/pets-list@main"); res.code != 0 {
+		t.Fatalf("add exit = %d\n%s", res.code, res.stderr)
+	}
+	w.headSHA = fakeSHA2
+	w.repo["pets-list/fixtures/conformance.json"] = badFixturesJSON
+	w.index["bindings"] = []map[string]any{}
+	if res := h.runWithEnv(env, "", "adapters", "update", "pets/list"); res.code == 0 {
+		t.Fatalf("update to a commit with failing fixtures should refuse\n%s", res.stderr)
+	}
+
+	left, err := filepath.Glob(filepath.Join(tmp, "gtme-adapter-fetch-*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(left) != 0 {
+		t.Errorf("refused add/update left %d fetched dir(s) in TMPDIR: %v", len(left), left)
+	}
+}
