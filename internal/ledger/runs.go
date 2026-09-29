@@ -823,6 +823,42 @@ func (l *Ledger) OpenDispatches(ctx context.Context, target, scope string) ([]Op
 	return out, rows.Err()
 }
 
+// UnansweredByRun counts, per step and target, a run's deliver sends that
+// were dispatched and never answered and are not yet held (SPEC §8,
+// ADR-064): what an interrupted run may have delivered. Read only.
+func (l *Ledger) UnansweredByRun(ctx context.Context, runID string) (map[string]map[string]int, error) {
+	rows, err := l.db.QueryContext(ctx,
+		`SELECT d.step_id, json_extract(d.detail, '$.target'), count(DISTINCT d.identity_id)
+		 FROM step_events d
+		 WHERE d.run_id = ? AND d.event = ? AND d.identity_id IS NOT NULL
+		   AND NOT EXISTS (
+		     SELECT 1 FROM step_events a
+		     WHERE a.run_id = d.run_id AND a.step_id = d.step_id AND a.identity_id = d.identity_id
+		       AND a.event IN ('done', 'failed') AND (a.created_at > d.created_at OR (a.created_at = d.created_at AND a.id > d.id)))
+		   AND NOT EXISTS (
+		     SELECT 1 FROM deliveries v
+		     WHERE v.identity_id = d.identity_id AND v.target = json_extract(d.detail, '$.target') AND v.run_id = d.run_id)
+		 GROUP BY d.step_id, json_extract(d.detail, '$.target')`, runID, EventDispatched)
+	if err != nil {
+		return nil, fmt.Errorf("ledger: counting unanswered sends: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]map[string]int{}
+	for rows.Next() {
+		var step string
+		var target sql.NullString
+		var n int
+		if err := rows.Scan(&step, &target, &n); err != nil {
+			return nil, err
+		}
+		if out[step] == nil {
+			out[step] = map[string]int{}
+		}
+		out[step][target.String] += n
+	}
+	return out, rows.Err()
+}
+
 // UnconfirmedByRun counts a run's held deliveries per target (ADR-060), for
 // its receipt in `gtme runs`.
 func (l *Ledger) UnconfirmedByRun(ctx context.Context, runID string) (map[string]int, error) {

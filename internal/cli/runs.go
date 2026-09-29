@@ -55,12 +55,29 @@ func cmdRuns(ctx context.Context, env Env, args []string) error {
 				return fail(ExitOther, "%v", err)
 			}
 			inFlight := "-"
-			if run.Status == ledger.StatusPending {
+			switch {
+			case run.Status == ledger.StatusPending:
 				n, err := l.InFlight(ctx, run.ID)
 				if err != nil {
 					return fail(ExitOther, "%v", err)
 				}
 				inFlight = fmt.Sprint(n)
+			case strings.HasPrefix(status, statusInterrupted):
+				// Sends with no answer before the process died (ADR-064): the
+				// same "sent, no answer yet" as a pending run's.
+				unanswered, err := l.UnansweredByRun(ctx, run.ID)
+				if err != nil {
+					return fail(ExitOther, "%v", err)
+				}
+				n := 0
+				for _, byTarget := range unanswered {
+					for _, c := range byTarget {
+						n += c
+					}
+				}
+				if n > 0 {
+					inFlight = fmt.Sprint(n)
+				}
 			}
 			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\n", run.ID, run.Pipeline, status, run.StartedAt, len(records), inFlight)
 		}
@@ -170,6 +187,28 @@ func printReceipt(ctx context.Context, env Env, l *ledger.Ledger, run ledger.Run
 			held[t], t, resumeCommand(run))
 	}
 	if interrupted {
+		// What the dead process may have delivered (ADR-064), before any
+		// run holds it.
+		unanswered, err := l.UnansweredByRun(ctx, run.ID)
+		if err != nil {
+			return fail(ExitOther, "%v", err)
+		}
+		steps := make([]string, 0, len(unanswered))
+		for step := range unanswered {
+			steps = append(steps, step)
+		}
+		sort.Strings(steps)
+		for _, step := range steps {
+			targets := make([]string, 0, len(unanswered[step]))
+			for t := range unanswered[step] {
+				targets = append(targets, t)
+			}
+			sort.Strings(targets)
+			for _, t := range targets {
+				fmt.Fprintf(env.Stderr, "%s: %d sent to %s with no answer before the run stopped; the resume, or the next run to that target, holds them\n",
+					step, unanswered[step][t], t)
+			}
+		}
 		fmt.Fprintf(env.Stderr, "resume:   %s\n", resumeCommand(run))
 	}
 	return nil

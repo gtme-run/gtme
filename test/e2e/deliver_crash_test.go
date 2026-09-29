@@ -303,3 +303,39 @@ func TestPlainRunAfterACrashHoldsToo(t *testing.T) {
 	}
 	contains(t, res.stderr, "--resume "+dead+" --resend-unconfirmed", "the release names the dead run")
 }
+
+// TestInterruptedRunShowsUnansweredSends is #189 (ADR-064): before any run
+// holds them, `gtme runs` counts a dead run's unanswered sends in in
+// flight, and `gtme runs RUN_ID` names them per target, writing nothing.
+func TestInterruptedRunShowsUnansweredSends(t *testing.T) {
+	target := &slowTarget{delay: 200 * time.Millisecond}
+	srv := httptest.NewServer(target)
+	defer srv.Close()
+	h := newHarness(t)
+	h.write("people.csv", fortyCSV())
+	h.write("send.yaml", sendYAML("http/deliver", srv.URL))
+
+	crashMidSend(t, h, target, syscall.SIGKILL)
+	id := h.queryStrings(`SELECT id FROM runs`)[0]
+	open := h.queryInt(`SELECT count(*) FROM step_events d WHERE d.event = 'dispatched'
+	  AND NOT EXISTS (SELECT 1 FROM step_events e WHERE e.identity_id = d.identity_id AND e.event IN ('done','failed'))`)
+	if open < 1 {
+		t.Fatalf("no send was in flight at the kill")
+	}
+	before := ledgerContent(t, h)
+	list := h.mustRun("runs")
+	var row []string
+	for _, l := range strings.Split(list.stderr, "\n") {
+		if strings.HasPrefix(l, id) {
+			row = strings.Fields(l)
+		}
+	}
+	if len(row) < 6 || row[2] != "interrupted" || row[5] != fmt.Sprint(open) {
+		t.Errorf("gtme runs row = %v, want interrupted with %d in flight", row, open)
+	}
+	receipt := h.mustRun("runs", id)
+	contains(t, receipt.stderr, fmt.Sprintf("send: %d sent to http/deliver with no answer before the run stopped", open), "gtme runs RUN_ID")
+	if after := ledgerContent(t, h); after != before {
+		t.Errorf("gtme runs wrote to the ledger")
+	}
+}
