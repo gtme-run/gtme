@@ -6,6 +6,8 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"net/url"
+	"slices"
 	"strings"
 )
 
@@ -26,9 +28,61 @@ type FixtureSet struct {
 
 // FixtureResponse is one canned reply.
 type FixtureResponse struct {
-	Match  string `json:"match"` // substring of "METHOD path"
+	Match  string `json:"match"` // see matches
 	Status int    `json:"status,omitempty"`
 	Body   any    `json:"body"`
+}
+
+// matches reports whether r answers req (#166). A match takes one of three
+// forms:
+//
+//   - query parameters ("page=2&", "?page=2&", "email=jane@acme.com"): every
+//     key=value pair must be one of the request's parameters exactly, key and
+//     decoded value, in any order; a leading ? or & and a trailing & are
+//     just anchoring, so "page=2&" never answers per_page=2 or page=20.
+//   - a path with parameters ("GET /v1/find?domain=acme.com"): the part before
+//     ? is a substring of "METHOD path", the part after is matched as above.
+//   - anything else ("GET /verify", "jane-doe"): a substring of "METHOD path"
+//     or of the full URL, as before.
+func (r FixtureResponse) matches(req *http.Request) bool {
+	key := req.Method + " " + req.URL.Path
+	m := r.Match
+	path, query, hasQ := strings.Cut(m, "?")
+	if !hasQ {
+		if !isQueryShaped(m) {
+			return strings.Contains(key, m) || strings.Contains(req.URL.String(), m)
+		}
+		path, query = "", m
+	}
+	if path != "" && !strings.Contains(key, path) {
+		return false
+	}
+	want, err := url.ParseQuery(strings.Trim(query, "&"))
+	if err != nil {
+		return false
+	}
+	have := req.URL.Query()
+	for k, vals := range want {
+		for _, v := range vals {
+			if !slices.Contains(have[k], v) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// isQueryShaped: every &-separated piece is key=value with a plain key.
+func isQueryShaped(m string) bool {
+	pieces := 0
+	for _, p := range strings.Split(strings.Trim(m, "&"), "&") {
+		k, _, ok := strings.Cut(p, "=")
+		if !ok || k == "" || strings.ContainsAny(k, " /%:") {
+			return false
+		}
+		pieces++
+	}
+	return pieces > 0
 }
 
 // FixtureFile is where a binding's fixtures live, next to binding.yaml.
@@ -61,7 +115,7 @@ type fixtureDoer struct{ set *FixtureSet }
 func (d *fixtureDoer) Do(req *http.Request) (*http.Response, error) {
 	key := req.Method + " " + req.URL.Path
 	for _, r := range d.set.Responses {
-		if strings.Contains(key, r.Match) || strings.Contains(req.URL.String(), r.Match) {
+		if r.matches(req) {
 			status := r.Status
 			if status == 0 {
 				status = 200

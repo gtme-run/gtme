@@ -2895,6 +2895,78 @@ adds only roles §6 already defines. If the skip should become a promise
 registries can rely on for older clients, §8 would need a sentence to
 that effect, which is a spec change for approval.
 
+### 2026-09-29 — Fixture matches on query parameters are exact (#166)
+
+**Question:** A fixture's `match` was a substring of "METHOD path" or of
+the full URL, so `page=2&` also answered a request carrying
+`per_page=2&`, and `gtme adapters verify` passed with a page served
+twice. SPEC names fixtures (§10a, §8) but not how a response is chosen.
+How should a match pick its request?
+**Choice:** A match made only of `key=value` pairs (an optional leading
+`?` or `&` and trailing `&` are anchoring and ignored) is parsed as a
+query: every pair must be one of the request's parameters, key and
+decoded value exact, in any order. A match with a `?` splits there: the
+part before is a substring of "METHOD path", the part after is matched
+the same way. Anything else ("GET /verify", "jane-doe") stays a
+substring of "METHOD path" or of the full URL. The first matching
+response still answers. The email-waterfall bundle's verifier fixture
+matched on value prefixes (`email=bob`), so it now names the full
+addresses, and its manifest hash moves with it; its simulated receipt
+is unchanged. `gtme help --bindings` and the create-adapter skill say
+the new rule.
+**Why:** the issue's own fix; the path and plain forms that every
+registry binding uses keep working, and the only value-prefix matches
+in the tree were two hand-written stand-ins. A verify warning for a
+fixture that answers two requests was also suggested; exact matching
+removes the case it was meant to catch, so it is not added.
+**Spec impact:** None to SPEC.md or the schemas; the fixture file's
+`match` rule lives in `gtme help --bindings`, which now states it.
+
+### 2026-09-29 — Binding retry.backoff_seconds is the base delay (#163)
+
+**Question:** `retry.backoff_seconds` was parsed and never read; httpx
+backed off from its own 1s base. How should a declared value act?
+**Choice:** It is the first retry's wait, doubling per retry, in place
+of the 1s base. A provider's `Retry-After` still wins when it sends one.
+The 30s cap on the doubling stays, but never falls below the declared
+base, so a binding that asks for 60s gets 60s. An explicit
+`backoff_seconds: 0` (the schema's minimum) means no wait; an absent
+key keeps the 1s default, so the field is a pointer in the Go struct.
+The wait goes through a swappable `httpx.Sleep`, which is how the tests
+observe it without sleeping.
+**Why:** the field's name says what it is, the schema already allows
+it, and refusing it at load would break the registry bindings that
+declare it. Honouring it beats refusing it.
+**Spec impact:** None. The schema already declares the field; this is
+the engine conforming to it.
+
+### 2026-09-29 — Binding error verdicts: what fail_run and retry do (#162)
+
+**Question:** `spec/binding-schema.json` accepts four `errors:` verdicts,
+but the engine acted only on `skip` and `fail_record`; a `fail_run` or
+`retry` rule fell through to the default, and its `reason` never
+printed. SPEC §10a names "error→verdict mapping" without spelling out
+what each verdict does. What should the two ignored ones do?
+**Choice:** `fail_run` stops the run as an unnamed status already does,
+but the error now leads with the binding id and the rule's `reason`,
+wrapping the classified error so its exit-code class (§8: 3 auth,
+4 rate limit, 5 network) is unchanged. `retry` makes the status
+retryable inside the HTTP layer under the binding's `retry.max_attempts`
+(default 3) and backoff, even a status the engine would not retry by
+default (a 409, a 404); when the attempts run out, the run stops with
+the `reason` and the attempt count, again wrapping the classified error.
+Statuses mapped to `skip`, `fail_record` or `fail_run` keep the default
+retry classification (429, network failures and 5xx are still retried
+before the verdict applies). `httpx.Request` grows a `Retryable` hook
+for this; nothing else in httpx changes.
+**Why:** the issue offered "honour all four or refuse the two at load";
+both verdicts have one obvious meaning, and honouring them keeps every
+binding already written with them valid. Keeping the exit-code class
+means `fail_run` adds a reason without inventing a new outcome, so no
+§8 text moves.
+**Spec impact:** None. The schema already lists the verdicts; this is
+the engine conforming to it.
+
 ### 2026-09-29 — M36 internals: the receipt from the ledger, crashed sends, settling (ADR-064)
 
 **Question:** How does `gtme runs RUN_ID` stay equal to the live receipt,

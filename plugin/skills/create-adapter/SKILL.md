@@ -44,8 +44,9 @@ recall it.
    the documented shape and say so in a `"note"` field; record a real one
    before any armed run. `match` is a substring of `"METHOD path"` **or
    of the full URL**, so per-record fixtures are a query value:
-   `"match": "domain=acme.com"`. First match wins; put the catch-all
-   last.
+   `"match": "domain=acme.com"`. A query-parameter match names each
+   parameter exactly (key and full value), so `page=2&` never answers
+   `per_page=2`. First match wins; put the catch-all last.
 
 5. **Verify, then simulate.**
    ```sh

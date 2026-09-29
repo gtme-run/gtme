@@ -131,7 +131,7 @@ func bindingsSurface() (bindingsDoc, error) {
 		},
 		Fixtures: bindingsFixtures{
 			File: binding.FixtureFile,
-			Does: "canned HTTP responses, each matched by a substring of \"METHOD path\" (or of the full URL); the first match answers. `gtme run --simulate` serves them in place of the network, the conformance kit proves fixture payloads in → canonical records out, and `gtme adapters verify` runs them before a binding installs. Record one real response per request the binding makes; a binding without fixtures cannot be simulated, verified, or listed in the registry.",
+			Does: "canned HTTP responses, each matched by a substring of \"METHOD path\" (or of the full URL); a match made of query parameters (\"page=2&\", \"GET /v1/find?domain=acme.com\") must name each parameter exactly, key and value, so page=2 never answers per_page=2 or page=20; the first match answers. `gtme run --simulate` serves them in place of the network, the conformance kit proves fixture payloads in → canonical records out, and `gtme adapters verify` runs them before a binding installs. Record one real response per request the binding makes; a binding without fixtures cannot be simulated, verified, or listed in the registry.",
 			Shape: binding.FixtureSet{Responses: []binding.FixtureResponse{{
 				Match:  "GET /v1/things",
 				Status: 200,
