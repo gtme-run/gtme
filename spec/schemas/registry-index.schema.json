@@ -20,7 +20,7 @@
           "kind": {"enum": ["binding", "process"], "default": "binding", "description": "ADR-063: binding (a binding.yaml directory) or process (a prebuilt process adapter, installed from assets)."},
           "description": {"type": "string", "minLength": 1},
           "vendor": {"type": "string"},
-          "role": {"enum": ["source", "filter", "enrich", "verify", "compose", "deliver"]},
+          "role": {"enum": ["source", "traverse", "filter", "enrich", "verify", "compose", "review", "deliver"]},
           "entity_type": {"type": "string", "minLength": 1},
           "needs": {"type": "array", "items": {"type": "string"}},
           "provides": {"type": "array", "items": {"type": "string"}},

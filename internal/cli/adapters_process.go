@@ -55,7 +55,7 @@ func adaptersUpdateProcess(env Env, id, dir, newRef string) error {
 		return fail(ExitValidation, "adapters: %s was installed by hand (no %s) — nothing to update from", id, adapterinstall.SourceFile)
 	}
 	var ix *adapterinstall.Index
-	e, err := findEntry(id, &ix)
+	e, err := findEntry(env, id, &ix)
 	if err != nil {
 		return err
 	}

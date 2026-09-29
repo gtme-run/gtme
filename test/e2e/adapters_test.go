@@ -583,6 +583,36 @@ func TestAdaptersVerifyHandInstalledProcessAdapter(t *testing.T) {
 	contains(t, res.stderr, "territory/owner v1 — enrich (person), process adapter", "verify output")
 }
 
+// TestAdaptersSkipAnUnreadableIndexRow (#174): a traverse row is listed, and
+// a row this binary cannot read is skipped with a warning naming it, while
+// search and a bare-id add still work for every other row.
+func TestAdaptersSkipAnUnreadableIndexRow(t *testing.T) {
+	w := newRegistryWorld(t)
+	traverse := w.entry("pets/siblings", "pets-list", "")
+	traverse["role"] = "traverse"
+	future := w.entry("pets/future", "pets-list", "")
+	future["kind"] = "wasm"
+	w.index["bindings"] = []map[string]any{future, w.entry("pets/list", "pets-list", ""), traverse}
+	h := newHarness(t)
+
+	res := h.runWithEnv(w.env(), "", "adapters", "search", "pets")
+	if res.code != 0 {
+		t.Fatalf("search exit = %d, want 0 with one unreadable row\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "warning: registry index: skipped pets/future", "search warns about the row")
+	contains(t, res.stderr, "pets/siblings", "search lists the traverse row")
+	contains(t, res.stderr, "pets/list", "search lists the good row")
+
+	res = h.runWithEnv(w.env(), "", "adapters", "add", "pets/list")
+	if res.code != 0 {
+		t.Fatalf("bare-id add exit = %d\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "skipped pets/future", "add warns about the row")
+	if _, err := os.Stat(filepath.Join(h.home, ".gtme", "adapters", "pets-list", "binding.yaml")); err != nil {
+		t.Fatalf("pets/list not installed: %v", err)
+	}
+}
+
 // TestAdaptersFailedAddLeavesNoTempDir (#184): every refusal after the fetch
 // (failing fixtures, no fixtures, a content-hash mismatch, a failed update)
 // removes the fetched directory instead of leaving it in TMPDIR.

@@ -2749,6 +2749,38 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-29 — The registry index lists every SPEC role, and a row the binary cannot read is skipped (#174)
+
+**Question:** `spec/schemas/registry-index.schema.json` limited `role` to
+six values, so a traverse or review entry could not be listed, and
+`LoadIndex` validated the whole document, so one such row made `gtme
+adapters search` and every bare-id `add` fail for every client. That
+whole-index refusal is also what broke pre-v0.7.0 binaries when the
+first process entry appeared. What should the schema allow, and what
+should a client do with a row it cannot read?
+**Choice:** (1) The index schema's `role` enum is SPEC §6's role list:
+`source`, `traverse`, `filter`, `enrich`, `verify`, `compose`, `review`,
+`deliver`. This conforms the schema to roles SPEC already defines. (2)
+`LoadIndex` validates the document (version, `bindings` an array, no
+unknown top-level members) whole, as before, and then each row on its
+own against the schema's row definition. A row that fails, whether for
+an unknown role or kind or a missing member, is left out of the index
+and recorded as skipped. `search` and a bare-id `add` or `update` print
+one warning per skipped row, naming its id (or `row N` when it has none)
+and the first schema failure, and carry on with the rest. (3) When `add`
+or `update` fetches a source whose index row was skipped, the content-hash
+check is skipped with a warning, exactly as when the index is
+unreachable, because the row's `sha256` cannot be trusted either.
+**Why:** a registry has to be able to list a new kind or role without
+breaking every older client, and one malformed row is the registry's
+problem, not every operator's. The document-level checks stay whole
+because a wrong `version` means the client cannot read any of it.
+**Spec impact:** None. SPEC §8 says `search` reads the index against the
+schema and does not say the index is refused as a whole; the enum change
+adds only roles §6 already defines. If the skip should become a promise
+registries can rely on for older clients, §8 would need a sentence to
+that effect, which is a spec change for approval.
+
 ### 2026-09-29 — M36 internals: the receipt from the ledger, crashed sends, settling (ADR-064)
 
 **Question:** How does `gtme runs RUN_ID` stay equal to the live receipt,
