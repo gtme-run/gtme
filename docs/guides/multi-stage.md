@@ -341,12 +341,14 @@ Build both stages and run them in order:
     The output includes:
 
     ```
-    total: $0.0100 (estimated) spent, $0.0800+? avoided via cache (13 records skipped)
+    handoff: 5 already delivered
+    handoff: 1 record(s) handed off to group "qualified"
+    total: $0.0100 (estimated) spent, $0.0800 avoided via cache (8 records skipped)
     ...
     source: sourced 1 members of group "qualified" (1 of 5 not yet worked; limit 2, oldest first)
     ```
 
-    Stage 1 paid to score Dana only and handed her off. `13 records skipped` counts every skip across both steps, and the `+?` means some of them have no price. Stage 2 served Dana and nobody else. If stage 1 runs every morning without you, stage 2's dry-run is your review: read it, remove anyone you reject from `qualified`, then arm stage 2. `gtme plan send.yaml` prints the same count before a run, as `5 member(s), 1 not yet worked, sourcing 1`.
+    Stage 1 paid to score Dana only and handed her off. `8 records skipped` is the eight scores already in the ledger, and the five people already in `qualified` count as already delivered. Stage 2 served Dana and nobody else. If stage 1 runs every morning without you, stage 2's dry-run is your review: read it, remove anyone you reject from `qualified`, then arm stage 2. `gtme plan send.yaml` prints the same count before a run, as `5 member(s), 1 not yet worked, sourcing 1`.
 
 1. Save a second campaign as `webinar.yaml`, and run it:
 
