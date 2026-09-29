@@ -138,14 +138,18 @@ func (r *runner) runStep(ctx context.Context, i int) error {
 		// gated + skipped + already delivered (+ simulated, held, in flight).
 		r.bump(st, func(s *StepStat) { s.In++ })
 		if st.WhenStep != "" && !rr.Passed(st.WhenStep) {
-			r.bump(st, func(s *StepStat) { s.Gated++ })
+			if err := r.gated(ctx, st, rr.IdentityID, "when"); err != nil {
+				return err
+			}
 			continue
 		}
 		// Membership gates (SPEC §7, ADR-021): require = member of every group,
 		// exclude = member of none. Exclusion is the judgment-memory mechanism —
 		// a gated record is not dispatched, so nothing re-judges it.
 		if gate != nil && !gate(rr.IdentityID) {
-			r.bump(st, func(s *StepStat) { s.Gated++ })
+			if err := r.gated(ctx, st, rr.IdentityID, "membership"); err != nil {
+				return err
+			}
 			continue
 		}
 
@@ -155,7 +159,7 @@ func (r *runner) runStep(ctx context.Context, i int) error {
 			// stubbed filter judges nothing, so downstream when: gates will hold
 			// records back; that consequence is the gap made visible, not a bug.
 			if err := r.l.LogStepEvent(ctx, r.prov(st.ID), rr.IdentityID, "simulated",
-				map[string]any{"simulation_gap": true}); err != nil {
+				map[string]any{"simulation_gap": true, "outcome": OutcomeSimulated}); err != nil {
 				return err
 			}
 			if err := r.l.SetRunRecordState(ctx, r.runID, rr.IdentityID, st.ID); err != nil {
@@ -374,7 +378,7 @@ func (r *runner) prepare(ctx context.Context, st *planner.Step, identityID, toke
 	if err := r.validateNeeds(st, fields); err != nil {
 		r.failStat(st, err.Error())
 		if err := r.l.LogStepEvent(ctx, r.prov(st.ID), identityID, "failed",
-			map[string]any{"reason": err.Error()}); err != nil {
+			map[string]any{"reason": err.Error(), "outcome": OutcomeFailed}); err != nil {
 			return nil, err
 		}
 		return nil, nil
@@ -426,7 +430,7 @@ func (r *runner) prepare(ctx context.Context, st *planner.Step, identityID, toke
 			return nil, r.failItem(ctx, st, it, reason)
 		case "skip":
 			if err := r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, "done",
-				map[string]any{"fields": 0, "skipped": true, "reason": reason}); err != nil {
+				map[string]any{"fields": 0, "skipped": true, "reason": reason, "outcome": OutcomeSkipped}); err != nil {
 				return nil, err
 			}
 			if err := r.l.SetRunRecordState(ctx, r.runID, it.identityID, st.ID); err != nil {
@@ -607,7 +611,7 @@ func (r *runner) suppress(ctx context.Context, st *planner.Step, it *item) (bool
 		return false, err
 	}
 	if err := r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, "done",
-		map[string]any{"pass": false, "reason": reason}); err != nil {
+		map[string]any{"pass": false, "reason": reason, "outcome": OutcomeSkipped}); err != nil {
 		return false, err
 	}
 	// Suppression gates this step's send, not the record (SPEC §8, ADR-031):
@@ -638,7 +642,7 @@ func (r *runner) holdMissing(ctx context.Context, st *planner.Step, it *item, rv
 		return err
 	}
 	if err := r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, "done",
-		map[string]any{"pass": false, "reason": reason}); err != nil {
+		map[string]any{"pass": false, "reason": reason, "outcome": OutcomeSkipped}); err != nil {
 		return err
 	}
 	if err := r.l.SetRunRecordState(ctx, r.runID, it.identityID, st.ID); err != nil {
@@ -656,7 +660,7 @@ func (r *runner) holdMissing(ctx context.Context, st *planner.Step, it *item, rv
 // the armed run behaves as if the dry run never happened (SPEC §8).
 func (r *runner) dryDeliver(ctx context.Context, st *planner.Step, it *item, rv RecordVariables) error {
 	if err := r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, "dry_run",
-		map[string]any{"variables": rv.Resolved}); err != nil {
+		map[string]any{"variables": rv.Resolved, "outcome": OutcomeHeldDry}); err != nil {
 		return err
 	}
 	if err := r.l.SetRunRecordState(ctx, r.runID, it.identityID, st.ID); err != nil {
@@ -900,7 +904,14 @@ func (r *runner) judgmentSkip(ctx context.Context, st *planner.Step, it *item) (
 	if !found {
 		return false, nil
 	}
-	detail := map[string]any{"reason": "same_judgment", "signature": it.signature, "input": it.input, "judged_in": j.RunID}
+	// A reused judgment's cost was never estimated (ADR-039): avoided_usd
+	// is null, which the receipt prints as ?. A reused fail is also
+	// filtered, and says so (ADR-064).
+	detail := map[string]any{"reason": "same_judgment", "signature": it.signature, "input": it.input, "judged_in": j.RunID,
+		"outcome": OutcomeCached, "avoided_usd": nil}
+	if st.Role == adapters.RoleFilter && !(j.Pass != nil && *j.Pass) {
+		detail["pass"] = false
+	}
 	if err := r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, "skipped_cache", detail); err != nil {
 		return false, err
 	}
@@ -925,7 +936,13 @@ func (r *runner) judgmentSkip(ctx context.Context, st *planner.Step, it *item) (
 
 // skip advances a record past a step without calling the adapter.
 func (r *runner) skip(ctx context.Context, st *planner.Step, it *item, reason string) error {
-	if err := r.advancePast(ctx, st, it, reason); err != nil {
+	detail := map[string]any{"reason": reason, "outcome": OutcomeCached, "avoided_usd": nil}
+	if ledger.AlreadyDeliveredReason(reason) {
+		detail = map[string]any{"reason": reason, "outcome": OutcomeAlreadyDelivered}
+	} else if st.CostEstimate != nil {
+		detail["avoided_usd"] = *st.CostEstimate
+	}
+	if err := r.advancePast(ctx, st, it, detail); err != nil {
 		return err
 	}
 	if ledger.AlreadyDeliveredReason(reason) {
@@ -945,11 +962,10 @@ func (r *runner) skip(ctx context.Context, st *planner.Step, it *item, reason st
 	return nil
 }
 
-// advancePast records a skipped_cache event with its reason and moves the
-// record past the step.
-func (r *runner) advancePast(ctx context.Context, st *planner.Step, it *item, reason string) error {
-	if err := r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, "skipped_cache",
-		map[string]any{"reason": reason}); err != nil {
+// advancePast records a skipped_cache event with its detail (the reason and
+// its outcome) and moves the record past the step.
+func (r *runner) advancePast(ctx context.Context, st *planner.Step, it *item, detail map[string]any) error {
+	if err := r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, "skipped_cache", detail); err != nil {
 		return err
 	}
 	if err := r.l.SetRunRecordState(ctx, r.runID, it.identityID, st.ID); err != nil {
@@ -1398,7 +1414,7 @@ func (r *runner) applyVerdict(ctx context.Context, st *planner.Step, byKey map[s
 	if !pass {
 		r.bump(st, func(s *StepStat) { s.Filtered++ })
 		return r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, "done",
-			it.judgmentDetail(map[string]any{"pass": false, "reason": m.Reason}))
+			it.judgmentDetail(map[string]any{"pass": false, "reason": m.Reason, "outcome": OutcomeFiltered}))
 	}
 	return r.advance(ctx, st, it, map[string]any{"pass": true, "reason": m.Reason}, nil)
 }
@@ -1409,6 +1425,24 @@ func (r *runner) advance(ctx context.Context, st *planner.Step, it *item, detail
 	if it.advanced || it.failed {
 		return nil
 	}
+	// out means the step contributed something (SPEC §8, ADR-053): a
+	// field-writing step that advanced a record without writing a field
+	// counts it empty. A filter's output is a verdict and a deliver's a
+	// send, so their advances are always out. The event says which
+	// (ADR-064), so `gtme runs` counts it the same way.
+	result := OutcomeOut
+	switch {
+	case st.IsTraverse && it.children == 0:
+		// A parent that yielded nothing counts empty (SPEC §8, ADR-054).
+		result = OutcomeEmpty
+	case st.IsTraverse:
+	case writesFields(st) && fieldsWritten(detail) == 0:
+		result = OutcomeEmpty
+	}
+	if detail == nil {
+		detail = map[string]any{}
+	}
+	detail["outcome"] = result
 	if err := r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, "done", it.judgmentDetail(detail)); err != nil {
 		return err
 	}
@@ -1454,19 +1488,9 @@ func (r *runner) advance(ctx context.Context, st *planner.Step, it *item, detail
 		}
 	}
 	it.advanced = true
-	// out means the step contributed something (SPEC §8, ADR-053): a
-	// field-writing step that advanced a record without writing a field
-	// counts it empty. A filter's output is a verdict and a deliver's a
-	// send, so their advances are always out.
-	switch {
-	case st.IsTraverse && it.children == 0:
-		// A parent that yielded nothing counts empty (SPEC §8, ADR-054).
+	if result == OutcomeEmpty {
 		r.bump(st, func(s *StepStat) { s.Empty++ })
-	case st.IsTraverse:
-		r.bump(st, func(s *StepStat) { s.Out++ })
-	case writesFields(st) && fieldsWritten(detail) == 0:
-		r.bump(st, func(s *StepStat) { s.Empty++ })
-	default:
+	} else {
 		r.bump(st, func(s *StepStat) { s.Out++ })
 	}
 	if !st.IsTraverse {
@@ -1510,7 +1534,8 @@ func (r *runner) failItem(ctx context.Context, st *planner.Step, it *item, reaso
 	// A failure is often the interrupt itself (#135): the receipt counts
 	// this record failed, so the ledger records it on a context the signal
 	// did not cancel.
-	return r.l.LogStepEvent(context.WithoutCancel(ctx), r.prov(st.ID), it.identityID, "failed", map[string]any{"reason": reason})
+	return r.l.LogStepEvent(context.WithoutCancel(ctx), r.prov(st.ID), it.identityID, "failed",
+		map[string]any{"reason": reason, "outcome": OutcomeFailed})
 }
 
 // failStat counts a failed record and its reason for the receipt.

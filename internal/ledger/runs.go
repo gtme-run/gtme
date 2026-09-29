@@ -32,6 +32,14 @@ const (
 // failed at that step may have reached the target.
 const EventDispatched = "dispatched"
 
+// EventGated records a record a when: or membership gate held back at a
+// step (SPEC §3, ADR-064): eligible, counted in in, not dispatched.
+const EventGated = "gated"
+
+// EventSettled records a held delivery the operator settled: checked at
+// the target and found there, so never sent (SPEC §8, ADR-064).
+const EventSettled = "settled"
+
 // StateSourced is a record's state before any step has touched it.
 const StateSourced = "sourced"
 
