@@ -9,17 +9,21 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"github.com/gtme-run/gtme/internal/ledger"
 )
 
-// Path returns the secrets file path.
+// Path returns the secrets file path: $GTME_HOME/secrets, else
+// ~/.gtme/secrets (SPEC §6). It never follows GTME_LEDGER, which may point
+// at a working folder (#119): a key written beside a scratch ledger is a
+// key one `git add .` from a commit.
 func Path() (string, error) {
-	home, err := ledger.Home()
-	if err != nil {
-		return "", err
+	if home := os.Getenv("GTME_HOME"); home != "" {
+		return filepath.Join(home, "secrets"), nil
 	}
-	return filepath.Join(home, "secrets"), nil
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("secrets: locating home directory: %w", err)
+	}
+	return filepath.Join(home, ".gtme", "secrets"), nil
 }
 
 // Lookup resolves one credential.

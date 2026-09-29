@@ -3036,6 +3036,23 @@ description strings, which no validator or second implementation reads.
 `internal/docsgen/singles.go`, `wire.go`, `conformance.go`, `schema.go`,
 and `singles_test.go`.
 
+### 2026-09-28 — The secrets file never follows GTME_LEDGER (#119)
+
+**Question:** `secrets.Path()` used `ledger.Home()`, which is
+`filepath.Dir($GTME_LEDGER)` when that is set, so `gtme secret set`
+wrote to a `secrets` file beside a scratch ledger, often a working folder
+the docs point at (`export GTME_LEDGER=./ledger.db`). Keys already in
+`~/.gtme/secrets` also stopped resolving. Where does the file live?
+**Choice:** Where SPEC §6 says: `~/.gtme/secrets`, or `$GTME_HOME/secrets`
+when `GTME_HOME` is set (it already replaces `~/.gtme` for `adapters/` and
+`types/`). `GTME_LEDGER` moves the ledger and nothing else. A key a user
+stored beside a scratch ledger before this fix no longer resolves; plan
+names it as a missing credential with the `gtme secret set` fix, which is
+the loud failure we want over reading a key from a working folder.
+**Why:** a secrets file in a working folder is one `git add .` away from
+a public commit, and SPEC §6 never allowed it.
+**Spec impact:** None; the code now matches §6.
+
 ### 2026-09-27 — M33 internals: vendors leave the binary (ADR-059)
 
 **Question:** How does the engine hold `each:` without a second
