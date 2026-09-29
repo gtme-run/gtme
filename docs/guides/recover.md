@@ -4,7 +4,7 @@ description: Finish a run that died partway, under its own id, without paying tw
 for: "A run stopped before its receipt, because a laptop closed, a terminal was killed, or a vendor went down, and you want it finished without paying or sending twice."
 learn:
   - "how to tell that a run died, and how far each record got"
-  - "how to resume a run by its id, and why not with last"
+  - "how to resume a run by its id"
   - "how to prove from the ledger that no step was paid for twice"
   - "which records a deliver step may have sent twice, and how to find them"
 order: 9
@@ -266,7 +266,7 @@ There's no receipt. The process died while `crm` was sending.
 
     **At most 4 records per crash land in this gap, because gtme sends 4 at a time by default.** On a real target, look up the people from step 3. gtme has no way to mark them delivered by hand, so decide before you resume. A CRM that matches contacts by email updates the existing contact instead of adding a duplicate, so resending is harmless there. For a target that doesn't, such as a sequence that emails on add, remove those people from it first, so each lands once.
 
-1. Resume the run by its id. Use the id, because `--resume last` picks the newest run of any pipeline, and after another pipeline has run it resumes the wrong one. Resume runs `signups.yaml` as it is on disk, so fix anything that caused the failure, such as a URL, first:
+1. Resume the run by its id. Use the id: `--resume last` takes the newest run of the `signups` pipeline, which is a different run if the pipeline has run again since the crash. Resume runs `signups.yaml` as it is on disk, so fix anything that caused the failure, such as a URL, first:
 
     ```sh
     gtme run signups.yaml --resume RUN_ID
@@ -355,7 +355,7 @@ Stop `target.py` in its terminal when you're done.
 To have Claude Code recover the next dead run this way, paste this line:
 
 ```text
-A gtme run of PIPELINE died. Find it with gtme runs and use its run id, never last. Check with pgrep that no gtme run is still going. Show me gtme runs for that id, list the records that hadn't passed the deliver step, and stop so I can check which of them the target already has. After I say go, resume it by id and prove with gtme runs that every paid step's claimed, done, and cost match what they were before the resume.
+A gtme run of PIPELINE died. Find it with gtme runs and use its run id. Check with pgrep that no gtme run is still going. Show me gtme runs for that id, list the records that hadn't passed the deliver step, and stop so I can check which of them the target already has. After I say go, resume it by id and prove with gtme runs that every paid step's claimed, done, and cost match what they were before the resume.
 ```
 
 Replace `PIPELINE` with the pipeline file.
