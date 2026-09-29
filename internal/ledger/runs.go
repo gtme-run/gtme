@@ -653,6 +653,39 @@ func (l *Ledger) StepEventCounts(ctx context.Context, runID string) (map[string]
 	return out, nil
 }
 
+// StepEvent is one step_events row, its detail decoded.
+type StepEvent struct {
+	StepID     string
+	IdentityID string // empty for a step-level event
+	Event      string
+	Detail     map[string]any
+}
+
+// RunStepEvents reads every step event of a run in the order they were
+// written, for rebuilding its receipt (SPEC §8, ADR-064).
+func (l *Ledger) RunStepEvents(ctx context.Context, runID string) ([]StepEvent, error) {
+	rows, err := l.db.QueryContext(ctx,
+		`SELECT step_id, identity_id, event, detail FROM step_events WHERE run_id = ? ORDER BY created_at, id`, runID)
+	if err != nil {
+		return nil, fmt.Errorf("ledger: reading step events: %w", err)
+	}
+	defer rows.Close()
+	var out []StepEvent
+	for rows.Next() {
+		var e StepEvent
+		var identity, detail sql.NullString
+		if err := rows.Scan(&e.StepID, &identity, &e.Event, &detail); err != nil {
+			return nil, fmt.Errorf("ledger: reading step events: %w", err)
+		}
+		e.IdentityID = identity.String
+		if detail.String != "" {
+			_ = json.Unmarshal([]byte(detail.String), &e.Detail)
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
 // StepEventSeen reports whether a step-level event was already recorded for this
 // run — how --resume knows a source has already been drained.
 func (l *Ledger) StepEventSeen(ctx context.Context, runID, stepID, event string) (bool, error) {

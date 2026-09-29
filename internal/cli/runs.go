@@ -105,40 +105,18 @@ func printReceipt(ctx context.Context, env Env, l *ledger.Ledger, run ledger.Run
 		fmt.Fprintf(env.Stderr, "finished: %s\n", run.FinishedAt)
 	}
 
-	events, err := l.StepEventCounts(ctx, run.ID)
+	// The live receipt's table, rebuilt from the ledger (SPEC §8,
+	// ADR-064): the run's net outcome across all its sessions.
+	mirror, err := runner.LedgerSteps(ctx, l, run)
 	if err != nil {
 		return fail(ExitOther, "%v", err)
 	}
-	costs, err := l.CostsByStep(ctx, run.ID)
-	if err != nil {
-		return fail(ExitOther, "%v", err)
+	fmt.Fprintln(env.Stderr)
+	runner.PrintTable(env.Stderr, mirror.Steps, mirror.GatedUnknown)
+	fmt.Fprintln(env.Stderr, runner.TotalLine(mirror.Steps))
+	if mirror.Legacy && len(mirror.GatedUnknown) > 0 {
+		fmt.Fprintln(env.Stderr, "(recorded before gtme counted gated records: in+? is a floor)")
 	}
-	order, err := l.StepIDs(ctx, run.ID)
-	if err != nil {
-		return fail(ExitOther, "%v", err)
-	}
-
-	tw := tabwriter.NewWriter(env.Stderr, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(tw, "\nstep\tclaimed\tdone\tcached\tfailed\tcost")
-	var total ledger.CostTotal
-	for _, step := range order {
-		counts := events[step]
-		cost := costs[step]
-		total.Add(cost)
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", step,
-			count(counts["claimed"]), count(counts["done"]),
-			count(counts["skipped_cache"]), count(counts["failed"]), money(cost.Total()))
-	}
-	tw.Flush()
-	// Withheld because the destination already has them (ADR-062): never
-	// in the cached column.
-	for _, step := range order {
-		if n := events[step][ledger.AlreadyDelivered]; n > 0 {
-			fmt.Fprintf(env.Stderr, "%s: %d already delivered\n", step, n)
-		}
-	}
-	// The total carries its basis exactly as the live receipt did (ADR-046).
-	fmt.Fprintf(env.Stderr, "total: %s\n", runner.FormatCost(total))
 
 	// The states show where records stopped, which is the useful thing when a run
 	// did not finish cleanly.

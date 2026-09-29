@@ -50,44 +50,7 @@ func PrintReceipt(w io.Writer, res *Result) {
 	}
 	fmt.Fprintf(w, "\nrun %s — %s\n", res.RunID, title)
 
-	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(tw, "step\tadapter\tin\tout\tempty\tcached\tfiltered\tfailed\tcost\tavoided")
-
-	var totalCost ledger.CostTotal
-	var totalAvoided float64
-	avoidedUnknown := false
-	totalSkips := 0
-	for _, s := range res.Steps {
-		totalSkips += s.CacheSkips
-		avoided := "-"
-		if s.CacheSkips > 0 {
-			switch {
-			case s.AvoidedUnknown && s.AvoidedUSD == 0:
-				avoided = "?"
-			case s.AvoidedUnknown:
-				avoided = fmt.Sprintf("$%.4f+?", s.AvoidedUSD)
-			default:
-				avoided = fmt.Sprintf("$%.4f", s.AvoidedUSD)
-			}
-		}
-		if s.AvoidedUnknown {
-			avoidedUnknown = true
-		}
-		totalCost.Add(s.Cost)
-		totalAvoided += s.AvoidedUSD
-
-		fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%s\t%d\t%s\t%s\t%s\t%s\n",
-			s.ID, s.Use, s.In, s.Out, dash(s.Empty), s.CacheSkips,
-			dash(s.Filtered), dash(s.Failed), money(s.Cost.Total()), avoided)
-	}
-	tw.Flush()
-	// Withheld because the destination already has them (SPEC §8, ADR-062):
-	// outside the cached column and the avoided total.
-	for _, s := range res.Steps {
-		if s.AlreadyDelivered > 0 {
-			fmt.Fprintf(w, "%s: %d already delivered\n", s.ID, s.AlreadyDelivered)
-		}
-	}
+	PrintTable(w, res.Steps, nil)
 	// Failures, with their reasons (SPEC §8: every error names its fix). One
 	// line per distinct reason, most frequent first; a bare count in the
 	// table would leave a missing key looking like bad data.
@@ -287,17 +250,7 @@ func PrintReceipt(w io.Writer, res *Result) {
 		}
 	}
 
-	total := fmt.Sprintf("total: %s spent", FormatCost(totalCost))
-	if totalSkips > 0 {
-		amount := fmt.Sprintf("$%.4f", totalAvoided)
-		if avoidedUnknown {
-			// Some skipped adapters publish no cost_estimate_usd, so the saving is a
-			// floor, not a total (SPEC §8).
-			amount += "+?"
-		}
-		total += fmt.Sprintf(", %s avoided via cache (%d records skipped)", amount, totalSkips)
-	}
-	fmt.Fprintln(w, total)
+	fmt.Fprintln(w, TotalLine(res.Steps))
 }
 
 // paidForNothing reports a run that spent money and sourced no records
@@ -380,4 +333,69 @@ func pipelineArg(res *Result) string {
 		return res.PipelinePath
 	}
 	return res.Pipeline + ".yaml"
+}
+
+// PrintTable writes the receipt's table and its already-delivered lines
+// (SPEC §8). The live receipt and `gtme runs RUN_ID` both print through it
+// (ADR-064), so the two cannot drift. inUnknown marks steps whose in is a
+// floor: a run recorded before ADR-064 never logged gated records.
+func PrintTable(w io.Writer, steps []StepStat, inUnknown map[string]bool) {
+	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(tw, "step\tadapter\tin\tout\tempty\tcached\tfiltered\tfailed\tcost\tavoided")
+	for _, s := range steps {
+		avoided := "-"
+		if s.CacheSkips > 0 {
+			switch {
+			case s.AvoidedUnknown && s.AvoidedUSD == 0:
+				avoided = "?"
+			case s.AvoidedUnknown:
+				avoided = fmt.Sprintf("$%.4f+?", s.AvoidedUSD)
+			default:
+				avoided = fmt.Sprintf("$%.4f", s.AvoidedUSD)
+			}
+		}
+		in := fmt.Sprint(s.In)
+		if inUnknown[s.ID] {
+			in += "+?"
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%d\t%s\t%s\t%s\t%s\n",
+			s.ID, s.Use, in, s.Out, dash(s.Empty), s.CacheSkips,
+			dash(s.Filtered), dash(s.Failed), money(s.Cost.Total()), avoided)
+	}
+	tw.Flush()
+	// Withheld because the destination already has them (SPEC §8, ADR-062):
+	// outside the cached column and the avoided total.
+	for _, s := range steps {
+		if s.AlreadyDelivered > 0 {
+			fmt.Fprintf(w, "%s: %d already delivered\n", s.ID, s.AlreadyDelivered)
+		}
+	}
+}
+
+// TotalLine is the receipt's last line: what was spent, with its basis, and
+// what the cache avoided (SPEC §8, ADR-046).
+func TotalLine(steps []StepStat) string {
+	var totalCost ledger.CostTotal
+	var totalAvoided float64
+	avoidedUnknown := false
+	totalSkips := 0
+	for _, s := range steps {
+		totalSkips += s.CacheSkips
+		if s.AvoidedUnknown {
+			avoidedUnknown = true
+		}
+		totalCost.Add(s.Cost)
+		totalAvoided += s.AvoidedUSD
+	}
+	total := fmt.Sprintf("total: %s spent", FormatCost(totalCost))
+	if totalSkips > 0 {
+		amount := fmt.Sprintf("$%.4f", totalAvoided)
+		if avoidedUnknown {
+			// Some skipped adapters publish no cost_estimate_usd, so the saving is a
+			// floor, not a total (SPEC §8).
+			amount += "+?"
+		}
+		total += fmt.Sprintf(", %s avoided via cache (%d records skipped)", amount, totalSkips)
+	}
+	return total
 }
