@@ -2851,9 +2851,14 @@ the pair cannot drift. The e2e harness builds it into a directory on
 `GTME_ADAPTER_PATH` the same way. (7) **A process archive holds exactly
 `manifest.json` and `run` at its root.** Any other member is refused, as
 is an archive over 128 MiB, a checksum mismatch, a manifest whose id is
-not the entry's, a `run` that is not executable, and a `demo/` id. The
-install keeps `run` executable; `.source.json` gains `kind`, `asset` and
-`release`, and its `sha256` is the archive's. (8) **`update` of a process
+not the entry's, a `run` that is not executable, and a `demo/` id. A
+malformed archive exits 2 like a checksum mismatch, never as a network
+error an agent would retry. The install keeps `run` executable and is
+staged beside its destination, then renamed into place, so a failed add or
+update never leaves a half-written adapter; `.source.json` gains `kind`,
+`asset` and `release`, and its `sha256` is the archive's. The release
+builds with `CGO_ENABLED=0`, which §2 already required and the native
+linux/amd64 build did not enforce. (8) **`update` of a process
 entry moves to the release the index lists**, and refuses an `@ref`,
 because a process entry has no ref of its own to fetch. `search` prints
 `gtme adapters add <id>` for a process entry, and `gtme adapters` names

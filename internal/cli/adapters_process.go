@@ -31,10 +31,10 @@ func adaptersAddProcess(env Env, e *adapterinstall.Entry) error {
 	if _, err := os.Stat(dest); err == nil {
 		return fail(ExitValidation, "adapters: %s is already installed at %s — `gtme adapters update %s` moves the pin", e.ID, dest, e.ID)
 	}
-	if err := installTree(tmp, dest); err != nil {
+	if err := os.MkdirAll(root, 0o755); err != nil {
 		return err
 	}
-	if err := adapterinstall.WriteSource(dest, processSource(e, asset)); err != nil {
+	if err := swapInto(tmp, dest, processSource(e, asset)); err != nil {
 		return err
 	}
 	fmt.Fprintf(env.Stderr, "installed %s at %s — pinned to release %s (%s)\n", e.ID, dest, e.Release, shortCommit(asset.SHA256))
@@ -71,19 +71,7 @@ func adaptersUpdateProcess(env Env, id, dir, newRef string) error {
 		return err
 	}
 	defer os.RemoveAll(tmp)
-	staging := dir + ".update"
-	if err := installTree(tmp, staging); err != nil {
-		return err
-	}
-	if err := adapterinstall.WriteSource(staging, processSource(e, asset)); err != nil {
-		os.RemoveAll(staging)
-		return err
-	}
-	if err := os.RemoveAll(dir); err != nil {
-		os.RemoveAll(staging)
-		return err
-	}
-	if err := os.Rename(staging, dir); err != nil {
+	if err := swapInto(tmp, dir, processSource(e, asset)); err != nil {
 		return err
 	}
 	fmt.Fprintf(env.Stderr, "updated %s — release %s → %s\n", id, src.Release, e.Release)
@@ -107,7 +95,7 @@ func fetchProcess(env Env, e *adapterinstall.Entry) (string, adapterinstall.Asse
 	}
 	tmp, err := adapterinstall.FetchProcess(asset)
 	if err != nil {
-		if errors.Is(err, adapterinstall.ErrChecksum) {
+		if errors.Is(err, adapterinstall.ErrChecksum) || errors.Is(err, adapterinstall.ErrArchive) {
 			return "", asset, fail(ExitValidation, "%v", err)
 		}
 		return "", asset, fail(ExitNetwork, "%v", err)
@@ -172,6 +160,42 @@ func verifyProcessDir(env Env, dir, id string) (*adapters.Manifest, error) {
 		fmt.Fprintf(env.Stderr, "  declares:    %s\n", strings.Join(caps, ", "))
 	}
 	return m, nil
+}
+
+// swapInto installs src at dest with its .source.json, never leaving dest
+// half-written: the tree is staged beside dest, an existing dest is moved
+// aside, the stage is renamed into place, and a failed rename puts the old
+// one back. A stage or old copy left by a crashed earlier attempt is cleared
+// first.
+func swapInto(src, dest string, s adapterinstall.Source) error {
+	staging, old := dest+".staging", dest+".old"
+	os.RemoveAll(staging)
+	os.RemoveAll(old)
+	if err := installTree(src, staging); err != nil {
+		os.RemoveAll(staging)
+		return err
+	}
+	if err := adapterinstall.WriteSource(staging, s); err != nil {
+		os.RemoveAll(staging)
+		return err
+	}
+	_, statErr := os.Stat(dest)
+	existed := statErr == nil
+	if existed {
+		if err := os.Rename(dest, old); err != nil {
+			os.RemoveAll(staging)
+			return err
+		}
+	}
+	if err := os.Rename(staging, dest); err != nil {
+		if existed {
+			os.Rename(old, dest)
+		}
+		os.RemoveAll(staging)
+		return err
+	}
+	os.RemoveAll(old)
+	return nil
 }
 
 func processSource(e *adapterinstall.Entry, a adapterinstall.Asset) adapterinstall.Source {
