@@ -548,3 +548,41 @@ source:
 	}
 	contains(t, res.stderr, `"widget"`, "csv plan problem names the type")
 }
+
+// TestAdaptersFailedAddLeavesNoTempDir (#184): every refusal after the fetch
+// (failing fixtures, no fixtures, a content-hash mismatch, a failed update)
+// removes the fetched directory instead of leaving it in TMPDIR.
+func TestAdaptersFailedAddLeavesNoTempDir(t *testing.T) {
+	w := newRegistryWorld(t)
+	h := newHarness(t)
+	tmp := t.TempDir()
+	env := append(w.env(), "TMPDIR="+tmp)
+
+	for _, ref := range []string{
+		"github.com/petco/bindings/bad-fix@main",
+		"github.com/petco/bindings/no-fix@main",
+		"github.com/petco/bindings/tampered@main",
+	} {
+		if res := h.runWithEnv(env, "", "adapters", "add", ref); res.code == 0 {
+			t.Fatalf("add %s should refuse\n%s", ref, res.stderr)
+		}
+	}
+	// An update whose new commit fails verify cleans up too.
+	if res := h.runWithEnv(env, "", "adapters", "add", "github.com/petco/bindings/pets-list@main"); res.code != 0 {
+		t.Fatalf("add exit = %d\n%s", res.code, res.stderr)
+	}
+	w.headSHA = fakeSHA2
+	w.repo["pets-list/fixtures/conformance.json"] = badFixturesJSON
+	w.index["bindings"] = []map[string]any{}
+	if res := h.runWithEnv(env, "", "adapters", "update", "pets/list"); res.code == 0 {
+		t.Fatalf("update to a commit with failing fixtures should refuse\n%s", res.stderr)
+	}
+
+	left, err := filepath.Glob(filepath.Join(tmp, "gtme-adapter-fetch-*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(left) != 0 {
+		t.Errorf("refused add/update left %d fetched dir(s) in TMPDIR: %v", len(left), left)
+	}
+}

@@ -389,10 +389,12 @@ func fetchAndVerify(env Env, ref adapterinstall.Ref) (dir string, b *binding.Bin
 	if err != nil {
 		return "", nil, "", "", fail(ExitNetwork, "%v", err)
 	}
-	ok := false
+	// The error returns below zero the named dir before deferred funcs run,
+	// so the cleanup holds its own copy of the path (#184).
+	fetched, ok := dir, false
 	defer func() {
 		if !ok {
-			os.RemoveAll(dir)
+			os.RemoveAll(fetched)
 		}
 	}()
 	fmt.Fprintf(env.Stderr, "fetched %s at %s\n", ref.String(), shortCommit(commit))
