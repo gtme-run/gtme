@@ -41,10 +41,28 @@ type Entry struct {
 		Ref  string `json:"ref"`
 		SHA  string `json:"sha"`
 	} `json:"source"`
-	SHA256 string `json:"sha256"`
+	SHA256 string `json:"sha256,omitempty"`
 	Tier   string `json:"tier"`
 	Since  string `json:"since,omitempty"`
+	// Kind is "binding" (the default) or "process" (ADR-063).
+	Kind string `json:"kind,omitempty"`
+	// Release and Assets describe a process entry: the tag its archives were
+	// published at, and one checksum-pinned archive per platform.
+	Release string           `json:"release,omitempty"`
+	Assets  map[string]Asset `json:"assets,omitempty"`
 }
+
+// Asset is one platform's archive of a process entry (ADR-063).
+type Asset struct {
+	URL    string `json:"url"`
+	SHA256 string `json:"sha256"`
+}
+
+// KindProcess marks a process entry (ADR-063).
+const KindProcess = "process"
+
+// IsProcess reports whether the entry is a prebuilt process adapter.
+func (e *Entry) IsProcess() bool { return e.Kind == KindProcess }
 
 // Index is the registry's published document.
 type Index struct {
