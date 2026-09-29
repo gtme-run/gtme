@@ -2779,6 +2779,29 @@ implementation, and no DDL, output or exit code changes.
 goroutines and from six processes and asserts every open succeeds and
 each migration is recorded once.
 
+### 2026-09-29 — csv/deliver writes a non-string value as JSON (#164)
+
+**Question:** SPEC §10a fixes csv/deliver's columns but not how a cell
+renders a value that is not a string. The adapter fell back to Go's
+`fmt.Sprint`, so a list arrived as `[HubSpot (Marketing automation)
+Salesforce (CRM)]`, whose items cannot be split back out, an object as
+`map[a:x]`, and a large number as `2.5e+06`. Dry-run and simulate print
+the same values as JSON, so the two disagreed.
+**Choice:** A string is written as-is and a missing value as an empty
+cell, as before. Every other value (list, object, number, boolean) is
+written as compact JSON with HTML escaping off, so `R&D` stays `R&D`.
+A number therefore prints as JSON does (`2500000`, `42`), and a boolean
+as `true` or `false`, which is what it printed before.
+**Why:** JSON is the form the ledger stores values in and the form the
+rest of the CLI prints, and it round-trips: an importer or a person can
+recover the list. The CSV writer already quotes the cell, so the JSON's
+commas and quotes are safe inside it.
+**Spec impact:** None. Cell rendering is an unspecified detail of one
+built-in adapter's output file; no protocol, DDL, CLI output or exit
+code changes. `internal/adapters/csvdeliver/csvdeliver_test.go` covers a
+list, an object, numbers, a boolean, a quoted string and a missing
+value.
+
 ### 2026-09-29 — M36 internals: the receipt from the ledger, crashed sends, settling (ADR-064)
 
 **Question:** How does `gtme runs RUN_ID` stay equal to the live receipt,
