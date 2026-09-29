@@ -22,10 +22,11 @@ import (
 
 // processArchive packs the suite's built instantly adapter the way the
 // release workflow does: manifest.json and run at the archive root.
-func processArchive(t *testing.T) []byte {
+func processArchive(t *testing.T, release string) []byte {
 	t.Helper()
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
+	gz.Comment = release // distinct bytes per release, same members
 	tw := tar.NewWriter(gz)
 	for name, mode := range map[string]int64{"manifest.json": 0o644, "run": 0o755} {
 		body, err := os.ReadFile(filepath.Join(processDir, "instantly-add-to-campaign", name))
@@ -45,8 +46,12 @@ func processArchive(t *testing.T) []byte {
 // processRegistry serves index.json listing instantly as a process entry for
 // the given platforms, and the archive. sum overrides the published checksum.
 func processRegistry(t *testing.T, platforms []string, sum string) *httptest.Server {
+	return processRegistryAt(t, platforms, sum, "v9.9.9")
+}
+
+func processRegistryAt(t *testing.T, platforms []string, sum, release string) *httptest.Server {
 	t.Helper()
-	archive := processArchive(t)
+	archive := processArchive(t, release)
 	if sum == "" {
 		h := sha256.Sum256(archive)
 		sum = hex.EncodeToString(h[:])
@@ -63,9 +68,9 @@ func processRegistry(t *testing.T, platforms []string, sum string) *httptest.Ser
 		"bindings": []map[string]any{{
 			"id": "instantly/add-to-campaign", "kind": "process", "description": "Add a person to an Instantly campaign",
 			"vendor": "Instantly", "role": "deliver", "entity_type": "person", "credentials": []string{"INSTANTLY_API_KEY"},
-			"source":  map[string]any{"url": "github.com/gtme-run/gtme", "path": "cmd/gtme-instantly", "ref": "v9.9.9", "sha": strings.Repeat("a", 40)},
+			"source":  map[string]any{"url": "github.com/gtme-run/gtme", "path": "cmd/gtme-instantly", "ref": release, "sha": strings.Repeat("a", 40)},
 			"tier":    "verified",
-			"release": "v9.9.9",
+			"release": release,
 			"assets":  assets,
 		}},
 	})
@@ -109,6 +114,19 @@ func TestAdaptersAddInstallsAProcessEntry(t *testing.T) {
 		t.Fatalf("update exit = %d\n%s", res.code, res.stderr)
 	}
 	contains(t, res.stderr, "already at release v9.9.9", "update with an unchanged index")
+
+	// A new release in the index moves the pin, and nothing is left beside it.
+	next := processRegistryAt(t, []string{here}, "", "v9.9.10")
+	res = h.runWithEnv([]string{"GTME_REGISTRY=" + next.URL + "/index.json", "GTME_ADAPTER_PATH=" + t.TempDir()}, "", "adapters", "update", "instantly/add-to-campaign")
+	if res.code != 0 {
+		t.Fatalf("update exit = %d\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "release v9.9.9 → v9.9.10", "update moves the release")
+	raw, _ = os.ReadFile(filepath.Join(dest, ".source.json"))
+	contains(t, string(raw), `"release": "v9.9.10"`, ".source.json after update")
+	if left, _ := filepath.Glob(dest + ".*"); len(left) != 0 {
+		t.Errorf("update left %v beside the install", left)
+	}
 
 	// The installed adapter delivers, dedupes on the id, and names the campaign.
 	fake := &fakeInstantly{name: "Q3 VP Marketing"}

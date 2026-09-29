@@ -23,8 +23,12 @@ import (
 )
 
 // ErrChecksum is a process archive whose hash is not the one the index
-// published.
-var ErrChecksum = errors.New("checksum mismatch")
+// published; ErrArchive is one that is not a process archive at all.
+// Both are the release's fault, not the network's, so retrying cannot help.
+var (
+	ErrChecksum = errors.New("checksum mismatch")
+	ErrArchive  = errors.New("not a process adapter archive")
+)
 
 // Platform is this machine's asset key, as §13 writes the targets.
 func Platform() string { return runtime.GOOS + "/" + runtime.GOARCH }
@@ -62,7 +66,7 @@ func FetchProcess(a Asset) (string, error) {
 		return "", fmt.Errorf("adapters: fetching %s: %w", a.URL, err)
 	}
 	if len(raw) > maxArchiveBytes {
-		return "", fmt.Errorf("adapters: %s is larger than %d bytes — not a process adapter archive", a.URL, maxArchiveBytes)
+		return "", fmt.Errorf("adapters: %s is larger than %d bytes: %w", a.URL, maxArchiveBytes, ErrArchive)
 	}
 	sum := sha256.Sum256(raw)
 	if got := hex.EncodeToString(sum[:]); got != a.SHA256 {
@@ -75,7 +79,7 @@ func FetchProcess(a Asset) (string, error) {
 func unpackProcess(raw []byte, name string) (string, error) {
 	gz, err := gzip.NewReader(strings.NewReader(string(raw)))
 	if err != nil {
-		return "", fmt.Errorf("adapters: %s: not a gzip tarball: %w", name, err)
+		return "", fmt.Errorf("adapters: %s: %w (not a gzip tarball: %v)", name, ErrArchive, err)
 	}
 	dir, err := os.MkdirTemp("", "gtme-adapter-process-*")
 	if err != nil {
@@ -95,7 +99,7 @@ func unpackProcess(raw []byte, name string) (string, error) {
 			break
 		}
 		if err != nil {
-			return "", fmt.Errorf("adapters: reading %s: %w", name, err)
+			return "", fmt.Errorf("adapters: reading %s: %w (%v)", name, ErrArchive, err)
 		}
 		if hdr.Typeflag == tar.TypeDir {
 			continue
@@ -103,11 +107,17 @@ func unpackProcess(raw []byte, name string) (string, error) {
 		member := strings.TrimPrefix(hdr.Name, "./")
 		mode, allowed := processFiles[member]
 		if !allowed || hdr.Typeflag != tar.TypeReg {
-			return "", fmt.Errorf("adapters: %s: unexpected member %q — a process archive holds manifest.json and run only", name, hdr.Name)
+			return "", fmt.Errorf("adapters: %s: unexpected member %q, a process archive holds manifest.json and run only: %w", name, hdr.Name, ErrArchive)
 		}
-		body, err := io.ReadAll(io.LimitReader(tr, maxArchiveBytes))
+		if seen[member] {
+			return "", fmt.Errorf("adapters: %s: %s appears twice: %w", name, member, ErrArchive)
+		}
+		body, err := io.ReadAll(io.LimitReader(tr, maxArchiveBytes+1))
 		if err != nil {
 			return "", err
+		}
+		if len(body) > maxArchiveBytes {
+			return "", fmt.Errorf("adapters: %s: %s is larger than %d bytes: %w", name, member, maxArchiveBytes, ErrArchive)
 		}
 		if err := os.WriteFile(filepath.Join(dir, member), body, mode); err != nil {
 			return "", err
@@ -116,7 +126,7 @@ func unpackProcess(raw []byte, name string) (string, error) {
 	}
 	for member := range processFiles {
 		if !seen[member] {
-			return "", fmt.Errorf("adapters: %s: no %s in the archive", name, member)
+			return "", fmt.Errorf("adapters: %s: no %s in the archive: %w", name, member, ErrArchive)
 		}
 	}
 	ok = true
