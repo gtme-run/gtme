@@ -912,7 +912,52 @@ const (
 	// DeliveryUnconfirmed is a send that may have reached the target before a
 	// crash (ADR-060): held, never sent again but by --resend-unconfirmed.
 	DeliveryUnconfirmed = "unconfirmed"
+	// DeliverySettled is a held delivery the operator checked and found at
+	// the target (ADR-064): delivered, never sent again, and the operator's
+	// word — not the provider's confirmed.
+	DeliverySettled = "settled"
 )
+
+// HeldDelivery is one of a run's unconfirmed deliveries (ADR-060).
+type HeldDelivery struct {
+	IdentityID  string
+	IdentityKey string
+	Target      string
+	Scope       string
+	Idempotency string
+}
+
+// HeldByRun lists the deliveries a run holds unconfirmed, by identity key.
+func (l *Ledger) HeldByRun(ctx context.Context, runID string) ([]HeldDelivery, error) {
+	rows, err := l.db.QueryContext(ctx,
+		`SELECT d.identity_id, i.identity_key, d.target, d.scope, d.idempotency
+		 FROM deliveries d JOIN identities i ON i.id = d.identity_id
+		 WHERE d.run_id = ? AND d.status = ? ORDER BY i.identity_key`, runID, DeliveryUnconfirmed)
+	if err != nil {
+		return nil, fmt.Errorf("ledger: reading held deliveries: %w", err)
+	}
+	defer rows.Close()
+	var out []HeldDelivery
+	for rows.Next() {
+		var h HeldDelivery
+		if err := rows.Scan(&h.IdentityID, &h.IdentityKey, &h.Target, &h.Scope, &h.Idempotency); err != nil {
+			return nil, err
+		}
+		out = append(out, h)
+	}
+	return out, rows.Err()
+}
+
+// SettleDelivery marks a held delivery settled (ADR-064): the operator found
+// it at the target. Only an unconfirmed row changes.
+func (l *Ledger) SettleDelivery(ctx context.Context, target, scope, idempotency string) error {
+	if _, err := l.db.ExecContext(ctx,
+		`UPDATE deliveries SET status = ? WHERE target = ? AND scope = ? AND idempotency = ? AND status = ?`,
+		DeliverySettled, target, scope, idempotency, DeliveryUnconfirmed); err != nil {
+		return fmt.Errorf("ledger: settling delivery: %w", err)
+	}
+	return nil
+}
 
 // Delivery is one deliveries row, as gtme show reports it.
 type Delivery struct {

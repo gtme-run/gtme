@@ -183,7 +183,7 @@ func printReceipt(ctx context.Context, env Env, l *ledger.Ledger, run ledger.Run
 	}
 	sort.Strings(targets)
 	for _, t := range targets {
-		fmt.Fprintf(env.Stderr, "held:     %d unconfirmed at %s — may have reached it before the run stopped; check the target, then: %s --resend-unconfirmed\n",
+		fmt.Fprintf(env.Stderr, "held:     %d unconfirmed at %s — may have reached it before the run stopped; check the target, then: %s --resend-unconfirmed, or --settle-unconfirmed for the ones it already has\n",
 			held[t], t, resumeCommand(run))
 	}
 	if interrupted {

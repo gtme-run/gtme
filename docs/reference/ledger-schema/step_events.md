@@ -50,7 +50,7 @@ CREATE TABLE step_events (
   run_id      TEXT NOT NULL,
   step_id     TEXT NOT NULL,
   identity_id TEXT,                       -- null for step-level events
-  event       TEXT NOT NULL,              -- claimed|done|failed|skipped_cache|pending|collected (ADR-038)|answered (ADR-049: a participant's answer awaiting collection)
+  event       TEXT NOT NULL,              -- claimed|dispatched (ADR-060: a deliver's send is about to leave)|done|failed|skipped_cache|gated (ADR-064: held back by when: or a membership gate)|settled (ADR-064: a held delivery the operator found at the target)|pending|collected (ADR-038)|answered (ADR-049: a participant's answer awaiting collection)
   detail      TEXT,                       -- JSON
   created_at  TEXT NOT NULL
 );

@@ -205,6 +205,7 @@ func PrintReceipt(w io.Writer, res *Result) {
 				fmt.Fprintf(w, "  %s\n", k)
 			}
 			fmt.Fprintf(w, "Check the target, then: gtme run %s --resume %s --resend-unconfirmed\n", pipelineArg(res), run)
+			fmt.Fprintln(w, "(or --settle-unconfirmed for the ones it already has; either takes =KEY,… to name some)")
 		}
 	}
 	// Attestation (SPEC §8, ADR-036): accepted is never sent; an attesting

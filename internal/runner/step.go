@@ -485,7 +485,7 @@ func (r *runner) prepare(ctx context.Context, st *planner.Step, identityID, toke
 		if delivered && prior.Status == ledger.DeliveryUnconfirmed {
 			// Only --resend-unconfirmed on the run that held it sends it;
 			// every other run skips it, whatever redeliver: says.
-			if !r.resend || prior.RunID != r.runID {
+			if !r.resend || prior.RunID != r.runID || (r.resendKeys != nil && !r.resendKeys[it.key.IdentityKey]) {
 				r.bump(st, func(s *StepStat) {
 					s.Unconfirmed = append(s.Unconfirmed, HeldRecord{IdentityKey: it.key.IdentityKey, RunID: prior.RunID})
 				})
