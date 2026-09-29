@@ -2749,6 +2749,36 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-29 — Concurrent first opens of a new ledger are serialized by SQLite (#153)
+
+**Question:** Two processes opening a ledger file that does not exist yet
+raced the migrations. Each read `schema_migrations` before its own
+migration transaction, so both saw nothing applied and the second failed
+with `table ... already exists`. Separately, the first connection's
+`journal_mode(WAL)` switch on a new file needs an exclusive lock, and
+SQLite reports `SQLITE_BUSY` for it without consulting `busy_timeout`, so
+the other process failed at open with `database is locked`.
+**Choice:** Each migration's transaction (already `BEGIN IMMEDIATE`, via
+`_txlock=immediate`) re-reads `schema_migrations` for its own name and
+skips a migration another process recorded while it waited for the write
+lock. The earlier read of the table stays as a fast path only. `Open`
+retries the first ping while SQLite reports the database locked, with a
+short capped backoff for up to 10 seconds, the same bound as
+`busy_timeout`. The creation of `schema_migrations` itself runs in a
+transaction too, so it waits on the same lock.
+**Why:** SQLite's write lock already serializes writers across processes,
+so it serializes migration without a second lock file beside the ledger.
+A new file would be something a second implementation sharing the
+ledger directory would have to know about; the write lock is not. The
+migration files stay as written (no `IF NOT EXISTS` rewrite), because
+the recorded name, checked under the lock, is what makes a migration
+idempotent.
+**Spec impact:** None. SPEC §0 (principle 10) leaves concurrency strategy to the
+implementation, and no DDL, output or exit code changes.
+`internal/ledger/open_race_test.go` opens one fresh path from eight
+goroutines and from six processes and asserts every open succeeds and
+each migration is recorded once.
+
 ### 2026-09-29 — M36 internals: the receipt from the ledger, crashed sends, settling (ADR-064)
 
 **Question:** How does `gtme runs RUN_ID` stay equal to the live receipt,

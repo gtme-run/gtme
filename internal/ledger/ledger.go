@@ -81,7 +81,7 @@ func Open(ctx context.Context, path string) (*Ledger, error) {
 	// A single writer avoids SQLITE_BUSY between pooled connections; readers are
 	// cheap enough that one connection is fine at v0 concurrency.
 	db.SetMaxOpenConns(1)
-	if err := db.PingContext(ctx); err != nil {
+	if err := pingWhileBusy(ctx, db); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("ledger: opening %s: %w", path, err)
 	}
@@ -92,6 +92,30 @@ func Open(ctx context.Context, path string) (*Ledger, error) {
 		return nil, err
 	}
 	return l, nil
+}
+
+// pingWhileBusy opens the first connection, waiting out a lock held by
+// another process. Switching a new file to WAL (the journal_mode pragma in
+// the DSN) needs an exclusive lock and SQLite reports SQLITE_BUSY for it
+// without consulting busy_timeout, so two processes creating the same ledger
+// at once would otherwise see "database is locked" (issue #153).
+func pingWhileBusy(ctx context.Context, db *sql.DB) error {
+	deadline := time.Now().Add(10 * time.Second)
+	for attempt := 0; ; attempt++ {
+		err := db.PingContext(ctx)
+		if err == nil || !isLocked(err) || time.Now().After(deadline) {
+			return err
+		}
+		wait := time.Duration(attempt+1) * 10 * time.Millisecond
+		if wait > 200*time.Millisecond {
+			wait = 200 * time.Millisecond
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(wait):
+		}
+	}
 }
 
 // Close releases the database handle.
