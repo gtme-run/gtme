@@ -8,7 +8,7 @@ learn:
   - "how a company is keyed, tier by tier"
   - "which fields mint a relation to another type"
 roles: [builder, extender, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
@@ -19,9 +19,12 @@ links:
   - to: /concepts/facts
     type: relates-to
     description: "Defines fact"
+  - to: /concepts/pipeline
+    type: relates-to
+    description: "Defines step"
   - to: /concepts/types-and-traverse
     type: relates-to
-    description: "Defines subject and type"
+    description: "Defines leg, relation, subject, traverse, and type"
 ---
 
 # company
@@ -74,3 +77,7 @@ As the type file states it:
 | `company_linkedin_url` | https://www.linkedin.com/company/acme-corp |
 | `company_employees` | 120 |
 | `company_industry` | Computer Software |
+
+## Used in
+
+- [Traverse a relation](/guides/traverse): The fields a step on the company leg can read

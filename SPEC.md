@@ -2027,8 +2027,9 @@ what it does (ROADMAP.md).
    `variables:` targets), that every `variables:` target appears as
    `{{name}}` in some step body, and that no A/B variant lacks one.
 7. **`mock-enrich-py`** (external, Python 3 stdlib only) — reads protocol
-   from stdin, adds field `mock_score` (random but seeded from identity
-   key), emits COST 0. Proves the external adapter path.
+   from stdin, adds fields `mock.score` (derived deterministically from the
+   identity key) and `mock.note`, emits COST 0. Proves the external adapter
+   path.
 (Item 8, `webhook/source`, was specified here from ADR-009 and never
 built; ADR-055 defers it to ROADMAP.md. The event recipe is in §8.)
 9. **`demo/enrich`** (enrich, person; ADR-056; built in M29) — the priced,
@@ -2181,7 +2182,7 @@ signature (§7, ADR-039) in the form `ai/compose @ <model-id>#<signature>`
 (e.g. `ai/compose @ claude-sonnet-4-6#1a2b3c4d5e6f`), so two prompts'
 outputs are distinguishable in provenance, and COST attributes spend per
 model. A `human/*` or `agent/*` step (ADR-049) takes the same form with
-the participant in the model's place — `human/review @ trevor#<sig>`,
+the participant in the model's place — `human/review @ <participant>#<sig>`,
 `agent/filter @ claude-code#<sig>` — the signature over the step
 declaration alone (adapter id, `template:`/`render.fields`, the declared
 outputs, `uses:`, `of:`), never the name: the cache is checked at
@@ -3028,6 +3029,15 @@ no reconstruction required from raw table scans.
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.54 — 2026-09-28 (issue #171: mock-enrich-py's field names)
+**Fixed:** §10 item 7 and the golden transcript `spec/wire/basic-run.ndjson`
+still named `mock-enrich-py`'s fields `mock_score`/`mock_note`. The adapter
+has emitted the namespaced `mock.score`/`mock.note` since M7 (DECISIONS.md,
+2026-08-15, "M7 internals": renamed under §4a's namespacing rule), so both
+now say so; the transcript's enrich half was re-recorded by piping its
+recorded runner lines into `adapters/mock-enrich-py/run`, and only the field
+names changed. No behaviour changed.
 
 ### v0.53 — 2026-09-27 (M33 build: vendors leave the binary, built)
 **Changed:** §11 M33 marked built; no normative text changed — v0.51's
