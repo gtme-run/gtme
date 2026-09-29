@@ -293,11 +293,29 @@ func (e *Engine) payloadFor(w *protocol.Writer, cfg map[string]any, doc any) *pr
 
 // deliverRecord performs the per-record delivery request and acknowledges it.
 func (e *Engine) deliverRecord(ctx context.Context, w *protocol.Writer, p adapters.Ports, doer httpx.Doer, cfg map[string]any, session string, key protocol.Key, in map[string]any) error {
+	idemKey, _ := in[IdempotencyKeyField].(string)
+	if _, ok := in[IdempotencyKeyField]; ok {
+		rest := make(map[string]any, len(in))
+		for k, v := range in {
+			if k != IdempotencyKeyField {
+				rest[k] = v
+			}
+		}
+		in = rest
+	}
 	tctx := tmplContext{Config: cfg, Record: in, Session: session,
 		Variables: resolveVariables(cfg, in)}
 	req, err := e.buildRequest(tctx, p, 0, 0, "", 0)
 	if err != nil {
 		return err
+	}
+	// The delivery's Idempotency-Key (SPEC §10a, ADR-060), unless the
+	// config set that header itself.
+	if idemKey != "" && e.B.ID == HTTPDeliverID && !hasHeader(req.Headers, "Idempotency-Key") {
+		if req.Headers == nil {
+			req.Headers = map[string]string{}
+		}
+		req.Headers["Idempotency-Key"] = idemKey
 	}
 	if err := e.do(ctx, doer, req, nil); err != nil {
 		return e.mapError(w, &key, err)
@@ -773,4 +791,14 @@ func eachLimit(limit any, cfg map[string]any) int {
 		}
 	}
 	return 0
+}
+
+// hasHeader reports a header set under any capitalization.
+func hasHeader(h map[string]string, name string) bool {
+	for k := range h {
+		if strings.EqualFold(k, name) {
+			return true
+		}
+	}
+	return false
 }

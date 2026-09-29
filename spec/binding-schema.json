@@ -16,7 +16,7 @@
     "id": {
       "type": "string",
       "minLength": 1,
-      "description": "Adapter id, e.g. 'attio/assert'. Named by the contract owner (ADR-026). The id's vendor prefix is the COST provider name."
+      "description": "Adapter id, such as 'attio/assert'. Named by the contract owner (ADR-026). The id's vendor prefix is the COST provider name."
     },
     "version": {
       "type": "integer",
@@ -126,7 +126,7 @@
         },
         "prefix": {
           "type": "string",
-          "description": "Optional literal prefix for the value, e.g. 'Bearer '."
+          "description": "Optional literal prefix for the value, such as 'Bearer '."
         }
       }
     },
@@ -200,7 +200,7 @@
           "description": "Dotted path to the next cursor in the response (cursor strategy)."
         },
         "page_size": {
-          "description": "Records per page: an integer or a template (e.g. '{{config.per_page}}').",
+          "description": "Records per page: an integer or a template (such as '{{config.per_page}}').",
           "anyOf": [
             {
               "type": "integer",
@@ -295,11 +295,11 @@
                   "absent": {
                     "type": "array",
                     "items": {},
-                    "description": "Sentinel values the vendor uses to mean 'no value' (e.g. a locked-email placeholder, 0 for an unknown count); matched exactly, treated as absent."
+                    "description": "Sentinel values the vendor uses to mean 'no value' (such as a locked-email placeholder, or 0 for an unknown count); matched exactly, treated as absent."
                   },
                   "skip_if_input": {
                     "type": "boolean",
-                    "description": "Omit this output field when the projected input already carried a non-empty value for it (e.g. only emit a resolved public linkedin_url when the record arrived without one)."
+                    "description": "Omit this output field when the projected input already carried a non-empty value for it (for example, only emit a resolved public linkedin_url when the record arrived without one)."
                   },
                   "each": {
                     "type": "string",
@@ -352,11 +352,11 @@
         "native",
         "ledger"
       ],
-      "description": "Which party guarantees delivery dedupe: the vendor's own semantics (native, e.g. an assert/upsert endpoint) or the runner's deliveries table (ledger). Required for role: deliver."
+      "description": "Which party guarantees delivery dedupe: the vendor's own semantics (native, such as an assert/upsert endpoint) or the runner's deliveries table (ledger). Required for role: deliver."
     },
     "idempotency_scope": {
       "type": "string",
-      "description": "Deliver bindings (ADR-044): config key whose resolved value scopes deliveries rows (SPEC §8). Optional."
+      "description": "Deliver bindings (ADR-044): config key whose resolved value scopes deliveries rows (SPEC §8). Optional. The key MUST hold a stable identifier of the destination (an id, an API slug, a file path, a URL), never a display name its owner can change (ADR-062); where the identifier has a shape, constrain the key to it in config_schema so a name is a plan error."
     },
     "cost": {
       "type": "object",
@@ -370,7 +370,7 @@
           ]
         },
         "amount_usd": {
-          "description": "Dollars per unit of `per`: a number, or a template resolved from config (e.g. '{{config.cost_per_record_usd}}') for vendors whose price is plan-dependent (ADR-046). Declare the knob in config_schema. An unresolved template costs $0 at run time and `gtme plan` prints `est/record: unset`. A page-billed endpoint declares `per: request` — `per: record` counts emitted records, and a `limit` truncates emission after the vendor has billed the page.",
+          "description": "Dollars per unit of `per`: a number, or a template resolved from config (such as '{{config.cost_per_record_usd}}') for vendors whose price is plan-dependent (ADR-046). Declare the knob in config_schema. An unresolved template costs $0 at run time and `gtme plan` prints `est/record: unset`. A page-billed endpoint declares `per: request` — `per: record` counts emitted records, and a `limit` truncates emission after the vendor has billed the page.",
           "anyOf": [
             {
               "type": "number",
@@ -409,7 +409,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Hourly send/fetch windows, e.g. '09:00-17:00'."
+          "description": "Hourly send/fetch windows, such as '09:00-17:00'."
         }
       }
     },

@@ -47,8 +47,12 @@ func cmdAdapters(ctx context.Context, env Env, args []string) error {
 		if len(rest) != 1 {
 			return fail(ExitValidation, "usage: gtme adapters verify ID")
 		}
-		dir, err := installedBindingDir(rest[0])
+		dir, process, err := installedAdapterDir(rest[0])
 		if err != nil {
+			return err
+		}
+		if process {
+			_, err = verifyProcessDir(env, dir, rest[0])
 			return err
 		}
 		_, err = verifyBindingDir(env, dir)
@@ -81,17 +85,22 @@ func installDir() (string, error) {
 	return filepath.Join(home, ".gtme", "adapters"), nil
 }
 
-// installedBindingDir finds an installed binding by id on the §6 search path.
-func installedBindingDir(id string) (string, error) {
+// installedAdapterDir finds an installed adapter by id on the §6 search
+// path: a binding directory, or a process adapter's manifest.json + run
+// (ADR-063), which process reports.
+func installedAdapterDir(id string) (dir string, process bool, err error) {
 	for _, root := range adapters.SearchPath() {
 		for _, name := range []string{filepath.FromSlash(id), strings.ReplaceAll(id, "/", "-")} {
 			dir := filepath.Join(root, name)
 			if _, err := os.Stat(filepath.Join(dir, "binding.yaml")); err == nil {
-				return dir, nil
+				return dir, false, nil
+			}
+			if _, err := os.Stat(filepath.Join(dir, "manifest.json")); err == nil {
+				return dir, true, nil
 			}
 		}
 	}
-	return "", fail(ExitValidation, "adapters: %q is not an installed binding (searched %s)",
+	return "", false, fail(ExitValidation, "adapters: %q is not an installed adapter (searched %s)",
 		id, strings.Join(adapters.SearchPath(), ", "))
 }
 
@@ -137,6 +146,8 @@ func adaptersList(env Env) error {
 			}
 			if src == nil {
 				r.source = "installed by hand"
+			} else if src.Kind == adapterinstall.KindProcess {
+				r.source = fmt.Sprintf("release %s, built from %s/%s (%s)", src.Release, src.URL, src.Path, shortCommit(src.Commit))
 			} else {
 				r.source = fmt.Sprintf("%s/%s@%s (%s)", src.URL, src.Path, refOrHead(src.Ref), shortCommit(src.Commit))
 			}
@@ -172,6 +183,10 @@ func adaptersSearch(env Env, q string) error {
 	fmt.Fprintln(tw, "ID\tROLE\tTIER\tINSTALL\tDESCRIPTION")
 	for _, e := range hits {
 		install := fmt.Sprintf("gtme adapters add %s/%s@%s", e.Source.URL, e.Source.Path, refOrHead(e.Source.Ref))
+		if e.IsProcess() {
+			// A process entry installs by id, from its asset (ADR-063).
+			install = "gtme adapters add " + e.ID
+		}
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", e.ID, e.Role, e.Tier, install, truncate(e.Description, 60))
 	}
 	return tw.Flush()
@@ -187,10 +202,7 @@ func adaptersAddAll(env Env, args []string) error {
 		n     int
 	)
 	for _, arg := range args {
-		ref, err := resolveAddRef(arg, &ix)
-		if err == nil {
-			err = adaptersAdd(env, ref)
-		}
+		err := addOne(env, arg, &ix)
 		if err == nil {
 			continue
 		}
@@ -213,6 +225,43 @@ func adaptersAddAll(env Env, args []string) error {
 	return fail(code, "adapters: %d of %d not installed (each reported above); the rest installed", n, len(args))
 }
 
+// addOne installs one `add` argument: a registry process entry (ADR-063)
+// from its asset, anything else as a binding from its reference.
+func addOne(env Env, arg string, ix **adapterinstall.Index) error {
+	if bareIDRE.MatchString(arg) {
+		e, err := findEntry(arg, ix)
+		if err != nil {
+			return err
+		}
+		if e.IsProcess() {
+			return adaptersAddProcess(env, e)
+		}
+	}
+	ref, err := resolveAddRef(arg, ix)
+	if err != nil {
+		return err
+	}
+	return adaptersAdd(env, ref)
+}
+
+// findEntry reads the index once and returns the entry for a bare id.
+func findEntry(id string, ix **adapterinstall.Index) (*adapterinstall.Entry, error) {
+	if *ix == nil {
+		loaded, err := adapterinstall.LoadIndex()
+		if err != nil {
+			return nil, fail(ExitNetwork, "%v", err)
+		}
+		*ix = loaded
+	}
+	e := (*ix).Find(id)
+	if e == nil {
+		return nil, fail(ExitValidation,
+			"adapters: %s is not in the registry index (%s) — `gtme adapters search <text>` lists what is, and `gtme help --bindings` shows how to write one",
+			id, adapterinstall.RegistryURL())
+	}
+	return e, nil
+}
+
 // bareIDRE is a registry id as `use:` writes it — vendor/name, no host.
 var bareIDRE = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*(/[a-z0-9][a-z0-9_-]*)+$`)
 
@@ -228,18 +277,9 @@ func resolveAddRef(arg string, ix **adapterinstall.Index) (adapterinstall.Ref, e
 		}
 		return ref, nil
 	}
-	if *ix == nil {
-		loaded, err := adapterinstall.LoadIndex()
-		if err != nil {
-			return adapterinstall.Ref{}, fail(ExitNetwork, "%v", err)
-		}
-		*ix = loaded
-	}
-	e := (*ix).Find(arg)
-	if e == nil {
-		return adapterinstall.Ref{}, fail(ExitValidation,
-			"adapters: %s is not in the registry index (%s) — `gtme adapters search <text>` lists what is, and `gtme help --bindings` shows how to write one",
-			arg, adapterinstall.RegistryURL())
+	e, err := findEntry(arg, ix)
+	if err != nil {
+		return adapterinstall.Ref{}, err
 	}
 	owner, repo, ok := splitRepoURL(e.Source.URL)
 	if !ok {
@@ -281,9 +321,12 @@ func adaptersAdd(env Env, ref adapterinstall.Ref) error {
 }
 
 func adaptersUpdate(env Env, id, newRef string) error {
-	dir, err := installedBindingDir(id)
+	dir, process, err := installedAdapterDir(id)
 	if err != nil {
 		return err
+	}
+	if process {
+		return adaptersUpdateProcess(env, id, dir, newRef)
 	}
 	src, err := adapterinstall.ReadSource(dir)
 	if err != nil {
@@ -676,7 +719,13 @@ func installTree(src, dest string) error {
 		if err != nil {
 			return err
 		}
-		return os.WriteFile(target, body, 0o644)
+		// A process adapter's run stays executable (ADR-063); everything
+		// else is data.
+		mode := os.FileMode(0o644)
+		if info, err := d.Info(); err == nil && info.Mode()&0o111 != 0 {
+			mode = 0o755
+		}
+		return os.WriteFile(target, body, mode)
 	})
 }
 

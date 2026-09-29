@@ -2561,7 +2561,9 @@ manifest surface already).
 
 ### ADR-044: Delivery dedupe scopes to the campaign, not the adapter
 **Status:** Accepted (2026-08-31 — from Campaign 1 story 5, VALIDATION.md
-2026-08-30 and AUDIT.md (b) item 5; human-approved 2026-08-31)
+2026-08-30 and AUDIT.md (b) item 5; human-approved 2026-08-31. Instantly's
+name scope in (2) and the backstop wording in (3) amended 2026-09-29 by
+ADR-062: a scope is the destination's stable identifier)
 **Context:** `deliveries` dedupes on UNIQUE(target, idempotency) with
 `target` = the adapter id, so a record delivered to campaign A is
 silently cache-skipped when a later pipeline delivers to campaign B
@@ -2746,6 +2748,293 @@ that shift is a stated property of the design, not a side effect.
 §10a (cost declaration + `per: request` guidance); §11 milestone M23.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
+
+### 2026-09-29 — M36 internals: the receipt from the ledger, crashed sends, settling (ADR-064)
+
+**Question:** How does `gtme runs RUN_ID` stay equal to the live receipt,
+how is "net across sessions" computed, what does an old run print, and
+how do the two held-delivery flags combine?
+**Choice:** (1) **One renderer.** The receipt's table and its total line
+are `PrintTable` and `TotalLine`, and both the live receipt and `gtme
+runs RUN_ID` call them, so the columns cannot drift. The ledger side
+rebuilds `StepStat` rows (`LedgerSteps`) and hands them over. (2) **Net
+means latest.** For each step, a record's column is its latest event
+carrying `detail.outcome` in the run, across every session; `in` is the
+records with any event at that step, leaving out a traverse's child
+events, which belong to the next segment. A reused filter judgment that
+failed carries `pass: false` and counts in both `cached` and `filtered`,
+as the live line does. The source row's `out` is the source's own
+`done` count. An unfinished run lists steps up to the last one the
+ledger saw, as the live receipt omits steps that never ran. (3) **Old
+runs are inferred.** Events without `outcome` are read by event,
+verdict and reason, the way the receipt read them; a step with a gate
+prints `in` as `N+?` with a note, and a cache skip's avoided is `?`.
+(4) **Unanswered excludes held.** The interrupted run's count leaves out
+dispatched sends that already have a `deliveries` row under that run,
+so a record shows once, as unanswered or as `held:`. (5) **Two flags,
+one record each.** A key list is checked before the run is reopened, so
+a refusal writes nothing. With both flags, a flag without a list takes
+what the other did not name; both without lists refuse. SPEC says a flag
+without a list applies to every held record and that a key named by both
+is an error; read literally, `--settle-unconfirmed=K1
+--resend-unconfirmed` would always refuse, which defeats the case the
+ADR names (settle three, resend one). (6) **Flags parse as optional
+lists.** `--flag` and `--flag=K1,K2` both work (a bool-style flag value).
+**Why:** equality by construction is cheaper to keep than equality by
+test, and the rest follows the ADR's "each record once, by its latest
+outcome."
+**Spec impact:** None beyond ADR-064's reconciliation (v0.58); v0.60
+records the behavioural notes.
+
+### 2026-09-29 — A runner-side error stops a step's dispatch; an adapter crash does not
+
+**Question:** Since #79, a worker keeps draining the step's queue after a
+chunk fails, which is right when the adapter crashed (the next session
+may succeed) and is what stopped the pool from hanging (#77). But a chunk
+also fails when the runner or the ledger does: a ledger write refused, a
+session that cannot open. Draining then dispatched, and for a paid step
+billed, every remaining chunk with nothing recordable (#82).
+**Choice:** The two kinds are told apart by type. `chunkFailed`, the one
+path for a session that died or broke protocol, returns a
+`sessionCrash`; the pool keeps draining on it as before. Any other error
+closes a stop channel: the dispatcher sends no further chunk, the chunks
+already in a session finish (they are not cancelled, since their work is
+under way and often paid for), and the step returns the first error. The
+undispatched records stay at the previous state, so `--resume` picks them
+up once the cause is fixed. The issue suggested cancelling a derived
+context instead; that would also kill the sessions in flight and throw
+away answers already paid for.
+**Why:** a failure the runner cannot record is a reason to stop spending,
+and an adapter's failure is not; the error's type is where that
+difference already lives.
+**Spec impact:** None. The e2e test provokes the runner-side failure with
+an adapter that adds a SQLite trigger refusing its own field's writes.
+
+### 2026-09-29 — M35 internals: destinations and Instantly's move (ADR-062, ADR-063)
+
+**Question:** How does an already-delivered skip leave the cached count
+without changing the event vocabulary, how does migration `0015` treat
+ADR-060's in-flight events, what does a plan error say for a campaign
+name, and what exactly does `gtme adapters add` accept for a process
+entry?
+**Choice:** (1) **Already delivered is a count bucket, not an event.**
+The skip stays `skipped_cache` with reason `already_delivered` or
+`unchanged`. The runner counts those reasons in `StepStat.AlreadyDelivered`
+(one predicate, `ledger.AlreadyDeliveredReason`), outside `CacheSkips`
+and the avoided total, and `StepEventCounts` buckets them the same way
+for `gtme runs RUN_ID`. A `group/deliver` handoff to a group that already
+holds the record uses the same reason, so it counts the same. The step
+line ends `N already delivered`, and both receipts print `STEP: N already
+delivered` under their table. (2) **Migration `0015` also backfills
+ADR-060's `dispatched` events.** Their detail carries the delivery's
+scope, and a later run matches on it to hold what a dead run left in
+flight, so an event written before the upgrade with scope `''` would
+never match again. An event names its step, so the url is exact, unlike
+a `deliveries` row, which keeps ADR-062's exactly-one-step rule. (3)
+**A config value that fails its property's `pattern` is refused with the
+property's description**, the way `refusedConfig` already names a
+dropped key, so a campaign name reads `config campaign "Q3 VP Marketing"
+is not accepted: The campaign's id, a lowercase UUID (in the campaign's
+URL in Instantly), never its name…` instead of a jsonschema pattern
+dump. The rule is generic: any manifest that constrains a key's shape
+gets the same message. (4) **The campaign id is lowercase only.**
+Instantly shows and returns lowercase ids, and one spelling per
+destination keeps the scope from forking on case. (5) **The destination
+rides PREFLIGHT and the preflight event.** The runner prints it on the
+live preflight line and on the receipt's, and stores it in the
+`preflight` step event's detail. When the campaign cannot be read, the
+adapter still names `campaign <id>`. (6) **`cmd/gtme-instantly` is the
+existing package run as a process.** It exits with the httpx error
+class's code (auth 3, rate limit 4), and `--manifest` prints the
+compiled-in manifest, from which the release writes `manifest.json`, so
+the pair cannot drift. The e2e harness builds it into a directory on
+`GTME_ADAPTER_PATH` the same way. (7) **A process archive holds exactly
+`manifest.json` and `run` at its root.** Any other member is refused, as
+is an archive over 128 MiB, a checksum mismatch, a manifest whose id is
+not the entry's, a `run` that is not executable, and a `demo/` id. A
+malformed archive exits 2 like a checksum mismatch, never as a network
+error an agent would retry. The install keeps `run` executable and is
+staged beside its destination, then renamed into place, so a failed add or
+update never leaves a half-written adapter; `.source.json` gains `kind`,
+`asset` and `release`, and its `sha256` is the archive's. The release
+builds with `CGO_ENABLED=0`, which §2 already required and the native
+linux/amd64 build did not enforce. (8) **`update` of a process
+entry moves to the release the index lists**, and refuses an `@ref`,
+because a process entry has no ref of its own to fetch. `search` prints
+`gtme adapters add <id>` for a process entry, and `gtme adapters` names
+its release. (9) **The index schema requires `sha256` only of a binding**
+and forbids `assets` and `release` on one; a process entry requires both
+and `tier: verified`. (10) **The generated adapter catalog drops
+Instantly's page**, since `docs/reference/adapters/` covers built-ins
+only, as it did for the entries M33 moved.
+**Why:** each keeps one account of a fact: one predicate for "already
+delivered", one scope per destination on every row and event that keys
+on it, one manifest per adapter build.
+**Spec impact:** None beyond ADR-062/063's reconciliation (v0.56). The
+receipt's `STEP: N already delivered` line under the table restates the
+step line's count. Still to do after this merges: the `gtme-bindings`
+index gains the Instantly process entry once a gtme release carries the
+archives (until then `gtme adapters add instantly/add-to-campaign`
+finds nothing), the site's catalog relabels Instantly, and the first live
+run of the installed adapter against a shell campaign is recorded in
+VALIDATION.md by hand.
+
+### 2026-09-29 — M34 internals: crash and resume (ADR-060, ADR-061)
+
+**Question:** How are the records a crash left in flight found and held,
+how does the key reach `http/deliver`, where does the lock live, what
+does `gtme runs` touch, and what happens when the receipt's own release
+command meets the `done` refusal?
+**Choice:** (1) **The held set is read once per deliver step, across runs.**
+A `dispatched` event's detail carries the delivery's target, scope,
+idempotency key and variables hash. At step start (armed runs only) the
+runner reads every `dispatched` event to the step's target and scope
+with no later `done` or `failed` at its run and step, skips those of a
+run whose process is alive (in flight, not crashed), and writes an
+`unconfirmed` row for the rest under the run that sent them. The
+ordinary pre-send check then skips them. Reading across runs matters:
+the first cut read only the current run's events, so a plain `gtme run`
+after a `kill -9` sent the dead run's in-flight records again (found by
+re-running the recover guide). A held record gets no step event and keeps its
+state, so it is the step's non-terminal remainder, counted `N
+unconfirmed` and never as cached. The pre-send check releases a held
+row only under `--resend-unconfirmed` on the run that held it; any other
+run, whatever its `redeliver:`, counts it held and names that run in
+the release command. (2) **An interrupted deliver session holds instead
+of failing.** When the session dies and the run's context was cancelled,
+its unanswered records get `unconfirmed` rows rather than `failed`
+events; a session that dies on its own still fails them, since the
+adapter's exit is its answer. (3) **Claimed and dispatched are
+committed before the session opens**, for every step (only deliver
+steps log `dispatched`), and a deliver step's chunk size is 1. (4)
+**The key rides a reserved record field.** For `http/deliver` only, the
+runner adds `$idempotency_key` to the record; the engine removes it
+before building the template context and sets `Idempotency-Key` unless
+the config set that header under any capitalization. The key is computed
+from `deliveryScope`, so a scope change reaches it with no further code.
+(5) **The lock is `flock` on `locks/<run_id>.lock` beside the ledger.**
+Creating a run locks right after the insert; resuming locks before
+`ReopenRun`, so a refused resume writes nothing. A refusal is retried
+four times at 50 ms, because a `gtme runs` probe holds a shared lock
+for an instant. The probe opens the file read-only and treats a missing
+file as free, so `gtme runs` creates nothing. A run that finishes removes
+its lock file before unlocking it, so `locks/` holds files only for runs
+whose process died; a process that locked the file just as it was
+removed sees the path no longer names what it locked and starts over. (6) **A `done` run with
+held deliveries can be resumed for their release.** ADR-061 refused
+every resume of a `done` run, while ADR-060's receipt prints `--resume
+RUN_ID --resend-unconfirmed` for exactly such a run. The release is
+allowed, and without the flag the refusal says how to release; SPEC §8
+gained the clause (v0.57). (7) **The resume command `gtme runs` prints
+names `<pipeline>.yaml`**, since the ledger does not record the file;
+the live receipt and the plain-run notice use the file the operator ran.
+**Why:** each keeps the ledger's account exact with the fewest moving
+parts: one read per step, one row per held record, one lock file per
+run, and nothing written by a read verb.
+**Spec impact:** None beyond ADR-060/061's reconciliation (v0.55) and
+the §8 clause in (6) (v0.57), which resolves the two ADRs' disagreement
+in the direction the receipt already promised.
+
+### 2026-09-28 — Resume and interrupt: `last` is per pipeline, Ctrl-C finishes the run, a resume records its config
+
+**Question:** Three recover bugs found while the recover and launch
+guides were written. `--resume last` resolved to the newest run of any
+pipeline (#122). Ctrl-C during an ordinary step printed a `failed`
+receipt but left the run `running`, and the records the receipt counted
+failed had no step events (#135). Resuming after editing the pipeline
+ran the new file while `runs.config_json` kept the old one, so `gtme
+runs` and `gtme freeze` described a file the run no longer matched
+(#137).
+**Choice:** (1) **`last` is the newest run of the named pipeline**, via
+`LastRunForPipeline`, the same scope collect-first uses. SPEC §8 calls
+`--resume RUN_ID|last` "the explicit form of the same thing", so this
+is conformance, not a new rule. A pipeline with no runs of its own has
+nothing to resume (exit 2). An explicit RUN_ID of another pipeline is
+still allowed, with the existing warning. (2) **What already happened is
+recorded on a context the signal did not cancel.** The run is finished
+that way for any interrupt, not only the ADR-049 walk. A session's
+messages are applied that way too, once the records are sent, because a
+RECORD that arrived before the kill is work done and often paid for, so
+it is kept. A record failed by the interrupt gets its `failed` event the
+same way. The kill still ends the adapter process and the stream, so
+the interrupt cancels the work, not the bookkeeping. (3) **A resume
+records the config it resumes with.** When the resolved pipeline
+differs from `runs.config_json`, the snapshot is replaced and stderr
+says so. Refusing a changed file was the alternative, but "fix the file
+and `--resume`" is the recovery SPEC describes (§8 preflight, and the M4
+resume test resumes an edited file). The run finishes under the new
+file, so that is the file `freeze` should rebuild.
+**Why:** each makes the ledger say what the receipt and the operator
+already believe: the run resumed is the pipeline's own, a run the
+receipt calls failed is failed, and the recorded config is the one that
+finished the run. The snapshot keeps only the latest config. The
+original stays reconstructable from its step events' provenance, and
+keeping a history of configs would be a DDL change.
+**Spec impact:** None. `config_json` remains "the resolved config
+snapshot"; the DDL is unchanged. Refusing to resume a `done` run, and
+the in-flight delivery (#134) and dead-run (#136) fixes, are spec-visible
+and proposed separately.
+
+### 2026-09-28 — The generator writes the six planned reference pages from their spec artifacts
+
+**Question:** The outline listed six reference pages as `planned` —
+pipeline.yaml keys, binding manifest, wire protocol, bundles, plugin
+skills, and the conformance kit — and concept and start pages already
+linked them. Each has a machine-checkable source in the repo. Are they
+written by hand or generated, and in what shape?
+**Choice:** Generated by `cmd/docsgen`, one file each at
+`docs/reference/<slug>.md` (none is long enough to need an index and
+children), in the shape docs/DESIGN.md gives reference: key tables, one
+example read from a repo file at generation time, a see-also list, and
+the "Used in" list. `Inputs` gains `Repo`, the files `repoSources` globs
+(the schemas, `spec/wire`, `spec/bindings`, `spec/acceptance`,
+`examples/hello.yaml`, bundle manifests, `plugin/skills/*/SKILL.md`,
+`test/conformance/*.go`), so tests and the e2e feed the generator the
+same way. Per page: `pipeline-yaml` flattens `pipeline.schema.json`'s top
+level and its `step` definition into dotted keys; `binding-manifest`
+splits `binding-schema.json` into the manifest surface (keys a process
+`manifest.json` also has, falling back to that schema's description,
+labelled, where the binding's is missing), the process-manifest keys a
+binding does not take, and one table per binding-only block;
+`wire-protocol` has one row per `msg-*.schema.json` in the order
+`spec/wire/README.md`'s table lists them, a section per message, and the
+transcript's first stream (`csv/source`) as the example, linking the
+whole file on GitHub; `bundles` shows the first single-folder bundle's
+`manifest.json`; `plugin-skills` reads each SKILL.md's frontmatter and
+the namespace from `plugin.json`, and links the authored page whose code
+block carries `/plugin install`; `conformance` parses
+`test/conformance/*.go` with `go/parser` (stdlib, nothing compiled or
+run), lists each Test with its doc comment, and lists a file set under
+every test whose body, or a package function or value it names, carries
+one of the set's source markers. Descriptions are the schemas' own,
+verbatim; a key the schema leaves undescribed prints "—".
+**Why:** each page states something a spec file already fixes, so a
+hand-written copy would drift the day the schema changes; generating
+them puts them under the same drift gate as the rest of the reference.
+Schema order (an order-preserving JSON decode) reads the way the schema's
+author wrote it, where alphabetical order would put `group` before
+`name`.
+**Also decided here:**
+- The rewrite of `docs/_outline.yaml` now sets each single page's
+  `status:` to `generated`, and `Write`/`Drift` treat
+  `docs/reference/*.md` as generator-owned (stale generated files there
+  are removed or reported, as in the four folders).
+- The two YAML examples drop their file's leading comment block: a
+  column-0 `#` line inside a fence reads as a second h1 to the docs lint.
+  The document itself is shown verbatim.
+- `GeneratedBy` names the new inputs, so every generated page's
+  `generated_by:` line changed once.
+- Thirteen description strings lost "e.g." (a word the docs lint bans), as
+  2026-09-26 did for four: `use` and `cache` in `pipeline.schema.json`;
+  `id`, `auth.prefix`, `pagination.page_size`, `extract.fields.*.absent`
+  and `.skip_if_input`, `idempotency`, `cost.amount_usd` and
+  `retry.windows` in `binding-schema.json`; `credentials_optional` in
+  `manifest.schema.json`; `token` and `detail` in
+  `msg-pending.schema.json`. Wording only.
+**Spec impact:** None. Generated docs only; the schema edits change
+description strings, which no validator or second implementation reads.
+`internal/docsgen/singles.go`, `wire.go`, `conformance.go`, `schema.go`,
+and `singles_test.go`.
 
 ### 2026-09-28 — The secrets file never follows GTME_LEDGER (#119)
 
@@ -3629,7 +3918,7 @@ one a person runs and ends in a group; the cron pipeline sources from
 that group. `gtme plan` prints one note when a deliver step follows a
 `human/*` step: "under cron this pipeline waits for a person." (8)
 **Provenance and the cache:** `field_values.source` takes ADR-026's form
-with the participant in the model's place — `human/review @ trevor#<sig>`,
+with the participant in the model's place — `human/review @ <participant>#<sig>`,
 `agent/filter @ claude-code#<sig>`. The ADR-039 judgment signature for
 these adapters is over the step declaration alone — the adapter id,
 `render:`, the declared outputs, `uses:`, `of:` — **never the participant
@@ -4030,7 +4319,9 @@ noun list gains *leg*; `docs/_outline.yaml`'s terms gain `leg`.
 **Status:** Accepted (2026-09-26 — from a design session after the
 registry's catalog pages went live; human-approved by merging this
 packet; build queued as M33, Instantly's move sequenced behind the engine
-work ROADMAP.md names)
+work ROADMAP.md names. Decision (4) superseded 2026-09-29 by ADR-063:
+Instantly leaves the binary as a registry process entry, and the engine
+work closes)
 **Context:** ADR-042 put vendors in a registry and kept a carve-out: "the
 binary carries the floor and the reference twins, nothing else … the
 reference twins stay because they are the conformance kit for the Go
@@ -4151,6 +4442,399 @@ reference-twin sentence), §11 (M33 queued), Changelog (v0.51). ROADMAP.md
 gains the engine's `resolve:`/`preflight:`/`attest:` and amends the
 registry entry's "reference twins" line. `spec/binding-schema.json` gains
 `each` in M33.
+
+### ADR-060: A delivery in flight at a crash is held, not sent again
+**Status:** Accepted (2026-09-28 — from issue #134, found while writing
+the recover guide; human-approved by merging this packet; build queued as
+M34)
+**Context:** §8 inserts a record's `deliveries` row after the adapter's
+RECORD comes back, as it must: a row is a claim that the target took the
+request. A deliver step today streams a chunk of records into each
+session (the chunk is the work divided across the pool, at most 64), and
+the adapters send them one at a time. A process killed mid-step therefore
+leaves one record per open session that reached the target with no row,
+and `--resume` sends it again: four records, the pool size, in four of
+four reproductions with `http/deliver` against a local target (`kill -9`
+three times, Ctrl-C once). The ledger cannot say which records those
+were, because `claimed` is logged for the whole chunk before the send (40
+claimed on a 40-record crash with 12 done). The Recover story promises
+that resume never redoes completed work, and Top-up promises that nothing
+is delivered twice; this window broke both without saying so.
+**Decision:** (1) **An adapter-backed deliver step runs one record per
+session**, and the runner commits a `dispatched` step event for the
+record before it opens that session. A record with `dispatched` and no
+later `done` or `failed` at that step is *unconfirmed*: its request may
+have reached the target. `group/deliver` is unchanged; it has no session
+and sends nothing outside the ledger. (2) **An unconfirmed record is
+held, not sent again.** When a run resumes, and when an interrupted run
+finishes, the runner writes the record's `deliveries` row with the new
+status `unconfirmed` and does not send it. §8's pre-send check skips an
+`unconfirmed` row with reason `unconfirmed`, so no later run sends it by
+habit either. (3) **A natively idempotent target is the exception.**
+Where the manifest declares `idempotency: native` (§6), the target
+upserts, so the record is sent again and gets an ordinary row; this is
+ADR-045's rule that repeat-safety belongs to the adapter. (4) **Release
+is explicit.** `gtme run PIPELINE --resume RUN_ID --resend-unconfirmed`
+sends that run's unconfirmed records, and the adapter's answer replaces
+each row's status. Nothing else sends a held record. (5) **`http/deliver`
+sends `Idempotency-Key`**, the hex SHA-256 of the delivery's `target`,
+`scope` and idempotency key joined by NUL, identical on every run and
+resume, so a target that honors the header can dedupe the one case the
+ledger cannot see. A `headers.Idempotency-Key` in config overrides it.
+(6) **The receipt names the held records** and prints the release command.
+**Consequences:** At-most-once delivery holds across a crash for every
+target that is not natively idempotent, and the receipt names the few
+records (at most `--concurrency`) that need a person to check the target.
+Natively idempotent targets lose nothing. Deliver steps give up
+multi-record sessions. No shipped deliver adapter depends on them for
+correctness: `http/deliver`, the deliver bindings, `csv/deliver` and
+`instantly/add-to-campaign` all send and acknowledge one record at a
+time. The cost is per-session setup, and it adds no vendor requests:
+`instantly/add-to-campaign` already caches a resolved campaign name for
+the life of the process, and a campaign given as an id is never looked
+up. A false hold (a crash after `dispatched` commits and before the
+request leaves) costs one explicit release, which is the safe direction.
+**Rejected:** *Stating an at-least-once window in SPEC and leaving the
+behavior* — it weakens two operator stories to match a bug. *Holding
+every claimed record* — 28 held for 4 in flight in the reproduction.
+*A wire message in which the adapter announces each send* — it is only
+safe if the adapter waits for the runner's commit before sending, a
+protocol round-trip for what one record per session gives for free.
+*Asking an adapter that declares `attests` to re-read held records on
+resume* — a real refinement, deferred to ROADMAP.md with batch delivery.
+**Spec impact:** AMEND §3 (the `step_events.event` and `deliveries.status`
+vocabularies; both columns are TEXT, so there is no migration), §8 (the
+`run` line, deliver idempotency, record accounting), §10a (`http/deliver`
+sends `Idempotency-Key`), §11 (M34 queued), the Top-up and Recover
+stories, Changelog (v0.55). ROADMAP.md gains re-reading held records and
+batch delivery.
+
+### ADR-061: A run holds a lock while it executes; a dead `running` run reads as `interrupted`
+**Status:** Accepted (2026-09-28 — from issues #136 and #122, found while
+writing the recover and launch guides; human-approved by merging this
+packet; build queued as M34)
+**Context:** A run's status is written when it finishes, so a process
+killed without finishing (`kill -9`, an out-of-memory kill, a closed
+laptop, a reboot) leaves `running` behind for good. `runs` records no
+process, host or heartbeat, so `gtme runs` cannot tell a dead run from a
+live one, and the operator has to go looking for a gtme process. Nothing
+stops `--resume` from reopening a run that another process is still
+executing, which puts two writers, and with ADR-060 two senders, on one
+run. Separately, `--resume` of a run that finished `done` reopens it and
+prints an empty receipt, which reads as if something happened.
+**Decision:** (1) **Every executing run holds an exclusive advisory lock**
+(`flock`) on `locks/<run_id>.lock` in the ledger file's directory, from
+the moment it creates or reopens the run until the process exits. The
+kernel releases the lock on any death, and a reboot clears it. (2) **`runs`
+gains `pid` and `host`**, written at create and at reopen. They are for
+display: liveness is the lock, never the pid, because pids are reused
+after a reboot. (3) **`gtme runs` derives `interrupted`** for a `running`
+run whose lock it can take, taking and releasing it at once.
+`interrupted` is never stored; `runs.status` keeps its four values and
+`gtme runs` stays read-only. A run recorded on another host shows
+`running (on HOST)`, since this machine cannot test that lock. (4)
+**`--resume` takes the lock or refuses** with exit 2, naming the pid and
+host. (5) **An interrupted run's receipt prints the command that resumes
+it.** A plain `gtme run` whose pipeline's latest run is interrupted says
+so on stderr with the same command and sources anew; it never resumes an
+interrupted run by itself, because a crashed deliver step may hold
+unconfirmed records (ADR-060) that need a person to look first.
+Collect-first for a `pending` run (ADR-038) is unchanged. (6) **`--resume`
+of a `done` run refuses** with exit 2: `run RUN_ID is done; nothing to
+resume`. A `failed`, `pending` or interrupted run resumes as before.
+**Consequences:** `gtme runs` tells the truth about a crash with no clock
+and no daemon. Two processes can never execute one run, which also closes
+a double-send path. A ledger on a network filesystem gets no liveness,
+which is already an unsupported place for SQLite. Runs created before
+the migration have no `pid`, no `host` and no lock file, so a `running`
+one reads as `interrupted`, which is true of any run older than the
+upgraded binary. `test/e2e/resume_test.go`'s
+`TestResumeLastAndUnknownRun` asserts today that resuming a finished run
+is a no-op; M34 changes that assertion to the refusal.
+**Rejected:** *A heartbeat column* — it needs a staleness threshold and a
+periodic write, a suspended process comes back to life after being
+declared dead, and it gives no mutual exclusion. *Liveness by
+`kill(pid, 0)`* — pid reuse after a reboot is the case the issue names.
+*Having `gtme runs` store `interrupted`* — a read verb that writes, and a
+status that goes stale when a process was only unreachable. *Resuming an
+interrupted run on a plain `gtme run`* — resuming after a crash is a
+decision, not a habit.
+**Spec impact:** AMEND §3 (`runs.pid`, `runs.host`; migration `0014`),
+§8 (a subsection on the run lock and interrupted runs; the `--resume`
+refusals), §11 (M34 queued), the Recover story, Changelog (v0.55). The
+ledger's directory gains `locks/`.
+
+### ADR-062: A delivery's scope is the destination's stable identifier
+**Status:** Accepted (2026-09-29 — from two failing offline tests written
+while tracing delivery dedupe per destination; human-approved by merging
+this packet; build queued as M35)
+**Context:** ADR-044 keys `deliveries` on `(target, scope, idempotency)`,
+where `scope` is the value of the config key a deliver manifest names in
+`idempotency_scope`. The runner computes it from config before any
+session opens, so an adapter cannot correct it. Per destination today:
+`attio/assert` scopes on the object slug, `csv/deliver` on the path, and
+a group handoff on `group:<name>`, which gtme owns. All three are stable.
+Two destinations are not:
+
+- `http/deliver` declares no `idempotency_scope`, so every URL shares the
+  scope `''`. A record delivered to webhook A is skipped at webhook B,
+  which has never seen it. The skip goes through the same path as a cache
+  hit, so the receipt counts it `cached` and adds it to "avoided via
+  cache".
+- `instantly/add-to-campaign` scopes on the configured `campaign`, which
+  accepts a display name. ADR-044 said so in the open: a renamed campaign
+  is a new scope. In practice, renaming a campaign in Instantly (and in
+  the YAML to match) makes the same campaign a new destination, and the
+  next armed run adds everyone again.
+
+Both are reproduced offline on the branch `fix/deliver-scope`
+(`TestHTTPDeliverScopesToTheURL`, `TestInstantlyRenameIsTheSameCampaign`).
+ADR-044's migration also named a backstop that is narrower than it said.
+The adapter sends `skip_if_in_campaign: true` unless config sets it
+false, and Instantly's API reference describes that flag in one line
+("Whether to skip if the lead is already in the campaign"), with no
+default and no documented response for a skipped lead.
+**Decision:** (1) **The rule.** `idempotency_scope` MUST name a config key
+whose value identifies the destination stably: an id, an API slug, a file
+path or a URL. It MUST NOT name a display name that the destination's
+owner can change. The rule binds deliver bindings as well as built-ins,
+so `spec/binding-schema.json` states it and so do `gtme-bindings`'
+contribution rules. The runner cannot test stability, so where an
+identifier has a shape (a UUID), the manifest's `config_schema` SHOULD
+constrain the key to it, which turns a name into a plan error. (2)
+**Instantly takes the campaign id only.** `campaign` is the campaign's
+UUID, lowercase, and any other value is a plan error that says the
+adapter takes the id and says where to find it. Plan stays offline and
+does not look the name up. The adapter's name-to-id lookup and its
+per-process cache are deleted, and the manifest's version becomes 2
+because a config that was valid is now refused. The operator still sees
+the campaign's name: the preflight session already reads the campaign,
+and the PREFLIGHT message gains an optional `destination` string, a
+display label for what the step delivers to. The preflight line prints it
+at `--dry-run` and at the start of an armed run:
+`send: preflight ok — campaign "Q3 VP Marketing" (0198a0b1-…) — 4 checks (…)`.
+The field is additive: any deliver adapter that preflights may fill it,
+and a runner that predates it ignores it. With `preflight: false` the
+line is not printed and no request is added. (3) **`http/deliver`
+declares `idempotency_scope: url`.** The scope is the `url` as
+configured, before rendering, so a URL that templates `{{record.*}}` still
+has one scope per step: the destination is the endpoint the operator
+wrote, not each record's path. Changing the URL's text, even a trailing
+slash, makes a new destination. A destination told apart only by
+`query:`, `headers:` or `body` is not told apart, so the operator gives
+it its own URL or a named binding with its own scope. The value is the
+one `runs.config_json` already stores, so the ledger holds no URL it did
+not already hold, and no receipt prints it. ADR-060's `Idempotency-Key`
+includes the scope, so after this decision it differs per URL as well.
+(4) **An already-delivered skip is not a cache hit.** A skip with reason
+`already_delivered` or `unchanged` stays a `skipped_cache` event with its
+reason, so the event vocabulary does not change. The receipt counts it
+apart, as `N already delivered` on the step line. It is not in `cached`,
+and it is not in "avoided via cache", because not re-sending is the
+contract and nothing was saved. Record accounting gains the term. (5)
+**Migration `0015` backfills `http/deliver` scopes.** For each
+`http/deliver` row whose scope is `''`, the migration reads the url of
+the `http/deliver` step in that run's `runs.config_json` (joined on
+`deliveries.run_id`). A run with exactly one such step backfills. A run
+with two or more is ambiguous, so its rows keep `''`, match nothing, and
+the next run to each URL may send those records once. Instantly rows
+scoped on a name cannot be mapped offline, because the ledger never
+stored the id. They stay as they are and match no id scope, so the first
+armed run of that campaign after the upgrade may add those leads again,
+once. The backstop is the adapter's default `skip_if_in_campaign: true`,
+as documented above, and it is absent where config set the flag false.
+**Consequences:** A renamed campaign stays the same destination, a
+second webhook receives what the first received, and the receipt stops
+reporting a withheld send as money saved. The operator copies a campaign
+id once instead of typing a name. ADR-060's note that the adapter caches
+a resolved campaign name becomes moot, because no name is ever resolved:
+one record per session adds no Instantly request, even when the adapter
+runs as its own process (ADR-063). The failing tests change with the
+decision. `TestInstantlyRenameIsTheSameCampaign` configures the id both
+times, renames only in the fake, and also asserts that the preflight line
+prints the new name. M35 adds a test that a name is a plan error.
+`examples/demo.yaml`, `examples/apollo-to-instantly.yaml` and the docs
+that configure a campaign by name change to an id. The bundles already
+use one.
+**Rejected:** *Scoping on the id that preflight resolves.* It keeps names
+working, but it makes dedupe correctness depend on a network check that
+the operator can switch off, and `--simulate` could not compute the
+scope. *Re-keying name-scoped rows at the first preflight after the
+upgrade.* It couples the wire to a one-time migration on a pre-alpha
+ledger. *Normalizing URLs* (case, trailing slash, default port). The
+rules are the target's, not gtme's, and a normalized key that merges two
+real endpoints fails silently, while an unnormalized one fails loudly by
+sending.
+**Spec impact:** AMEND §3 (the `deliveries.scope` comment; migration
+`0015`), §5 (PREFLIGHT `destination`), §6 (`idempotency_scope`), §8
+(record accounting, the terminal receipt, deliver idempotency, deliver
+preflight), §10 item 6, §10a (`http/deliver`), §11 (M35 queued), the
+Top-up story, Changelog (v0.56). `spec/schemas/` and
+`spec/binding-schema.json` change in M35.
+
+### ADR-063: A process adapter can be a registry entry — Instantly leaves the binary in Go
+**Status:** Accepted (2026-09-29 — follows ADR-062, which removes
+Instantly's name resolution; human-approved by merging this packet; build
+queued as M35. Supersedes ADR-059 (4))
+**Context:** ADR-059 moved every vendor adapter to the registry except
+`instantly/add-to-campaign`, which stayed built in until the binding
+engine could declare `resolve:`, `preflight:` and `attest:`. ADR-062
+removes the need for `resolve:`. The other two are harder. Two of the
+four preflight checks count and cross-reference: the sequence must have
+as many steps as the highest `_step_N` target assumes, and every variant
+of step N must carry its own step's target. That is the computation §10a's
+graduation rule sends to a process adapter. Making it engine vocabulary
+would grow logic inside binding YAML for one consumer, at several times
+the Go adapter's 200 lines. So Instantly stays a Go process adapter. What
+kept it in the binary was distribution, not language: the registry
+installs bindings only (§8), and a process adapter reaches the discovery
+path (§6: `manifest.json` plus an executable `run`) only by hand.
+**Decision:** (1) **The registry index gains process entries.** An entry
+gains `kind: binding | process`, which defaults to `binding`. A process
+entry carries `assets`, one per platform in §13's targets (`darwin/arm64`,
+`darwin/amd64`, `linux/amd64`, `linux/arm64`), each an archive URL with
+its SHA-256. Its `source` names the code it was built from (repository,
+path, ref, commit), so a reviewer can read what runs. (2) **Install.**
+`gtme adapters add <id>` downloads the archive for this platform and
+refuses a checksum mismatch. It unpacks `manifest.json` and `run` into
+`~/.gtme/adapters/<id, slashes → dashes>/`, validates the manifest, and
+writes `.source.json` (asset URL, SHA-256, release tag, commit). It prints
+the same reviewable surface as for a binding: credentials, needs,
+provides and declared capabilities. With no asset for this platform, it
+refuses and names the platforms that have one. `gtme adapters update`
+moves the pin as it does for a binding, and nothing moves it implicitly,
+so upgrading gtme does not upgrade the adapter. (3) **Process entries are
+verified only.** A verified process entry is built by gtme-run CI from a
+tagged commit whose tests passed, and published as release assets. For a
+process entry, "nothing installs unverified" means a pinned checksum, a
+manifest that validates, and tests that ran in that CI. Install does not
+re-run fixtures, because a process adapter's fixtures need its own
+harness. Community entries stay bindings: an index that points at
+strangers' executables is a different trust model, and that model is
+not decided here. (4) **Instantly moves in M35.** Its source stays in
+the gtme module, as `cmd/gtme-instantly` over the existing package, and
+leaves `internal/adapters/all`. gtme's release workflow builds
+`gtme-instantly_<tag>_<os>_<arch>.tar.gz` (holding `manifest.json` and
+`run`) beside the gtme archives, listed in the same `checksums.txt`, and
+`gtme-bindings`' index gains the process entry at that release. The id
+stays the same, and the version is 2 (ADR-062). (5) **The binary carries
+the floor and no vendor.** That is ADR-059's end state, reached through
+distribution and not through the engine. ROADMAP.md's "Deliver bindings
+that preflight and attest" closes. A later deliver adapter that needs
+preflight or attestation is a process entry. §10a's graduation rule gains
+the sentence that a graduated adapter can still be a registry entry.
+**Consequences:** A pipeline that delivers to Instantly needs one install
+line, `gtme adapters add instantly/add-to-campaign`, as Apollo and Attio
+already do. The plan error for an uninstalled id already names it
+(ADR-059). With one record per session (ADR-060), each lead costs a
+process start, which is milliseconds against the network round-trip.
+Because the adapter stays in the gtme module, it keeps sharing
+`internal/protocol` and `internal/httpx`, and a protocol change ships
+both at one release. The e2e tests build it into a temporary directory
+on the discovery path, as M33's tests install registry entries from a
+local copy. The Homebrew formula is unchanged. The catalog relabels
+Instantly from "built in" to "verified", and `docs/_adapters.json`
+regenerates. The live validations in VALIDATION.md were run against the
+built-in adapter, and the first live run of the installed one is an M35
+follow-up, run by hand.
+**Rejected:** *Engine `preflight:` and `attest:` blocks.* See the context:
+this is the graduation rule's case, with one consumer. *Keeping Instantly
+built in.* It leaves two distribution models, and a catalog "built in"
+label that nothing explains. *A Homebrew formula per adapter.* Discovery
+is per-user (`~/.gtme/adapters/`), and it would tie installing an adapter
+to one package manager. *`go install` from source.* Operators do not
+have a Go toolchain. *Moving the Go source to `gtme-bindings`.* That
+puts a Go toolchain and a copy of the protocol packages in that
+repository's CI, and Go's `internal/` packages cannot be imported across
+modules.
+**Spec impact:** AMEND §6 (discovery: `adapters add` also installs
+process entries), §8 (`gtme adapters`: process entries, install,
+verification, the floor), §10 (intro, item 6), §10a (graduation rule
+sentence; the binary ships no vendor), §11 (M35 queued), Changelog
+(v0.56). `spec/schemas/registry-index.schema.json` changes in M35.
+ROADMAP.md closes the deliver-binding engine entry and gains community
+process entries.
+
+### ADR-064: `gtme runs RUN_ID` is the receipt; a crashed run's sends show before the resume; a held delivery can be settled
+**Status:** Accepted (2026-09-29 — from issues #90, #189 and #190, found
+while writing the report and recover guides and building M34;
+human-approved by merging this packet; build queued as M36, after M35)
+**Context:** ADR-046 says `gtme runs <id>` mirrors the live receipt, and
+SPEC §8 repeats it, but the two print different tables: the receipt's
+`in`, `out`, `empty`, `cached`, `filtered`, `failed`, `avoided` and
+`adapter` against `gtme runs`' `claimed`, `done`, `cached`, `failed`
+(#90). A reader who learned one meets a second vocabulary in the other.
+The mirror cannot be built from today's ledger alone: a record held by
+`when:` or a membership gate writes no event; a filter's fail, an
+`on_missing` hold and a suppression all write `done` with `pass: false`,
+told apart only by reason text; and a cache skip does not record what it
+avoided. Separately, after a `kill -9` during a deliver step, `gtme runs`
+says `interrupted` and nothing more until an armed run reaches the step
+and holds the unanswered sends (#189), though the `dispatched` events
+already name them. And once the operator has checked the target, nothing
+can record the answer: a held delivery stays `unconfirmed` and on every
+receipt, and `--resend-unconfirmed` sends all of a run's held records or
+none (#190).
+**Decision:** (1) **`gtme runs RUN_ID` prints the receipt's table** —
+`step`, `adapter`, `in`, `out`, `empty`, `cached`, `filtered`, `failed`,
+`cost`, `avoided` — and, after M35, the same `already delivered` count
+the live receipt prints, followed by the run-level lines it prints today
+(status, started, finished, records by state, config, `held:`,
+`resume:`). It reports the run's net outcome: for each step, every record
+counted once, by its latest outcome at that step across all of the run's
+sessions, so a run resumed three times reads as one run. `adapter` comes
+from `runs.config_json`. (2) **Every per-record step event says which
+column it is.** `done`, `failed`, `skipped_cache`, `simulated` and
+`dry_run` events for a record carry `detail.outcome`, one of `out`,
+`empty`, `filtered`, `skipped`, `failed`, `cached`, `already_delivered`,
+`simulated` or `held_dry`; a record a `when:` or membership gate holds
+back writes a new event `gated`; a cache skip's detail carries
+`avoided_usd` (null when the estimate is unknown, which prints `?`). The
+columns reconcile exactly as the live line does (§8 record accounting).
+No DDL change: `step_events.event` and `detail` are TEXT. A run recorded
+before M36 has no `outcome`: its receipt infers each column from the
+event and reason as today, and prints `?` for `gated` records and
+`avoided`, which were not recorded. (3) **An interrupted run shows its
+unanswered sends.** For an `interrupted` run, `gtme runs` puts the count
+of `dispatched` events with no later `done` or `failed` in the `in
+flight` column, and `gtme runs RUN_ID` prints one line per target, read
+only: `send: 4 sent to http/deliver with no answer before the run
+stopped; the resume, or the next run to that target, holds them`. (4)
+**A held delivery can be settled, and the release can be selective.**
+`--resume RUN_ID` takes `--settle-unconfirmed[=KEY,...]` beside
+`--resend-unconfirmed[=KEY,...]`. With no keys, each applies to every
+record the run holds; with keys (identity keys, as the receipt names
+them), to those only, and a key the run does not hold is a validation
+error, as is a key given to both. Settling writes no request: the row's
+status becomes the new `settled` — the operator checked the target and
+found the record there — and a `settled` step event records it for the
+run. The pre-send check treats `settled` as delivered (`already
+delivered`). Records neither settled nor resent stay held. A `done` run
+accepts either flag, as it accepts `--resend-unconfirmed` today.
+**Consequences:** One vocabulary for "what happened in this run", live
+or after the fact, which is what the Report story asks. The mirror costs
+one detail field per event and one new event; nothing is backfilled, and
+old runs say `?` where the ledger never knew. An operator who finds three
+of four held leads at the target settles three and resends one. The
+receipt's held lines and the `held:` line disappear once nothing is
+`unconfirmed`. `settled` is the operator's word, not a provider's:
+attestation (ADR-036) still distinguishes `confirmed`, and ROADMAP's
+re-read of held deliveries would write `confirmed`, not `settled`.
+**Rejected:** *Amending ADR-046 to describe the two tables as different*
+(#90's option 2) — it keeps two vocabularies for one question.
+*Reconstructing the columns from reason strings* — reasons are operator
+prose and change with ADR-058's plain words. *A new `gtme deliveries`
+verb for settling* — the held set belongs to a run, `--resume` already
+carries the release, and a verb would add a surface to `help` for one
+action. *Marking a settled row `confirmed` or `accepted`* — both claim
+what gtme or the provider observed, and this is the operator's check.
+**Spec impact:** AMEND §3 (`step_events.event` gains `gated` and
+`settled`; `deliveries.status` gains `settled`; no migration), §8 (the
+`run` line; record accounting names `detail.outcome`; the terminal
+receipt paragraph defines the mirror; deliver idempotency's in-flight
+paragraph gains settling and selective release; the run-lock subsection
+gains the unanswered count and settling on a `done` run), §11 (M36
+queued), the Recover and Report stories, Changelog (v0.58).
 
 ### ADR-054: `traverse` — a run is a sequence of typed segments, and a type is a file
 **Status:** Accepted (2026-09-05 — design session; answers ADR-008's parked

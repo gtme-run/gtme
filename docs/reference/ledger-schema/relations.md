@@ -8,14 +8,14 @@ learn:
   - "what the object holds and who writes it"
   - "the DDL as the spec states it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/ledger
     type: relates-to
     description: "Defines ledger"
   - to: /concepts/types-and-traverse
     type: relates-to
-    description: "Defines relation and type"
+    description: "Defines relation, traverse, and type"
 ---
 
 # relations
@@ -46,3 +46,7 @@ CREATE TABLE relations (
   PRIMARY KEY (from_id, relation, to_id)
 );
 ```
+
+## Used in
+
+- [Traverse a relation](/guides/traverse): The table the relation rows in this guide come from

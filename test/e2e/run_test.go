@@ -207,10 +207,10 @@ source:
 		t.Errorf("failed event detail = %v, want a reason", details)
 	}
 
-	// And the read-back receipt reports it, matching what the live run printed:
-	// claimed -, done 1, cached -, failed 1.
+	// And the read-back receipt reports it in the live receipt's columns
+	// (ADR-064): in 0, out 1, empty -, cached 0, filtered -, failed 1.
 	readback := h.mustRun("runs", "last")
-	if !regexp.MustCompile(`(?m)^source\s+-\s+1\s+-\s+1\s`).MatchString(readback.stderr) {
+	if !regexp.MustCompile(`(?m)^source\s+csv/source\s+0\s+1\s+-\s+0\s+-\s+1\s`).MatchString(readback.stderr) {
 		t.Errorf("runs last does not report failed = 1 for source:\n%s", readback.stderr)
 	}
 }

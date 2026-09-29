@@ -66,9 +66,11 @@ frozen; the data is yours.** Edit `pipeline.yaml` and `gtme run` refuses
 the bundle — that is the manifest doing its job. To change a pattern, copy
 `pipeline.yaml` out and run the copy as a plain pipeline, or refreeze.
 
-Built-in adapters (`csv/*`, `sql/*`, `ai/*`, `demo/enrich`, `group/deliver`,
-the Go `instantly/add-to-campaign`) ship inside the binary and are not
-packed; the bundle needs the same binary either way. Credentials never
+Built-in adapters (`csv/*`, `sql/*`, `ai/*`, `demo/enrich`, `group/deliver`)
+ship inside the binary and are not packed; the bundle needs the same
+binary either way. `instantly/add-to-campaign` is a process adapter, and
+executables do not travel: install it where the bundle runs armed, with
+`gtme adapters add instantly/add-to-campaign`. Credentials never
 travel: `gtme secret set KEY` on the machine that runs armed.
 
 ## Stand-in vendors and hand-written fixtures

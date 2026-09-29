@@ -8,11 +8,17 @@ learn:
   - "each flag and what it changes"
   - "where the docs use it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines fixture"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code"
+  - to: /concepts/campaign-is-a-folder
+    type: relates-to
+    description: "Defines bundle"
   - to: /concepts/gate-ladder
     type: relates-to
     description: "Defines dry-run, gate ladder, preflight, and simulate"
@@ -29,12 +35,12 @@ links:
 
 # gtme run
 
-Execute a pipeline; --resume continues a run that stopped partway; --dry-run holds deliver steps back and receipts their resolved variables instead of sending; --simulate executes everything offline from fixtures (no network, no spend, nothing persists)
+Execute a pipeline; --resume continues a run that stopped partway; --resend-unconfirmed, with --resume, sends the deliveries the run held because they may have reached the target before it stopped, and --settle-unconfirmed marks them found at the target without sending (=KEY,… for some); --dry-run holds deliver steps back and receipts their resolved variables instead of sending; --simulate executes everything offline from fixtures (no network, no spend, nothing persists)
 
 ## Forms
 
 ```
-gtme run pipeline.yaml [--resume RUN_ID] [--dry-run] [--simulate]
+gtme run pipeline.yaml [--resume RUN_ID [--resend-unconfirmed[=KEYS]] [--settle-unconfirmed[=KEYS]]] [--dry-run] [--simulate]
 ```
 
 ## Flags
@@ -42,6 +48,8 @@ gtme run pipeline.yaml [--resume RUN_ID] [--dry-run] [--simulate]
 | Flag | Takes | What it does |
 |---|---|---|
 | `--resume` | `RUN_ID` | --resume continues a run that stopped partway. |
+| `--resend-unconfirmed` | nothing | --resend-unconfirmed, with --resume, sends the deliveries the run held because they may have reached the target before it stopped, and --settle-unconfirmed marks them found at the target without sending (=KEY,… for some) |
+| `--settle-unconfirmed` | nothing | --resend-unconfirmed, with --resume, sends the deliveries the run held because they may have reached the target before it stopped, and --settle-unconfirmed marks them found at the target without sending (=KEY,… for some) |
 | `--dry-run` | nothing | --dry-run holds deliver steps back and receipts their resolved variables instead of sending. |
 | `--simulate` | nothing | --simulate executes everything offline from fixtures (no network, no spend, nothing persists) |
 
@@ -58,3 +66,8 @@ gtme run hello.yaml
 ## Used in
 
 - [The gate ladder](/concepts/gate-ladder): The flags that pick a rung, --simulate and --dry-run, and --resume after a blocked preflight
+- [Launch](/guides/launch): Every flag of the launch command, including --resume and --dry-run
+- [Guard](/guides/guard): The --simulate flag this guide uses and --dry-run, the next rung and the first that spends
+- [Recover](/guides/recover): Every flag of gtme run, including --resume
+- [Run on cron and events](/guides/cron-and-events): Every flag of the command the crontab line runs
+- [Package and share a campaign](/guides/bundles): The command that verifies a bundle's hashes and runs it

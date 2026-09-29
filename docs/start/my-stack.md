@@ -53,7 +53,7 @@ This is [See it run](/start/show-me) on live vendors. You'll climb the [gate lad
 ```sh
 curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/apollo-to-instantly.yaml
 gtme adapters add apollo/search apollo/enrich \
-  harvest/profile harvest/recent-posts
+  harvest/profile harvest/recent-posts instantly/add-to-campaign
 ```
 
 Here it is without comments:
@@ -110,7 +110,7 @@ steps:
   - id: send
     use: instantly/add-to-campaign
     with:
-      campaign: "Q3 VP Marketing"
+      campaign: 0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b   # the campaign id, from its URL in Instantly
     variables:
       first_line: first_line
       ps_line: ps_line
@@ -215,7 +215,7 @@ Run plan again to see each step's estimated cost.
 
 ## Dry-run it
 
-**Set `campaign:` to an Instantly campaign that exists and is active.** Before any record moves, the runner reads the campaign and stops if its sequence emails, A/B variants included, lack `{{first_line}}` and `{{ps_line}}` ([ADR-040](/decisions#adr-040)). Pausing the campaign in Instantly stops its emails.
+**Set `campaign:` to an active Instantly campaign's id, from its URL.** Before any record moves, the runner reads the campaign and stops if its sequence emails, A/B variants included, lack `{{first_line}}` and `{{ps_line}}` ([ADR-040](/decisions#adr-040)). Pausing the campaign in Instantly stops its emails.
 
 The dry run spends Apollo reveal credits, Harvest calls, and model tokens. It sends nothing:
 
@@ -228,7 +228,7 @@ dry run: deliver steps will resolve and receipt their variables, but nothing sen
 run 01M3D1ZTKBQBS57C9WPK8NQM60 (apollo-to-instantly)
 source [info]: apollo/search: 5 records
 ...
-send: preflight ok — 3 check(s)
+send: preflight ok — campaign "Q3 VP Marketing" (0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b) — 3 check(s)
 send: 5 in, 0 out, 0 cached, 0 filtered, 0 failed, 5 held (dry run)
 
 run 01M3D1ZTKBQBS57C9WPK8NQM60 — done (dry run — nothing sent)
@@ -239,7 +239,7 @@ reveal       apollo/enrich              5   5    -      0       -         -     
 linkedin     harvest/profile            5   5    -      0       -         -       $0.0600  -
 personalize  ai/compose                 5   5    -      0       -         -       $0.0232  -
 send         instantly/add-to-campaign  5   0    -      0       -         -       $0       -
-send: preflight ok — 3 check(s) (✓ campaign active, ✓ variable first_line referenced, ✓ variable ps_line referenced)
+send: preflight ok — campaign "Q3 VP Marketing" (0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b) — 3 check(s) (✓ campaign active, ✓ variable first_line referenced, ✓ variable ps_line referenced)
 send: resolved variables for 5 record(s) — review, then run again without --dry-run to arm:
   nh:e9de8aa74c349b813529a458a46fee98774debfb75e44f3c4dc2fd1f50ef3f92
     first_line: "Your note about using pen and paper to reprioritize when juggling multiple projects resonated — it's a simple habit that doesn't get mentioned enough."
@@ -274,7 +274,7 @@ reveal       apollo/enrich              5   0    -      5       -         -     
 linkedin     harvest/profile            5   0    -      5       -         -       $0    $0.0600
 personalize  ai/compose                 5   0    -      5       -         -       $0    ?
 send         instantly/add-to-campaign  5   5    -      0       -         -       $0    -
-send: preflight ok — 3 check(s) (✓ campaign active, ✓ variable first_line referenced, ✓ variable ps_line referenced)
+send: preflight ok — campaign "Q3 VP Marketing" (0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b) — 3 check(s) (✓ campaign active, ✓ variable first_line referenced, ✓ variable ps_line referenced)
 send: attested 5 confirmed, 0 contradicted, 0 inconclusive (deliveries are accepted, never sent, until a provider attests)
 total: $0 (estimated) spent, $0.1100+? avoided via cache (20 records skipped)
 ```
@@ -293,11 +293,12 @@ icp-filter   ai/filter                  5   0    -      5       -         -     
 reveal       apollo/enrich              5   0    -      5       -         -       $0    $0.0500
 linkedin     harvest/profile            5   0    -      5       -         -       $0    $0.0600
 personalize  ai/compose                 5   0    -      5       -         -       $0    ?
-send         instantly/add-to-campaign  5   0    -      5       -         -       $0    $0.0000
-total: $0 (estimated) spent, $0.1100+? avoided via cache (25 records skipped)
+send         instantly/add-to-campaign  5   0    -      0       -         -       $0    -
+send: 5 already delivered
+total: $0 (estimated) spent, $0.1100+? avoided via cache (20 records skipped)
 ```
 
-`cached` on every paid step, the savings under `avoided`, `0` out on `send`. The `?` is the model's metered price, which the receipt can't restate here.
+`cached` on every paid step, savings under `avoided`, and `send: 5 already delivered`. The `?` is the model's metered price, which the receipt can't restate here.
 
 ## Next
 

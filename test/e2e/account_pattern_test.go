@@ -182,7 +182,7 @@ group: contacted
 		t.Errorf("accepted deliveries = %d, want 6 (2 selected + 2 briefed + 2 sent)", n)
 	}
 	again := h.runWithEnv([]string{"MOCK_DELIVER_LOG=" + deliverLog}, "", "run", "outreach.yaml")
-	contains(t, again.stderr, "send: 2 in, 0 out, 2 cached", "nothing twice")
+	contains(t, again.stderr, "send: 2 in, 0 out, 0 cached, 0 filtered, 0 failed, 2 already delivered", "nothing twice")
 	groups := h.mustRun("groups")
 	for _, g := range []string{"qualified-accounts", "selected-people", "briefed", "contacted"} {
 		contains(t, groups.stderr, g, "groups list")

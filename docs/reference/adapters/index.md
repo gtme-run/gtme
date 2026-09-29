@@ -8,7 +8,7 @@ learn:
   - "what each needs, provides, and costs"
   - "which steps the runner owns without an adapter"
 roles: [builder, extender, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/adapter-tiers
     type: relates-to
@@ -44,7 +44,7 @@ links:
 
 # Adapter catalog
 
-The 16 adapters built into the gtme binary, by role. Each row links the adapter's own page: its manifest, every `with:` key it accepts, and an example step. `gtme help --agent` prints the same manifests as JSON, and `gtme adapters` lists what's installed beside them, which the [registry](/reference/cli/adapters) can add to.
+The 15 adapters built into the gtme binary, by role. Each row links the adapter's own page: its manifest, every `with:` key it accepts, and an example step. `gtme help --agent` prints the same manifests as JSON, and `gtme adapters` lists what's installed beside them, which the [registry](/reference/cli/adapters) can add to.
 
 | Adapter | Role | Records | Needs | Provides | Per record | Credentials |
 |---|---|---|---|---|---|---|
@@ -63,7 +63,6 @@ The 16 adapters built into the gtme binary, by role. Each row links the adapter'
 | [`human/review`](/reference/adapters/human-review) | review | any type | the step's `uses:` fields | none declared | not published | none |
 | [`csv/deliver`](/reference/adapters/csv-deliver) | deliver | person | the step's `uses:` fields | none declared | $0 | none |
 | [`http/deliver`](/reference/adapters/http-deliver) | deliver | person | the step's `uses:` fields | none declared | not published | none |
-| [`instantly/add-to-campaign`](/reference/adapters/instantly-add-to-campaign) | deliver | person | the step's `uses:` fields, `email` | none declared | $0 | `INSTANTLY_API_KEY` |
 
 `Needs` is what a record must already carry for the adapter to run; `the step's uses: fields` means the step declares them. `Provides` counts the fields it can write. `Per record` is the estimate plan prints, and `not published` prints as `?` there.
 

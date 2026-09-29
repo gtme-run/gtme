@@ -61,7 +61,7 @@ func TestDeliveryDedupeScopesToTheCampaign(t *testing.T) {
 		if res.code != 0 {
 			t.Fatalf("re-run %s exit = %d\n%s", p, res.code, res.stderr)
 		}
-		contains(t, res.stderr, "1 cached", "re-run receipt")
+		contains(t, res.stderr, "1 already delivered", "re-run receipt")
 	}
 	if n := h.queryInt(`SELECT count(*) FROM deliveries WHERE target = 'csv/deliver'`); n != 2 {
 		t.Errorf("deliveries after re-runs = %d, want 2", n)

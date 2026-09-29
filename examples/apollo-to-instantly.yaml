@@ -1,8 +1,9 @@
 # The pipeline from SPEC §9, ready to run once its adapters are installed and
-# the four credentials are set. Apollo and Harvest are registry entries, not
-# built in (ADR-059); Instantly ships with gtme:
+# the four credentials are set. Every vendor adapter is a registry entry
+# (ADR-059, ADR-063):
 #
-#   gtme adapters add apollo/search apollo/enrich harvest/profile harvest/recent-posts
+#   gtme adapters add apollo/search apollo/enrich harvest/profile harvest/recent-posts \
+#     instantly/add-to-campaign
 #
 #   gtme secret set APOLLO_API_KEY
 #   gtme secret set HARVEST_API_KEY
@@ -12,9 +13,9 @@
 #   gtme plan examples/apollo-to-instantly.yaml   # free: no calls, no spend
 #   gtme run  examples/apollo-to-instantly.yaml   # spends money and adds real leads
 #
-# The Instantly campaign must already exist; the deliver step resolves its name
-# to an id once per run and fails if there is no match. Delivery is keyed on
-# email, so re-running never adds the same person twice.
+# The Instantly campaign must already exist and is named by its id (from its
+# URL in Instantly), never its name, so renaming it changes nothing (ADR-062).
+# Delivery is keyed on email, so re-running never adds the same person twice.
 name: apollo-to-instantly
 version: 1
 
@@ -66,7 +67,7 @@ steps:
   - id: send            # ADR-031: a deliver adapter is an ordinary step
     use: instantly/add-to-campaign
     with:
-      campaign: "Q3 VP Marketing"
+      campaign: 0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b   # the campaign id, from its URL in Instantly (ADR-062)
     variables:          # ADR-018/019: egress mapping, and the step's dynamic needs
       first_line: first_line
       ps_line: ps_line

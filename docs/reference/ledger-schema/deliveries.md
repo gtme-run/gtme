@@ -8,17 +8,23 @@ learn:
   - "what the object holds and who writes it"
   - "the DDL as the spec states it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
   - to: /concepts/groups
     type: relates-to
-    description: "Defines handoff"
+    description: "Defines handoff and segment"
   - to: /concepts/ledger
     type: relates-to
     description: "Defines ledger"
+  - to: /concepts/pipeline
+    type: relates-to
+    description: "Defines step"
   - to: /concepts/runs-and-receipts
     type: relates-to
-    description: "Defines idempotency"
+    description: "Defines delivery, idempotency, and run"
+  - to: /concepts/steps-and-roles
+    type: relates-to
+    description: "Defines deliver"
   - to: /concepts/types-and-traverse
     type: relates-to
     description: "Defines type"
@@ -54,13 +60,21 @@ CREATE TABLE deliveries (
   id             TEXT PRIMARY KEY,
   identity_id    TEXT NOT NULL,
   target         TEXT NOT NULL,           -- adapter id, or group:<name> for a handoff (ADR-032)
-  scope          TEXT NOT NULL DEFAULT '', -- resolved idempotency_scope config value (ADR-044); '' = unscoped
+  scope          TEXT NOT NULL DEFAULT '', -- the destination's stable identifier: the idempotency_scope config value (ADR-044, ADR-062); '' = unscoped
   idempotency    TEXT NOT NULL,           -- computed key, see §8 deliver
   run_id         TEXT NOT NULL,
   created_at     TEXT NOT NULL,
-  status         TEXT NOT NULL DEFAULT 'accepted',  -- accepted|confirmed|contradicted|sent (ADR-036)
+  status         TEXT NOT NULL DEFAULT 'accepted',  -- accepted|confirmed|contradicted|sent (ADR-036)|unconfirmed (ADR-060: in flight at a crash; held)|settled (ADR-064: held, then found at the target by the operator)
   sent_at        TEXT,                    -- set only by attestation (ADR-036)
   variables_hash TEXT NOT NULL DEFAULT '', -- resolved variables at delivery (ADR-045); drives redeliver: on_change
   UNIQUE(target, scope, idempotency)
 );
 ```
+
+## Used in
+
+- [Top up](/guides/top-up)
+- [Iterate](/guides/iterate): The target, scope, and key each delivery row carries
+- [Recover](/guides/recover): The table a deliver step checks before it sends, where a held record's row says unconfirmed
+- [Segment](/guides/segment): Every delivery row, with the target and scope a slice can narrow on
+- [Run on cron and events](/guides/cron-and-events)

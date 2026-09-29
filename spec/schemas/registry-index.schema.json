@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://gtme.spec/schemas/registry-index.schema.json",
   "title": "Bindings registry index",
-  "description": "The index (ADR-042) a bindings registry publishes (default: the gtme-bindings repository's index.json; GTME_REGISTRY overrides). `gtme adapters search` reads it; `gtme adapters add` installs an entry by its source ref. Verified entries are maintained in the registry repository and fixture-tested by its CI; community entries point at their authors' repositories and ship fixtures, which `adapters add` runs before installing.",
+  "description": "The index (ADR-042) a bindings registry publishes (default: the gtme-bindings repository's index.json; GTME_REGISTRY overrides). `gtme adapters search` reads it; `gtme adapters add` installs an entry by its source ref. Verified entries are maintained in the registry repository and fixture-tested by its CI; community entries point at their authors' repositories and ship fixtures, which `adapters add` runs before installing. A process entry (ADR-063) is a prebuilt process adapter: one checksum-pinned archive per platform holding manifest.json and an executable run, verified tier only.",
   "type": "object",
   "required": ["version", "bindings"],
   "additionalProperties": false,
@@ -13,10 +13,11 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "description", "role", "entity_type", "source", "sha256", "tier"],
+        "required": ["id", "description", "role", "entity_type", "source", "tier"],
         "additionalProperties": false,
         "properties": {
           "id": {"type": "string", "minLength": 1, "description": "Adapter id, e.g. hubspot/contact-search."},
+          "kind": {"enum": ["binding", "process"], "default": "binding", "description": "ADR-063: binding (a binding.yaml directory) or process (a prebuilt process adapter, installed from assets)."},
           "description": {"type": "string", "minLength": 1},
           "vendor": {"type": "string"},
           "role": {"enum": ["source", "filter", "enrich", "verify", "compose", "deliver"]},
@@ -30,15 +31,34 @@
             "additionalProperties": false,
             "properties": {
               "url": {"type": "string", "description": "Repository, e.g. github.com/gtme-run/gtme-bindings."},
-              "path": {"type": "string", "description": "Directory inside the repository holding binding.yaml and fixtures/."},
+              "path": {"type": "string", "description": "Directory inside the repository holding binding.yaml and fixtures/ (for a process entry, the code the assets were built from)."},
               "ref": {"type": "string", "description": "Tag or branch the entry was published at."},
               "sha": {"type": "string", "description": "Commit the ref resolved to when the index was generated."}
             }
           },
-          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Content hash of the binding directory; `adapters add` refuses a mismatch."},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Content hash of the binding directory; `adapters add` refuses a mismatch. Required for a binding entry; a process entry pins each asset instead."},
           "tier": {"enum": ["verified", "community"]},
-          "since": {"type": "string"}
-        }
+          "since": {"type": "string"},
+          "release": {"type": "string", "description": "Process entries: the release tag the assets were published at."},
+          "assets": {
+            "type": "object",
+            "description": "Process entries (ADR-063): one .tar.gz per platform, holding manifest.json and an executable run at its root; `adapters add` refuses a sha256 mismatch.",
+            "propertyNames": {"enum": ["darwin/arm64", "darwin/amd64", "linux/amd64", "linux/arm64"]},
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "object",
+              "required": ["url", "sha256"],
+              "additionalProperties": false,
+              "properties": {
+                "url": {"type": "string", "minLength": 1},
+                "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+              }
+            }
+          }
+        },
+        "if": {"required": ["kind"], "properties": {"kind": {"const": "process"}}},
+        "then": {"required": ["assets", "release"], "properties": {"tier": {"const": "verified"}}},
+        "else": {"required": ["sha256"], "not": {"anyOf": [{"required": ["assets"]}, {"required": ["release"]}]}}
       }
     }
   }

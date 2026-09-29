@@ -42,7 +42,7 @@ Make a folder, keep the ledger inside it so demo people stay out of your real on
 mkdir -p gtme-start && cd gtme-start
 export GTME_LEDGER=./ledger.db
 curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/demo.yaml
-gtme adapters add apollo/search apollo/enrich
+gtme adapters add apollo/search apollo/enrich instantly/add-to-campaign
 gtme run demo.yaml --simulate
 ```
 
@@ -112,7 +112,7 @@ steps:
 
   - id: send
     use: instantly/add-to-campaign
-    with: { campaign: "Q3 VP Marketing" }
+    with: { campaign: 0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b }   # the campaign id
     variables:
       first_name: first_name
       first_line: first_line
@@ -162,11 +162,12 @@ Search Apollo, keep the people an AI judge says own outbound tooling, and pay fo
     source  csv/source   0   3    -      0       -         -       $0    -
     score   demo/enrich  3   0    -      3       -         -       $0    $0.0300
     keep    sql/filter   3   1    -      0       2         -       $0    -
-    out     csv/deliver  1   0    -      1       -         -       $0    $0.0000
-    total: $0 spent, $0.0300 avoided via cache (4 records skipped)
+    out     csv/deliver  1   0    -      0       -         -       $0    -
+    out: 1 already delivered
+    total: $0 spent, $0.0300 avoided via cache (3 records skipped)
     ```
 
-**Read the `score` row: `cached 3`, `avoided $0.0300`.** Each person already had a score in the [ledger](/concepts/ledger), inside its 30-day window, so the scorer didn't run. Then read `out`: `cached 1`. Jane went to `out.csv` last time under the same email, so she wasn't delivered again; that's `idempotency: email`. It holds per delivery target, so the same person can still be added to a different campaign on purpose.
+**Read the `score` row: `cached 3`, `avoided $0.0300`.** Each person already had a score in the [ledger](/concepts/ledger), inside its 30-day window, so the scorer didn't run. Then read the line under the table, `out: 1 already delivered`. Jane went to `out.csv` last time under the same email, so she wasn't delivered again; that's `idempotency: email`. It holds per delivery target, so the same person can still be added to a different campaign on purpose.
 
 The counter is real and the dollars are pretend. With your own rows and a real price behind a step, the `avoided` column is money you didn't spend.
 

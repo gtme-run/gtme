@@ -48,7 +48,7 @@ func TestSpecExamplePipelinePlans(t *testing.T) {
 		"4. linkedin [enrich] — harvest/profile@2",
 		"5. posts [enrich] — harvest/recent-posts@1",
 		"6. personalize [compose] — ai/compose@1",
-		"7. send [deliver] — instantly/add-to-campaign@1",
+		"7. send [deliver] — instantly/add-to-campaign@2",
 		"send surface: 1 deliver step(s)",
 		"send → instantly/add-to-campaign (touch scope: apollo-to-instantly)",
 		"requires:  any of linkedin_url | linkedin_internal_url | linkedin_sales_nav_url",
@@ -264,7 +264,7 @@ func TestCacheExampleShowsTheDelta(t *testing.T) {
 	contains(t, second.stderr, "score: 3 in, 0 out, 3 cached", "second run cache-skips")
 	contains(t, second.stderr, "$0.0300", "the receipt prints the dollars avoided")
 	contains(t, second.stderr, "avoided via cache", "second receipt")
-	contains(t, second.stderr, "out: 1 in, 0 out, 1 cached", "nothing delivered twice")
+	contains(t, second.stderr, "out: 1 in, 0 out, 0 cached, 0 filtered, 0 failed, 1 already delivered", "nothing delivered twice")
 	if n := h.queryInt(`SELECT count(*) FROM costs WHERE provider = 'demo'`); n != 3 {
 		t.Errorf("demo cost rows after the second run = %d, want 3 (no adapter call)", n)
 	}

@@ -24,7 +24,7 @@ steps:
     with: { template: Write first_line and ps_line for a short, honest intro. }
   - id: send                      # delivery is a step like any other — put it anywhere, use several
     use: instantly/add-to-campaign
-    with: { campaign: "Q3 VP Marketing" }
+    with: { campaign: 0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b }   # the campaign id, not its name
     variables: { first_line: first_line, ps_line: ps_line }
     idempotency: email            # re-runs deliver nothing twice, ever
 ```
@@ -201,7 +201,7 @@ what the binary carries. Adapters marked *(registry)* install with
 | **Judge** | `ai/filter` · `sql/filter` · `ai/review` |
 | **Write** | `ai/compose` · `text/compose` (a template, no model) |
 | **Ask** | `human/filter` · `human/compose` · `human/review` · `agent/*` (the same three, answered by an agent) |
-| **Out** | `instantly/add-to-campaign` · `attio/assert` *(registry)* · `http/deliver` (any URL) · `csv/deliver` · `group/deliver` (the next stage) |
+| **Out** | `instantly/add-to-campaign` *(registry)* · `attio/assert` *(registry)* · `http/deliver` (any URL) · `csv/deliver` · `group/deliver` (the next stage) |
 
 Adding your own doesn't require touching this repo: drop a `binding.yaml`
 into `~/.gtme/adapters/<name>/` and the id resolves immediately.
@@ -302,6 +302,7 @@ below works with that path.
 **The zero-key demo** — run a whole campaign, offline, right now:
 
 ```sh
+gtme adapters add apollo/search apollo/enrich instantly/add-to-campaign   # keyless: verified, then pinned
 gtme run examples/demo.yaml --simulate
 ```
 
@@ -339,7 +340,7 @@ is where it turns into money.
 ```sh
 gtme secret set APOLLO_API_KEY        # prompts, no echo
 gtme secret set ANTHROPIC_API_KEY
-gtme secret set INSTANTLY_API_KEY     # the campaign named in the file must exist
+gtme secret set INSTANTLY_API_KEY     # the campaign whose id is in the file must exist
 gtme plan examples/demo.yaml          # contracts + cost, still $0
 gtme run  examples/demo.yaml --dry-run  # everything but delivery
 gtme run  examples/demo.yaml          # armed

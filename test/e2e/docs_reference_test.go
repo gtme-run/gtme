@@ -11,7 +11,8 @@ import (
 
 // The reference collection and the glossary under docs/ are generated
 // (cmd/docsgen) from `gtme help --agent`, docs/_adapters.json, the spec
-// artifacts, and each concept page's `defines:`. This test regenerates them
+// artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance,
+// and each concept page's `defines:`. This test regenerates them
 // from the built binary and fails when the committed pages differ, so a
 // verb, an adapter, a field, a table, or a definition cannot change without
 // `make docs-reference` running and its result being committed.
@@ -32,6 +33,13 @@ func TestDocsReferenceMatchesSources(t *testing.T) {
 	out, err := docsgen.Generate(in)
 	if err != nil {
 		t.Fatalf("generating: %v", err)
+	}
+	// The single reference pages built from spec artifacts are in the
+	// output, so the drift check below covers them too.
+	for _, slug := range []string{"pipeline-yaml", "binding-manifest", "wire-protocol", "bundles", "plugin-skills", "conformance"} {
+		if _, ok := out.Files["reference/"+slug+".md"]; !ok {
+			t.Errorf("generator no longer writes reference/%s.md", slug)
+		}
 	}
 	drift, err := docsgen.Drift(filepath.Join(repoRoot(), "docs"), out)
 	if err != nil {

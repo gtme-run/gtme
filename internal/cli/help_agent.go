@@ -128,7 +128,7 @@ var agentVerbs = []agentVerb{
 	{"gtme init", "create ~/.gtme and the ledger"},
 	{"gtme secret set KEY [VALUE]", "store a credential in ~/.gtme/secrets (VALUE omitted = prompt, no echo)"},
 	{"gtme plan pipeline.yaml [--viz|--viz-only]", "resolve adapters, validate every step's needs/uses and credentials, print the plan — no network, no spend; --viz appends a diagram of the resolved plan to the listing and --viz-only prints it alone (ADR-051), both renderings of the same plan and neither changing what plan accepts or exits with"},
-	{"gtme run pipeline.yaml [--resume RUN_ID] [--dry-run] [--simulate]", "execute a pipeline; --resume continues a run that stopped partway; --dry-run holds deliver steps back and receipts their resolved variables instead of sending; --simulate executes everything offline from fixtures (no network, no spend, nothing persists)"},
+	{"gtme run pipeline.yaml [--resume RUN_ID [--resend-unconfirmed[=KEYS]] [--settle-unconfirmed[=KEYS]]] [--dry-run] [--simulate]", "execute a pipeline; --resume continues a run that stopped partway; --resend-unconfirmed, with --resume, sends the deliveries the run held because they may have reached the target before it stopped, and --settle-unconfirmed marks them found at the target without sending (=KEY,… for some); --dry-run holds deliver steps back and receipts their resolved variables instead of sending; --simulate executes everything offline from fixtures (no network, no spend, nothing persists)"},
 	{"gtme query \"SQL\" [--save NAME] [--name NAME] [--list] [--format ndjson|table|csv] [--limit N]", "read-only SQL against the ledger; --save stores it as a named segment"},
 	{"gtme show <identity-key> [--fields a,b] [--provenance]", "print the current-value projection for one identity"},
 	{"gtme show --run RUN_ID|last [--fields a,b] [--provenance] [--limit N]", "list the records a run touched"},
@@ -283,7 +283,7 @@ steps:
   - id: send
     use: instantly/add-to-campaign
     with:
-      campaign: "Q3 VP Marketing"
+      campaign: 0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b
     variables:
       first_name: first_name
       personalization: first_line
@@ -332,7 +332,7 @@ steps:
   - id: send
     use: instantly/add-to-campaign
     with:
-      campaign: "Q3 reviewed"
+      campaign: 0198a0b1-5f4e-4d3c-8b2a-7c6d5e4f3a21
     variables:
       first_name: full_name
       personalization: review.first_line
@@ -365,7 +365,7 @@ steps:
   - id: send
     use: instantly/add-to-campaign
     with:
-      campaign: "CSV import"
+      campaign: 0198a0b1-9a8b-4c7d-8e6f-5a4b3c2d1e0f
     variables:
       first_name: first_name
       personalization: first_line

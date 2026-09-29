@@ -35,7 +35,37 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "e2e: building gtme:", err)
 		os.Exit(1)
 	}
+	// instantly/add-to-campaign is a registry process entry (ADR-063): build
+	// it and lay it out as `gtme adapters add` would, manifest.json + run.
+	processDir = filepath.Join(dir, "process")
+	if err := buildProcessAdapter(filepath.Join(processDir, "instantly-add-to-campaign"), "./cmd/gtme-instantly"); err != nil {
+		fmt.Fprintln(os.Stderr, "e2e: building gtme-instantly:", err)
+		os.Exit(1)
+	}
 	os.Exit(m.Run())
+}
+
+// processDir holds the process adapters the suite builds (ADR-063).
+var processDir string
+
+// buildProcessAdapter builds pkg as dest/run and writes its manifest.json
+// from the executable's own --manifest.
+func buildProcessAdapter(dest, pkg string) error {
+	if err := os.MkdirAll(dest, 0o755); err != nil {
+		return err
+	}
+	run := filepath.Join(dest, "run")
+	build := exec.Command("go", "build", "-o", run, pkg)
+	build.Dir = repoRoot()
+	build.Stdout, build.Stderr = os.Stderr, os.Stderr
+	if err := build.Run(); err != nil {
+		return err
+	}
+	manifest, err := exec.Command(run, "--manifest").Output()
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dest, "manifest.json"), manifest, 0o644)
 }
 
 func repoRoot() string {
@@ -82,7 +112,7 @@ func (h *harness) env() []string {
 		"GTME_LEDGER=" + h.ledger,
 		"GTME_ADAPTER_PATH=" + filepath.Join(repoRoot(), "adapters") + ":" +
 			filepath.Join(repoRoot(), "test", "fixtures", "adapters") + ":" +
-			registryDir(),
+			registryDir() + ":" + processDir,
 	}
 }
 

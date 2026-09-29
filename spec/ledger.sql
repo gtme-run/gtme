@@ -52,7 +52,9 @@ CREATE TABLE runs (
   started_at  TEXT NOT NULL,
   finished_at TEXT,
   status      TEXT NOT NULL DEFAULT 'running',  -- running|done|failed|pending (ADR-038: ended with a step in flight)
-  dry         INTEGER NOT NULL DEFAULT 0  -- 1 for a --dry-run rehearsal (ADR-052 (7)): finishes nothing a once: source counts
+  dry         INTEGER NOT NULL DEFAULT 0, -- 1 for a --dry-run rehearsal (ADR-052 (7)): finishes nothing a once: source counts
+  pid         INTEGER,                    -- ADR-061: the executing process, set at create and at resume; display only
+  host        TEXT                        -- ADR-061: its hostname; liveness is the run lock (§8), never these
 );
 
 CREATE TABLE run_records (
@@ -68,7 +70,7 @@ CREATE TABLE step_events (
   run_id      TEXT NOT NULL,
   step_id     TEXT NOT NULL,
   identity_id TEXT,                       -- null for step-level events
-  event       TEXT NOT NULL,              -- claimed|done|failed|skipped_cache|pending|collected (ADR-038)|answered (ADR-049: a participant's answer awaiting collection)
+  event       TEXT NOT NULL,              -- claimed|dispatched (ADR-060: a deliver's send is about to leave)|done|failed|skipped_cache|gated (ADR-064: held back by when: or a membership gate)|settled (ADR-064: a held delivery the operator found at the target)|pending|collected (ADR-038)|answered (ADR-049: a participant's answer awaiting collection)
   detail      TEXT,                       -- JSON
   created_at  TEXT NOT NULL
 );
@@ -89,11 +91,11 @@ CREATE TABLE deliveries (
   id             TEXT PRIMARY KEY,
   identity_id    TEXT NOT NULL,
   target         TEXT NOT NULL,           -- adapter id, or group:<name> for a handoff (ADR-032)
-  scope          TEXT NOT NULL DEFAULT '', -- resolved idempotency_scope config value (ADR-044); '' = unscoped
+  scope          TEXT NOT NULL DEFAULT '', -- the destination's stable identifier: the idempotency_scope config value (ADR-044, ADR-062); '' = unscoped
   idempotency    TEXT NOT NULL,           -- computed key, see §8 deliver
   run_id         TEXT NOT NULL,
   created_at     TEXT NOT NULL,
-  status         TEXT NOT NULL DEFAULT 'accepted',  -- accepted|confirmed|contradicted|sent (ADR-036)
+  status         TEXT NOT NULL DEFAULT 'accepted',  -- accepted|confirmed|contradicted|sent (ADR-036)|unconfirmed (ADR-060: in flight at a crash; held)|settled (ADR-064: held, then found at the target by the operator)
   sent_at        TEXT,                    -- set only by attestation (ADR-036)
   variables_hash TEXT NOT NULL DEFAULT '', -- resolved variables at delivery (ADR-045); drives redeliver: on_change
   UNIQUE(target, scope, idempotency)

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/gtme-run/gtme/internal/adapters"
 	"github.com/gtme-run/gtme/internal/bundle"
@@ -23,13 +24,19 @@ func cmdRun(ctx context.Context, env Env, args []string) error {
 	resume := fs.String("resume", "", "resume an existing run by id (or 'last')")
 	concurrency := fs.Int("concurrency", 0, "worker pool size per step (default 4 or $GTME_CONCURRENCY)")
 	dryRun := fs.Bool("dry-run", false, "hold deliver steps back: resolve and receipt their variables, send nothing")
+	var resend, settle heldKeys
+	fs.Var(&resend, "resend-unconfirmed", "with --resume: send the run's held deliveries, the ones that may have reached the target before it stopped (=KEY,… for some)")
+	fs.Var(&settle, "settle-unconfirmed", "with --resume: mark the run's held deliveries settled, found at the target, and send nothing (=KEY,… for some)")
 	simulate := fs.Bool("simulate", false, "execute the whole pipeline offline from recorded responses: no network, no spend, nothing sends, nothing persists")
 	positional, err := parseFlags(fs, args)
 	if err != nil {
 		return err
 	}
 	if len(positional) != 1 {
-		return fail(ExitValidation, "usage: gtme run pipeline.yaml [--resume RUN_ID] [--dry-run] [--simulate]")
+		return fail(ExitValidation, "usage: gtme run pipeline.yaml [--resume RUN_ID [--resend-unconfirmed[=KEYS]] [--settle-unconfirmed[=KEYS]]] [--dry-run] [--simulate]")
+	}
+	if (resend.set || settle.set) && *resume == "" {
+		return fail(ExitValidation, "--resend-unconfirmed and --settle-unconfirmed act on a resumed run's held deliveries; add --resume RUN_ID")
 	}
 	if *simulate && *dryRun {
 		return fail(ExitValidation, "--simulate already withholds delivery; drop --dry-run")
@@ -105,9 +112,17 @@ func cmdRun(ctx context.Context, env Env, args []string) error {
 	// sourcing anew — nothing is submitted twice by habit. --simulate runs
 	// against a throwaway ledger and never defers, so it is exempt.
 	if *resume == "" && !*simulate {
-		if last, err := l.LastRunForPipeline(ctx, p.Name); err == nil && last.Status == ledger.StatusPending {
-			*resume = last.ID
-			fmt.Fprintf(env.Stderr, "collecting run %s — the latest run of %q ended with a step in flight\n", last.ID, p.Name)
+		if last, err := l.LastRunForPipeline(ctx, p.Name); err == nil {
+			switch status, _ := liveness(l, last); {
+			case last.Status == ledger.StatusPending:
+				*resume = last.ID
+				fmt.Fprintf(env.Stderr, "collecting run %s — the latest run of %q ended with a step in flight\n", last.ID, p.Name)
+			case status == statusInterrupted:
+				// Never resumed by habit (ADR-061): a crashed deliver step may
+				// hold records a person should check first (ADR-060).
+				fmt.Fprintf(env.Stderr, "run %s of %q was interrupted; this starts a new run. To finish that one instead: gtme run %s --resume %s\n",
+					last.ID, p.Name, positional[0], last.ID)
+			}
 		}
 	}
 	if *dryRun {
@@ -118,7 +133,7 @@ func cmdRun(ctx context.Context, env Env, args []string) error {
 			}
 		}
 	}
-	runID, err := resolveRunID(ctx, l, *resume)
+	runID, err := resolveRunID(ctx, l, p.Name, *resume)
 	if err != nil {
 		return err
 	}
@@ -129,8 +144,14 @@ func cmdRun(ctx context.Context, env Env, args []string) error {
 		Stderr:      env.Stderr,
 		Concurrency: *concurrency,
 		ResumeRunID: runID,
-		DryRun:      *dryRun,
-		Simulate:    *simulate,
+		// Held deliveries go out only on this explicit release (ADR-060).
+		ResendUnconfirmed: resend.set,
+		ResendKeys:        resend.keys,
+		SettleUnconfirmed: settle.set,
+		SettleKeys:        settle.keys,
+		PipelinePath:      positional[0],
+		DryRun:            *dryRun,
+		Simulate:          *simulate,
 		// The in-run walk of a human/* step needs someone to ask (SPEC §8,
 		// ADR-049): with a terminal on stdin the run asks, otherwise the
 		// records wait in the ledger for `gtme answer`.
@@ -141,6 +162,10 @@ func cmdRun(ctx context.Context, env Env, args []string) error {
 		runner.PrintReceipt(env.Stderr, res)
 	}
 	if runErr != nil {
+		var refused *runner.RefusedError
+		if errors.As(runErr, &refused) {
+			return fail(ExitValidation, "%v", refused)
+		}
 		// A provider that rejected our credentials or rate-limited us deserves its
 		// own exit code, not a generic failure (SPEC §8).
 		if code := httpx.ExitCodeFor(runErr); code != 0 {
@@ -254,16 +279,18 @@ func planFailure(err error) error {
 	return exitError{code: ExitValidation, err: err}
 }
 
-// resolveRunID turns a --resume value into a run id.
-func resolveRunID(ctx context.Context, l *ledger.Ledger, resume string) (string, error) {
+// resolveRunID turns a --resume value into a run id. `last` is the newest run
+// of the named pipeline — the explicit form of collect-first (SPEC §8), which
+// is scoped the same way — never another pipeline's run (#122).
+func resolveRunID(ctx context.Context, l *ledger.Ledger, pipeline, resume string) (string, error) {
 	switch resume {
 	case "":
 		return "", nil
 	case "last":
-		run, err := l.LastRun(ctx)
+		run, err := l.LastRunForPipeline(ctx, pipeline)
 		if err != nil {
 			if errors.Is(err, ledger.ErrNotFound) {
-				return "", fail(ExitValidation, "no runs to resume")
+				return "", fail(ExitValidation, "no runs to resume for pipeline %q", pipeline)
 			}
 			return "", fail(ExitOther, "%v", err)
 		}
@@ -287,4 +314,27 @@ func openLedger(ctx context.Context) (*ledger.Ledger, error) {
 		return nil, fail(ExitOther, "%v", err)
 	}
 	return l, nil
+}
+
+// heldKeys is --resend-unconfirmed / --settle-unconfirmed (ADR-064): given
+// bare it means every held record, given =KEY,… those identity keys only.
+type heldKeys struct {
+	set  bool
+	keys []string
+}
+
+func (h *heldKeys) String() string   { return strings.Join(h.keys, ",") }
+func (h *heldKeys) IsBoolFlag() bool { return true }
+
+func (h *heldKeys) Set(v string) error {
+	h.set = true
+	if v == "true" {
+		return nil
+	}
+	for _, k := range strings.Split(v, ",") {
+		if k = strings.TrimSpace(k); k != "" {
+			h.keys = append(h.keys, k)
+		}
+	}
+	return nil
 }

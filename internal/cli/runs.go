@@ -6,6 +6,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -53,12 +55,29 @@ func cmdRuns(ctx context.Context, env Env, args []string) error {
 				return fail(ExitOther, "%v", err)
 			}
 			inFlight := "-"
-			if run.Status == ledger.StatusPending {
+			switch {
+			case run.Status == ledger.StatusPending:
 				n, err := l.InFlight(ctx, run.ID)
 				if err != nil {
 					return fail(ExitOther, "%v", err)
 				}
 				inFlight = fmt.Sprint(n)
+			case strings.HasPrefix(status, statusInterrupted):
+				// Sends with no answer before the process died (ADR-064): the
+				// same "sent, no answer yet" as a pending run's.
+				unanswered, err := l.UnansweredByRun(ctx, run.ID)
+				if err != nil {
+					return fail(ExitOther, "%v", err)
+				}
+				n := 0
+				for _, byTarget := range unanswered {
+					for _, c := range byTarget {
+						n += c
+					}
+				}
+				if n > 0 {
+					inFlight = fmt.Sprint(n)
+				}
 			}
 			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\n", run.ID, run.Pipeline, status, run.StartedAt, len(records), inFlight)
 		}
@@ -93,39 +112,28 @@ func printReceipt(ctx context.Context, env Env, l *ledger.Ledger, run ledger.Run
 	if err != nil {
 		return fail(ExitOther, "%v", err)
 	}
+	interrupted := strings.HasPrefix(status, statusInterrupted)
+	if interrupted && (run.Pid != 0 || run.Host != "") {
+		status += " (was " + runner.ProcessLabel(run) + ")"
+	}
 	fmt.Fprintf(env.Stderr, "run %s\npipeline: %s\nstatus:   %s\nstarted:  %s\n",
 		run.ID, run.Pipeline, status, run.StartedAt)
 	if run.FinishedAt != "" {
 		fmt.Fprintf(env.Stderr, "finished: %s\n", run.FinishedAt)
 	}
 
-	events, err := l.StepEventCounts(ctx, run.ID)
+	// The live receipt's table, rebuilt from the ledger (SPEC §8,
+	// ADR-064): the run's net outcome across all its sessions.
+	mirror, err := runner.LedgerSteps(ctx, l, run)
 	if err != nil {
 		return fail(ExitOther, "%v", err)
 	}
-	costs, err := l.CostsByStep(ctx, run.ID)
-	if err != nil {
-		return fail(ExitOther, "%v", err)
+	fmt.Fprintln(env.Stderr)
+	runner.PrintTable(env.Stderr, mirror.Steps, mirror.GatedUnknown)
+	fmt.Fprintln(env.Stderr, runner.TotalLine(mirror.Steps))
+	if mirror.Legacy && len(mirror.GatedUnknown) > 0 {
+		fmt.Fprintln(env.Stderr, "(recorded before gtme counted gated records: in+? is a floor)")
 	}
-	order, err := l.StepIDs(ctx, run.ID)
-	if err != nil {
-		return fail(ExitOther, "%v", err)
-	}
-
-	tw := tabwriter.NewWriter(env.Stderr, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(tw, "\nstep\tclaimed\tdone\tcached\tfailed\tcost")
-	var total ledger.CostTotal
-	for _, step := range order {
-		counts := events[step]
-		cost := costs[step]
-		total.Add(cost)
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", step,
-			count(counts["claimed"]), count(counts["done"]),
-			count(counts["skipped_cache"]), count(counts["failed"]), money(cost.Total()))
-	}
-	tw.Flush()
-	// The total carries its basis exactly as the live receipt did (ADR-046).
-	fmt.Fprintf(env.Stderr, "total: %s\n", runner.FormatCost(total))
 
 	// The states show where records stopped, which is the useful thing when a run
 	// did not finish cleanly.
@@ -164,6 +172,45 @@ func printReceipt(ctx context.Context, env Env, l *ledger.Ledger, run ledger.Run
 				len(steps), run.ID)
 		}
 	}
+	// Deliveries this run held after a crash (ADR-060), and the release.
+	held, err := l.UnconfirmedByRun(ctx, run.ID)
+	if err != nil {
+		return fail(ExitOther, "%v", err)
+	}
+	targets := make([]string, 0, len(held))
+	for t := range held {
+		targets = append(targets, t)
+	}
+	sort.Strings(targets)
+	for _, t := range targets {
+		fmt.Fprintf(env.Stderr, "held:     %d unconfirmed at %s — may have reached it before the run stopped; check the target, then: %s --resend-unconfirmed, or --settle-unconfirmed for the ones it already has\n",
+			held[t], t, resumeCommand(run))
+	}
+	if interrupted {
+		// What the dead process may have delivered (ADR-064), before any
+		// run holds it.
+		unanswered, err := l.UnansweredByRun(ctx, run.ID)
+		if err != nil {
+			return fail(ExitOther, "%v", err)
+		}
+		steps := make([]string, 0, len(unanswered))
+		for step := range unanswered {
+			steps = append(steps, step)
+		}
+		sort.Strings(steps)
+		for _, step := range steps {
+			targets := make([]string, 0, len(unanswered[step]))
+			for t := range unanswered[step] {
+				targets = append(targets, t)
+			}
+			sort.Strings(targets)
+			for _, t := range targets {
+				fmt.Fprintf(env.Stderr, "%s: %d sent to %s with no answer before the run stopped; the resume, or the next run to that target, holds them\n",
+					step, unanswered[step][t], t)
+			}
+		}
+		fmt.Fprintf(env.Stderr, "resume:   %s\n", resumeCommand(run))
+	}
 	return nil
 }
 
@@ -181,12 +228,16 @@ func money(v float64) string {
 	return fmt.Sprintf("$%.4f", v)
 }
 
-// runStatus is a run's status with two facts the bare word hides: a
+// runStatus is a run's status with three facts the bare word hides: a
+// `running` run whose process is gone reads `interrupted` (ADR-061), a
 // rehearsal is marked (SPEC §3, ADR-052 (7)), and a run that spent money and
 // produced no records says so (SPEC §8, ADR-053) — the same words the live
 // receipt used.
 func runStatus(ctx context.Context, l *ledger.Ledger, run ledger.Run, records int) (string, error) {
-	status := run.Status
+	status, err := liveness(l, run)
+	if err != nil {
+		return "", err
+	}
 	if run.Dry {
 		status += " (dry)"
 	}
@@ -204,4 +255,36 @@ func runStatus(ctx context.Context, l *ledger.Ledger, run ledger.Run, records in
 		}
 	}
 	return status, nil
+}
+
+// Liveness words for a running run (SPEC §8, ADR-061).
+const (
+	statusInterrupted = "interrupted"
+)
+
+// liveness is a run's status as `gtme runs` shows it: a `running` run whose
+// lock is free has no living process and reads `interrupted`; one recorded
+// on another host cannot be probed from here and says where it runs. The
+// stored status never changes — this is derived at read time.
+func liveness(l *ledger.Ledger, run ledger.Run) (string, error) {
+	if run.Status != ledger.StatusRunning {
+		return run.Status, nil
+	}
+	if host, _ := os.Hostname(); run.Host != "" && run.Host != host {
+		return fmt.Sprintf("running (on %s)", run.Host), nil
+	}
+	alive, err := l.RunAlive(run.ID)
+	if err != nil {
+		return "", err
+	}
+	if alive {
+		return ledger.StatusRunning, nil
+	}
+	return statusInterrupted, nil
+}
+
+// resumeCommand is how an operator finishes a run. The ledger records the
+// pipeline's name, not its file, so the file is named for the pipeline.
+func resumeCommand(run ledger.Run) string {
+	return fmt.Sprintf("gtme run %s.yaml --resume %s", run.Pipeline, run.ID)
 }

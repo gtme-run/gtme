@@ -14,7 +14,6 @@ import (
 	_ "github.com/gtme-run/gtme/internal/adapters/csvdeliver"
 	_ "github.com/gtme-run/gtme/internal/adapters/csvsource"
 	_ "github.com/gtme-run/gtme/internal/adapters/demoenrich"
-	_ "github.com/gtme-run/gtme/internal/adapters/instantly"
 	_ "github.com/gtme-run/gtme/internal/adapters/participants"
 	_ "github.com/gtme-run/gtme/internal/adapters/textsteps"
 )

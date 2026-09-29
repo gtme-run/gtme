@@ -8,14 +8,17 @@ learn:
   - "each flag and what it changes"
   - "where the docs use it"
 roles: [operator, builder, agent]
-generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, spec/fields/*.json, spec/ledger.sql, and each concept page's defines:. Do not edit; fix the source and regenerate."
+generated_by: "make docs-reference (cmd/docsgen): gtme help --agent, docs/_adapters.json, the spec/ artifacts, examples/hello.yaml, bundles/, plugin/skills, test/conformance, and each concept page's defines:. Do not edit; fix the source and regenerate."
 links:
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code"
   - to: /concepts/facts
     type: relates-to
     description: "Defines fact and provenance"
   - to: /concepts/ledger
     type: relates-to
-    description: "Defines payload"
+    description: "Defines ledger and payload"
 ---
 
 # gtme vacuum
@@ -40,4 +43,5 @@ gtme vacuum
 
 ## Used in
 
+- [The ledger](/concepts/ledger): Deletes expired payloads without touching a fact
 - [Facts have provenance](/concepts/facts): The command that deletes expired payloads and nothing else

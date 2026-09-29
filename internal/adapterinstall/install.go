@@ -297,6 +297,11 @@ type Source struct {
 	Commit      string `json:"commit"`
 	SHA256      string `json:"sha256"`
 	InstalledAt string `json:"installed_at"`
+	// A process entry (ADR-063) also records its kind, the asset it was
+	// installed from, and the release tag; SHA256 is then the archive's.
+	Kind    string `json:"kind,omitempty"`
+	Asset   string `json:"asset,omitempty"`
+	Release string `json:"release,omitempty"`
 }
 
 // ReadSource loads a directory's `.source.json`; (nil, nil) means the binding

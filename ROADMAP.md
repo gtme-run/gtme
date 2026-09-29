@@ -244,7 +244,9 @@ unverified (`adapters verify` runs the fixtures offline first), the
 registry repository holds the index and the verified set, community
 entries point at their authors' repositories. The binary keeps the floor
 and, since ADR-059 (2026-09-26), no vendor: the reference-twin carve-out
-is retired. The hosted marketplace — accounts,
+is retired. Since ADR-063 (2026-09-29) the index also lists verified
+*process* entries, prebuilt per platform and checksum-pinned, which is
+how `instantly/add-to-campaign` left the binary. The hosted marketplace — accounts,
 payments, a service — is what §13 still excludes.
 
 ## Run-lifecycle notification hook
@@ -336,7 +338,7 @@ failure where
 every request succeeds and nothing sends. Kept here only as the trail
 from the name to the ADR.
 
-## Deliver bindings that preflight and attest — Instantly's move
+## Deliver bindings that preflight and attest — CLOSED by ADR-063
 
 Named 2026-09-26 by ADR-059, which moves every vendor adapter into the
 registry and holds `instantly/add-to-campaign` back as the one built-in
@@ -372,6 +374,15 @@ argument ADR-059 made for `each:`. If it cannot, Instantly stays a
 process adapter and ADR-059's end state changes. Sized when the packet
 is drafted; the Go adapter's preflight and attest are about 200 lines
 together, so the engine version is several times that with tests.
+
+**Closed 2026-09-29 (ADR-062, ADR-063).** `resolve:` was dropped
+first: ADR-062 takes Instantly's campaign as an id, because a display name
+is not a stable dedupe scope. The two preflight checks that count and
+cross-reference (`_step_N` depth, variant coverage) are the computation
+the graduation rule sends to a process adapter, so they did not become
+engine vocabulary. Instantly left the binary as a registry *process*
+entry instead, and a later deliver adapter that needs preflight or
+attestation takes the same route.
 
 ## Email waterfall as a pattern, not a provider
 
@@ -592,3 +603,42 @@ anything before a second timestamp and an "ended" event are designed.
 When it comes back: an `ended_at` column, the append-then-derive pattern
 (a `current_relations` view), and which adapters could ever assert an
 end.
+
+## Re-reading held deliveries on resume
+
+Named 2026-09-28 by ADR-060, which holds a record whose delivery was in
+flight at a crash as `unconfirmed` and leaves the release to the
+operator (`--resend-unconfirmed`). An adapter that declares `attests`
+can already re-read what the target stored, so on resume it could answer
+the question itself: a re-read that finds the record settles the row as
+`confirmed`, and one that finds nothing makes the resend safe. That
+needs a session shape the protocol does not have yet (an attestation for
+a record that was not sent in this session), so it is spec-visible and
+takes its own packet. ADR-064 (2026-09-29) added the manual path:
+`--settle-unconfirmed` writes `settled`, the operator's word; a re-read
+would write `confirmed`, the provider's, so the two stay distinct. Held
+for receipts: the first crashes against an
+attesting target will say whether checking by hand is a real burden.
+
+## Batch delivery
+
+ADR-060 runs an adapter-backed deliver step one record per session, so
+the ledger can name exactly which record was in flight at a crash. No
+shipped deliver adapter sends in bulk. A target with a bulk endpoint
+(adding many leads in one request) would want a session that carries a
+batch, and its in-flight window is then the whole batch: every record in
+it is `dispatched` together and held together. A manifest declaration
+for that, with the receipt saying how large the window is, waits for an
+adapter that needs it.
+
+## Community process entries
+
+Named 2026-09-29 by ADR-063, which lets the registry index list process
+adapters as prebuilt, checksum-pinned archives, and only verified ones
+built by gtme-run CI. A community process entry would point at an
+executable that a stranger built, which ADR-022's framing for bindings
+(reviewable data, a blast radius the engine bounds) does not cover. A
+design would need at least reproducible builds from the named commit,
+or a sandbox the runner enforces, before a community executable could
+install under "nothing installs unverified". This waits for a community
+adapter that cannot be a binding.
