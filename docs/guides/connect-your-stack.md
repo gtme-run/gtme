@@ -68,7 +68,7 @@ links:
 
 ## Before you start
 
-**You need `gtme` ([Install](/start/install)) and one key per vendor the file names.** Plan names each key except the model's. For the file in the next section, that's a HubSpot private-app token that can read contacts, an Instantly API key, and an Anthropic API key. Run these steps in a shell without `GTME_LEDGER` set, so your keys land in `~/.gtme/secrets`.
+**You need `gtme` ([Install](/start/install)) and one key per vendor the file names.** Plan names each key except the model's. For the file in the next section, that's a HubSpot private-app token that can read contacts, an Instantly API key, and an Anthropic API key. `gtme secret set` keeps them in `~/.gtme/secrets`, whatever `GTME_LEDGER` points at.
 
 **You need an Instantly campaign, active, whose emails use the two lines this file writes.** Put `{{first_line}}` and `{{ps_line}}` in every email of its sequence, A/B variants included. An active campaign emails anyone added to it on its schedule, and pausing it in Instantly stops its emails.
 
