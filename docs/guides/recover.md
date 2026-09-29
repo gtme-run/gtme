@@ -293,8 +293,8 @@ There's no receipt. The process died while `crm` was sending.
     The output is similar to the following:
 
     ```
-    settled 4 held deliveries: found at the target, not sent
     resuming run 01M3QACQCVRSH6ERF9DMWKG261 (signups)
+    settled 4 held deliveries: found at the target, not sent
     source: already sourced (12 records)
     score: 0 in, 0 out, 0 cached, 0 filtered, 0 failed
     crm: 4 in, 0 out, 0 cached, 0 filtered, 0 failed, 4 already delivered

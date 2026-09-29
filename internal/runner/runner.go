@@ -377,9 +377,6 @@ func Execute(ctx context.Context, o Options) (*Result, error) {
 		if err := r.l.ReopenRun(ctx, run.ID); err != nil {
 			return nil, err
 		}
-		if err := r.settleHeld(ctx, settle); err != nil {
-			return nil, err
-		}
 		if run.Pipeline != o.Plan.Pipeline.Name {
 			// Resuming with a different pipeline is allowed — the run's membership and
 			// per-step state are what matter — but it is worth saying out loud.
@@ -387,6 +384,9 @@ func Execute(ctx context.Context, o Options) (*Result, error) {
 				run.ID, run.Pipeline, o.Plan.Pipeline.Name)
 		}
 		fmt.Fprintf(r.stderr, "resuming run %s (%s)\n", run.ID, run.Pipeline)
+		if err := r.settleHeld(ctx, settle); err != nil {
+			return nil, err
+		}
 		// The run finishes under the file as it is now, so its snapshot is
 		// that file's (#137): `gtme runs` and `gtme freeze` then describe
 		// what the run did, and the operator is told the file moved.
