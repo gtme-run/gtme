@@ -303,3 +303,124 @@ func TestPlainRunAfterACrashHoldsToo(t *testing.T) {
 	}
 	contains(t, res.stderr, "--resume "+dead+" --resend-unconfirmed", "the release names the dead run")
 }
+
+// TestInterruptedRunShowsUnansweredSends is #189 (ADR-064): before any run
+// holds them, `gtme runs` counts a dead run's unanswered sends in in
+// flight, and `gtme runs RUN_ID` names them per target, writing nothing.
+func TestInterruptedRunShowsUnansweredSends(t *testing.T) {
+	target := &slowTarget{delay: 200 * time.Millisecond}
+	srv := httptest.NewServer(target)
+	defer srv.Close()
+	h := newHarness(t)
+	h.write("people.csv", fortyCSV())
+	h.write("send.yaml", sendYAML("http/deliver", srv.URL))
+
+	crashMidSend(t, h, target, syscall.SIGKILL)
+	id := h.queryStrings(`SELECT id FROM runs`)[0]
+	open := h.queryInt(`SELECT count(*) FROM step_events d WHERE d.event = 'dispatched'
+	  AND NOT EXISTS (SELECT 1 FROM step_events e WHERE e.identity_id = d.identity_id AND e.event IN ('done','failed'))`)
+	if open < 1 {
+		t.Fatalf("no send was in flight at the kill")
+	}
+	before := ledgerContent(t, h)
+	list := h.mustRun("runs")
+	var row []string
+	for _, l := range strings.Split(list.stderr, "\n") {
+		if strings.HasPrefix(l, id) {
+			row = strings.Fields(l)
+		}
+	}
+	if len(row) < 6 || row[2] != "interrupted" || row[5] != fmt.Sprint(open) {
+		t.Errorf("gtme runs row = %v, want interrupted with %d in flight", row, open)
+	}
+	receipt := h.mustRun("runs", id)
+	contains(t, receipt.stderr, fmt.Sprintf("send: %d sent to http/deliver with no answer before the run stopped", open), "gtme runs RUN_ID")
+	if after := ledgerContent(t, h); after != before {
+		t.Errorf("gtme runs wrote to the ledger")
+	}
+}
+
+// TestSettleAndSelectiveRelease is #190 (ADR-064): an operator who checked
+// the target settles the held records it has, sends only the one it lacks,
+// and a later run counts the settled ones as already delivered.
+func TestSettleAndSelectiveRelease(t *testing.T) {
+	target := &slowTarget{delay: 200 * time.Millisecond}
+	srv := httptest.NewServer(target)
+	defer srv.Close()
+	h := newHarness(t)
+	h.write("people.csv", fortyCSV())
+	h.write("send.yaml", sendYAML("http/deliver", srv.URL))
+
+	for attempt := 0; ; attempt++ {
+		crashMidSend(t, h, target, syscall.SIGKILL)
+		id := h.queryStrings(`SELECT id FROM runs ORDER BY id DESC`)[0]
+		h.mustRun("run", "send.yaml", "--resume", id)
+		if len(unconfirmedKeys(h)) >= 3 || attempt == 2 {
+			break
+		}
+	}
+	held := unconfirmedKeys(h)
+	if len(held) < 3 {
+		t.Skipf("only %d records in flight at the kill; the scenario needs 3", len(held))
+	}
+	id := h.queryStrings(`SELECT run_id FROM deliveries WHERE status = 'unconfirmed' LIMIT 1`)[0]
+	statusOf := func(key string) string {
+		return h.queryStrings(`SELECT d.status FROM deliveries d JOIN identities i ON i.id = d.identity_id WHERE i.identity_key = ?`, key)[0]
+	}
+
+	// Refusals change nothing.
+	before := ledgerContent(t, h)
+	for _, args := range [][]string{
+		{"--settle-unconfirmed=nobody@example.com"},
+		{"--settle-unconfirmed=" + held[0], "--resend-unconfirmed=" + held[0]},
+		{"--settle-unconfirmed", "--resend-unconfirmed"},
+	} {
+		res := h.run(append([]string{"run", "send.yaml", "--resume", id}, args...)...)
+		if res.code != 2 {
+			t.Errorf("%v: exit = %d, want 2\nstderr:\n%s", args, res.code, res.stderr)
+		}
+	}
+	if after := ledgerContent(t, h); after != before {
+		t.Errorf("a refused settle or release changed the ledger")
+	}
+
+	// Settle two: nothing is sent, they turn settled, the rest stay held.
+	sent := target.count()
+	res := h.mustRun("run", "send.yaml", "--resume", id, "--settle-unconfirmed="+held[0]+","+held[1])
+	contains(t, res.stderr, "settled 2 held deliveries", "stderr")
+	if got := target.count() - sent; got != 0 {
+		t.Errorf("settling sent %d request(s), want 0", got)
+	}
+	if statusOf(held[0]) != "settled" || statusOf(held[1]) != "settled" || statusOf(held[2]) != "unconfirmed" {
+		t.Errorf("statuses = %s %s %s, want settled settled unconfirmed", statusOf(held[0]), statusOf(held[1]), statusOf(held[2]))
+	}
+	if n := h.queryInt(`SELECT count(*) FROM step_events WHERE run_id = ? AND event = 'settled'`, id); n != 2 {
+		t.Errorf("settled events = %d, want 2", n)
+	}
+
+	// Release one: only it is sent.
+	sent = target.count()
+	h.mustRun("run", "send.yaml", "--resume", id, "--resend-unconfirmed="+held[2])
+	if got := target.count() - sent; got != 1 {
+		t.Errorf("the selective release sent %d request(s), want 1", got)
+	}
+	if statusOf(held[2]) != "accepted" {
+		t.Errorf("released record status = %s, want accepted", statusOf(held[2]))
+	}
+
+	// A later run counts the settled records as already delivered.
+	sent = target.count()
+	later := h.mustRun("run", "send.yaml")
+	if got := target.count() - sent; got != 0 {
+		t.Errorf("a later run sent %d, want 0", got)
+	}
+	contains(t, later.stderr, "already delivered", "later run")
+
+	// Settle whatever is still held; the held: line then goes away.
+	if len(unconfirmedKeys(h)) > 0 {
+		h.mustRun("run", "send.yaml", "--resume", id, "--settle-unconfirmed")
+	}
+	if strings.Contains(h.mustRun("runs", id).stderr, "held:") {
+		t.Errorf("the held: line remains with nothing unconfirmed")
+	}
+}

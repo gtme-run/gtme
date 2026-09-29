@@ -85,8 +85,12 @@ func (r *runner) runSQLStep(ctx context.Context, st *planner.Step, identityIDs [
 				return err
 			}
 		}
+		outcome := OutcomeOut
+		if len(fields) == 0 {
+			outcome = OutcomeEmpty
+		}
 		if err := r.l.LogStepEvent(ctx, r.prov(st.ID), identityID, "done",
-			map[string]any{"fields": len(fields)}); err != nil {
+			map[string]any{"fields": len(fields), "outcome": outcome}); err != nil {
 			return err
 		}
 		if err := r.l.SetRunRecordState(ctx, r.runID, identityID, st.ID); err != nil {
@@ -128,10 +132,10 @@ func (r *runner) applySQLVerdict(ctx context.Context, st *planner.Step, identity
 	if !pass {
 		r.bump(st, func(s *StepStat) { s.Filtered++ })
 		return r.l.LogStepEvent(ctx, r.prov(st.ID), identityID, "done",
-			map[string]any{"pass": false, "reason": reason})
+			map[string]any{"pass": false, "reason": reason, "outcome": OutcomeFiltered})
 	}
 	if err := r.l.LogStepEvent(ctx, r.prov(st.ID), identityID, "done",
-		map[string]any{"pass": true, "reason": reason}); err != nil {
+		map[string]any{"pass": true, "reason": reason, "outcome": OutcomeOut}); err != nil {
 		return err
 	}
 	if err := r.l.SetRunRecordState(ctx, r.runID, identityID, st.ID); err != nil {
@@ -143,7 +147,7 @@ func (r *runner) applySQLVerdict(ctx context.Context, st *planner.Step, identity
 
 func (r *runner) failSQL(ctx context.Context, st *planner.Step, identityID, reason string) error {
 	r.bump(st, func(s *StepStat) { s.Failed++ })
-	return r.l.LogStepEvent(ctx, r.prov(st.ID), identityID, "failed", map[string]any{"reason": reason})
+	return r.l.LogStepEvent(ctx, r.prov(st.ID), identityID, "failed", map[string]any{"reason": reason, "outcome": OutcomeFailed})
 }
 
 // sqlResults runs the step's query on the read-only connection and maps rows

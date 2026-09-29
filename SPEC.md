@@ -2898,7 +2898,7 @@ decided contract, not shipped behavior.
   against a shell campaign with no sending accounts, is recorded in
   VALIDATION.md by hand.
 - **M36 — the receipt from the ledger; crashed sends; settling held
-  deliveries (ADR-064; §3, §8, §11). Queued 2026-09-29, after M35.**
+  deliveries (ADR-064; §3, §8, §11). Built 2026-09-29 (changelog v0.60).**
   Per-record step events carry `detail.outcome`; gates write `gated`;
   cache skips carry `avoided_usd`; `spec/ledger.sql`'s comments mirror
   §3. `gtme runs RUN_ID` prints the live receipt's table, net across
@@ -3289,6 +3289,24 @@ one session reads the same both ways (ADR-064).
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.60 — 2026-09-29 (M36 build: the receipt from the ledger; crashed sends; settling held deliveries, built)
+**Changed:** §11 M36 marked built; no normative text changed. Behavioural
+notes from the build: the live receipt and `gtme runs RUN_ID` print the
+table through one renderer, and `gtme runs RUN_ID`'s total line now reads
+`total: $X spent` as the receipt's does; the source row's `out` is the
+count the source recorded when it ran, not the run's current membership;
+a run recorded before M36 prints `N+?` in `in` for a step with a `when:`
+or a membership gate, `?` in `avoided`, and a note that `in+?` is a
+floor; a `gated` event's detail names the gate (`when` or `membership`);
+the unanswered count leaves out sends a later run has already held, so a
+record is never both unanswered and `held:`; when both
+`--resend-unconfirmed` and `--settle-unconfirmed` are given, a flag
+without a list takes the records the other did not name (settle some,
+send the rest), and both without lists refuse; the settled step event is
+written at the deliver step that targets the row; `spec/ledger.sql`'s
+`step_events.event` and `deliveries.status` comments now mirror §3,
+which M34 had left behind.
 
 ### v0.59 — 2026-09-29 (M35 build: destinations and Instantly's move, built)
 **Changed:** §11 M35 marked built. Behavioural notes from the build: a

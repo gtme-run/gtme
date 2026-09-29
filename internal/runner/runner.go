@@ -63,6 +63,14 @@ type Options struct {
 	// ADR-060): they are sent, and the adapter's answer replaces each row's
 	// status. Valid only with ResumeRunID.
 	ResendUnconfirmed bool
+	// ResendKeys narrows the release to these identity keys (ADR-064);
+	// empty means every record the run holds.
+	ResendKeys []string
+	// SettleUnconfirmed marks the resumed run's held deliveries settled
+	// without sending: the operator found them at the target (ADR-064).
+	// SettleKeys narrows it as ResendKeys does.
+	SettleUnconfirmed bool
+	SettleKeys        []string
 	// PipelinePath is the file the operator ran, for the commands the
 	// receipt prints.
 	PipelinePath string
@@ -228,8 +236,10 @@ type runner struct {
 	runID    string
 	dry      bool
 	simulate bool
-	// resend releases this run's held deliveries (ADR-060).
-	resend bool
+	// resend releases this run's held deliveries (ADR-060); resendKeys,
+	// when set, only those records (ADR-064).
+	resend     bool
+	resendKeys map[string]bool
 	// stdin and interactive are the in-run walk's terminal (ADR-049).
 	stdin       io.Reader
 	interactive bool
@@ -340,8 +350,8 @@ func Execute(ctx context.Context, o Options) (*Result, error) {
 				n += c
 			}
 			switch {
-			case n > 0 && !o.ResendUnconfirmed:
-				return nil, &RefusedError{fmt.Sprintf("run %s is done; it holds %d unconfirmed deliver%s — check the target, then add --resend-unconfirmed to send them",
+			case n > 0 && !o.ResendUnconfirmed && !o.SettleUnconfirmed:
+				return nil, &RefusedError{fmt.Sprintf("run %s is done; it holds %d unconfirmed deliver%s — check the target, then add --resend-unconfirmed to send them, or --settle-unconfirmed for the ones it already has",
 					run.ID, n, map[bool]string{true: "y", false: "ies"}[n == 1])}
 			case n == 0:
 				return nil, &RefusedError{fmt.Sprintf("run %s is done; nothing to resume", run.ID)}
@@ -356,6 +366,13 @@ func Execute(ctx context.Context, o Options) (*Result, error) {
 			return nil, err
 		}
 		defer lock.Release()
+		// Which held deliveries to settle or release, checked before the run
+		// is touched (ADR-064): a key it does not hold, or one named for
+		// both, refuses.
+		settle, err := r.heldSelection(ctx, run.ID, o)
+		if err != nil {
+			return nil, err
+		}
 		r.runID = run.ID
 		if err := r.l.ReopenRun(ctx, run.ID); err != nil {
 			return nil, err
@@ -367,6 +384,9 @@ func Execute(ctx context.Context, o Options) (*Result, error) {
 				run.ID, run.Pipeline, o.Plan.Pipeline.Name)
 		}
 		fmt.Fprintf(r.stderr, "resuming run %s (%s)\n", run.ID, run.Pipeline)
+		if err := r.settleHeld(ctx, settle); err != nil {
+			return nil, err
+		}
 		// The run finishes under the file as it is now, so its snapshot is
 		// that file's (#137): `gtme runs` and `gtme freeze` then describe
 		// what the run did, and the operator is told the file moved.

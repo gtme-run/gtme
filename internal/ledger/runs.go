@@ -32,6 +32,14 @@ const (
 // failed at that step may have reached the target.
 const EventDispatched = "dispatched"
 
+// EventGated records a record a when: or membership gate held back at a
+// step (SPEC §3, ADR-064): eligible, counted in in, not dispatched.
+const EventGated = "gated"
+
+// EventSettled records a held delivery the operator settled: checked at
+// the target and found there, so never sent (SPEC §8, ADR-064).
+const EventSettled = "settled"
+
 // StateSourced is a record's state before any step has touched it.
 const StateSourced = "sourced"
 
@@ -645,6 +653,39 @@ func (l *Ledger) StepEventCounts(ctx context.Context, runID string) (map[string]
 	return out, nil
 }
 
+// StepEvent is one step_events row, its detail decoded.
+type StepEvent struct {
+	StepID     string
+	IdentityID string // empty for a step-level event
+	Event      string
+	Detail     map[string]any
+}
+
+// RunStepEvents reads every step event of a run in the order they were
+// written, for rebuilding its receipt (SPEC §8, ADR-064).
+func (l *Ledger) RunStepEvents(ctx context.Context, runID string) ([]StepEvent, error) {
+	rows, err := l.db.QueryContext(ctx,
+		`SELECT step_id, identity_id, event, detail FROM step_events WHERE run_id = ? ORDER BY created_at, id`, runID)
+	if err != nil {
+		return nil, fmt.Errorf("ledger: reading step events: %w", err)
+	}
+	defer rows.Close()
+	var out []StepEvent
+	for rows.Next() {
+		var e StepEvent
+		var identity, detail sql.NullString
+		if err := rows.Scan(&e.StepID, &identity, &e.Event, &detail); err != nil {
+			return nil, fmt.Errorf("ledger: reading step events: %w", err)
+		}
+		e.IdentityID = identity.String
+		if detail.String != "" {
+			_ = json.Unmarshal([]byte(detail.String), &e.Detail)
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
 // StepEventSeen reports whether a step-level event was already recorded for this
 // run — how --resume knows a source has already been drained.
 func (l *Ledger) StepEventSeen(ctx context.Context, runID, stepID, event string) (bool, error) {
@@ -782,6 +823,42 @@ func (l *Ledger) OpenDispatches(ctx context.Context, target, scope string) ([]Op
 	return out, rows.Err()
 }
 
+// UnansweredByRun counts, per step and target, a run's deliver sends that
+// were dispatched and never answered and are not yet held (SPEC §8,
+// ADR-064): what an interrupted run may have delivered. Read only.
+func (l *Ledger) UnansweredByRun(ctx context.Context, runID string) (map[string]map[string]int, error) {
+	rows, err := l.db.QueryContext(ctx,
+		`SELECT d.step_id, json_extract(d.detail, '$.target'), count(DISTINCT d.identity_id)
+		 FROM step_events d
+		 WHERE d.run_id = ? AND d.event = ? AND d.identity_id IS NOT NULL
+		   AND NOT EXISTS (
+		     SELECT 1 FROM step_events a
+		     WHERE a.run_id = d.run_id AND a.step_id = d.step_id AND a.identity_id = d.identity_id
+		       AND a.event IN ('done', 'failed') AND (a.created_at > d.created_at OR (a.created_at = d.created_at AND a.id > d.id)))
+		   AND NOT EXISTS (
+		     SELECT 1 FROM deliveries v
+		     WHERE v.identity_id = d.identity_id AND v.target = json_extract(d.detail, '$.target') AND v.run_id = d.run_id)
+		 GROUP BY d.step_id, json_extract(d.detail, '$.target')`, runID, EventDispatched)
+	if err != nil {
+		return nil, fmt.Errorf("ledger: counting unanswered sends: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]map[string]int{}
+	for rows.Next() {
+		var step string
+		var target sql.NullString
+		var n int
+		if err := rows.Scan(&step, &target, &n); err != nil {
+			return nil, err
+		}
+		if out[step] == nil {
+			out[step] = map[string]int{}
+		}
+		out[step][target.String] += n
+	}
+	return out, rows.Err()
+}
+
 // UnconfirmedByRun counts a run's held deliveries per target (ADR-060), for
 // its receipt in `gtme runs`.
 func (l *Ledger) UnconfirmedByRun(ctx context.Context, runID string) (map[string]int, error) {
@@ -835,7 +912,52 @@ const (
 	// DeliveryUnconfirmed is a send that may have reached the target before a
 	// crash (ADR-060): held, never sent again but by --resend-unconfirmed.
 	DeliveryUnconfirmed = "unconfirmed"
+	// DeliverySettled is a held delivery the operator checked and found at
+	// the target (ADR-064): delivered, never sent again, and the operator's
+	// word — not the provider's confirmed.
+	DeliverySettled = "settled"
 )
+
+// HeldDelivery is one of a run's unconfirmed deliveries (ADR-060).
+type HeldDelivery struct {
+	IdentityID  string
+	IdentityKey string
+	Target      string
+	Scope       string
+	Idempotency string
+}
+
+// HeldByRun lists the deliveries a run holds unconfirmed, by identity key.
+func (l *Ledger) HeldByRun(ctx context.Context, runID string) ([]HeldDelivery, error) {
+	rows, err := l.db.QueryContext(ctx,
+		`SELECT d.identity_id, i.identity_key, d.target, d.scope, d.idempotency
+		 FROM deliveries d JOIN identities i ON i.id = d.identity_id
+		 WHERE d.run_id = ? AND d.status = ? ORDER BY i.identity_key`, runID, DeliveryUnconfirmed)
+	if err != nil {
+		return nil, fmt.Errorf("ledger: reading held deliveries: %w", err)
+	}
+	defer rows.Close()
+	var out []HeldDelivery
+	for rows.Next() {
+		var h HeldDelivery
+		if err := rows.Scan(&h.IdentityID, &h.IdentityKey, &h.Target, &h.Scope, &h.Idempotency); err != nil {
+			return nil, err
+		}
+		out = append(out, h)
+	}
+	return out, rows.Err()
+}
+
+// SettleDelivery marks a held delivery settled (ADR-064): the operator found
+// it at the target. Only an unconfirmed row changes.
+func (l *Ledger) SettleDelivery(ctx context.Context, target, scope, idempotency string) error {
+	if _, err := l.db.ExecContext(ctx,
+		`UPDATE deliveries SET status = ? WHERE target = ? AND scope = ? AND idempotency = ? AND status = ?`,
+		DeliverySettled, target, scope, idempotency, DeliveryUnconfirmed); err != nil {
+		return fmt.Errorf("ledger: settling delivery: %w", err)
+	}
+	return nil
+}
 
 // Delivery is one deliveries row, as gtme show reports it.
 type Delivery struct {

@@ -151,7 +151,7 @@ gtme run openers.yaml
 The first run stops at `opener` with Jane waiting, since she's the only one `top` keeps. The second run collects her answer and finishes the same run, so `openers` counts as one run:
 
 ```
-resuming run 01M3K4RSXBGSQFV2HW8AQYX6QA (openers)
+resuming run 01M3QAG9K5PNTN183GS6Y5E65N (openers)
 ...
 opener  human/compose  1   1    -      0       -         -       $0.5000  -
 total: $0.5000 spent
@@ -171,13 +171,13 @@ total: $0.5000 spent
 
     ```
     run                         pipeline  status  started                   records  in flight
-    01M3K4RSXBGSQFV2HW8AQYX6QA  openers   done    2026-09-28T04:36:02.091Z  5        -
-    01M3K4RSW88DCY1YHGHE9QJ1F1  hello     done    2026-09-28T04:36:02.056Z  5        -
-    01M3K4RSVACWB04NTNW6PP9CDP  hello     done    2026-09-28T04:36:02.026Z  3        -
-    01M3K4RSTADKBKQVXJ76WG7575  hello     done    2026-09-28T04:36:01.994Z  3        -
+    01M3QAG9K5PNTN183GS6Y5E65N  openers   done    2026-09-29T19:33:12.421Z  5        -
+    01M3QAG9HSVM8SHXTK9XFB2DHQ  hello     done    2026-09-29T19:33:12.377Z  5        -
+    01M3QAG9GX892QZ22J8HVSJDGF  hello     done    2026-09-29T19:33:12.349Z  3        -
+    01M3QAG9FFDHY95DHAKSSX0PB1  hello     done    2026-09-29T19:33:12.303Z  3        -
     ```
 
-    Runs are newest first, and `started` is in UTC. `records` counts the people each run touched. `in flight` counts records still waiting on a person or a vendor, and such a run's status is `pending`. A [dry-run](/concepts/gate-ladder) shows as `done (dry)`, and what it spent is real. A run whose process died shows as `interrupted`.
+    Runs are newest first, and `started` is in UTC. `records` counts the people each run touched. `in flight` counts records still waiting on a person or a vendor, and such a run's status is `pending`. A [dry-run](/concepts/gate-ladder) shows as `done (dry)`, and what it spent is real. A run whose process died shows as `interrupted`, and its `in flight` counts the sends that got no response.
 
 1. Print one run's receipt from the ledger. This is the third `hello` run:
 
@@ -185,67 +185,71 @@ total: $0.5000 spent
     gtme runs RUN_ID
     ```
 
-    Replace `RUN_ID` with the `run` column of the row you want, here `01M3K4RSW88DCY1YHGHE9QJ1F1`, or use `last` for the newest. It prints:
+    Replace `RUN_ID` with the `run` column of the row you want, here `01M3QAG9HSVM8SHXTK9XFB2DHQ`, or use `last` for the newest. It prints:
 
     ```
-    run 01M3K4RSW88DCY1YHGHE9QJ1F1
+    run 01M3QAG9HSVM8SHXTK9XFB2DHQ
     pipeline: hello
     status:   done
-    started:  2026-09-28T04:36:02.056Z
-    finished: 2026-09-28T04:36:02.064Z
+    started:  2026-09-29T19:33:12.377Z
+    finished: 2026-09-29T19:33:12.410Z
 
-    step    claimed  done  cached  failed  cost
-    source  -        1     -       -       $0
-    score   2        2     3       -       $0.0200
-    keep    -        5     -       -       $0
-    out     1        1     -       -       $0
+    step    adapter      in  out  empty  cached  filtered  failed  cost     avoided
+    source  csv/source   0   5    -      0       -         -       $0       -
+    score   demo/enrich  5   2    -      3       -         -       $0.0200  $0.0300
+    keep    sql/filter   5   2    -      0       3         -       $0       -
+    out     csv/deliver  2   1    -      0       -         -       $0       -
     out: 1 already delivered
-    total: $0.0200 (estimated)
-    records: 5 (score=3 out=2), 3 with a fail verdict (filtered, or a send withheld)
-    config:  3 steps recorded (`gtme freeze 01M3K4RSW88DCY1YHGHE9QJ1F1` rebuilds the pipeline)
+    total: $0.0200 (estimated) spent, $0.0300 avoided via cache (3 records skipped)
+    records: 5 (out=2 score=3), 3 with a fail verdict (filtered, or a send withheld)
+    config:  3 steps recorded (`gtme freeze 01M3QAG9HSVM8SHXTK9XFB2DHQ` rebuilds the pipeline)
     ```
 
-    **This receipt counts ledger events, so its columns differ from the table the run printed.** `claimed` counts records a step sent to its [adapter](/concepts/adapter-tiers), `done` counts records it finished, and `cached` counts records it reused from the ledger. This table shows where to read each answer:
+    **This is the table the run printed when it finished, rebuilt from the ledger, with the run-level lines after it.** This table shows where to read each answer:
 
     | Question | Where |
     |---|---|
     | How many people did it source? | The `records:` line's first number, 5 |
-    | Where did each person stop? | The counts after it: 2 reached `out`, 3 stopped after `score` |
-    | How many did a [filter](/concepts/steps-and-roles) drop? | `with a fail verdict`, 3 |
-    | How many did a step pay for, and how many did it reuse? | `claimed` and `cached`: `score` paid for 2 and reused 3 |
-    | What did it cost? | The `cost` column and the `total:` line |
+    | How many did a [filter](/concepts/steps-and-roles) drop? | `filtered` on the `keep` row, 3 |
+    | How many did a step pay for, and how many did it reuse? | `out` and `cached`: `score` paid for 2 and reused 3 |
+    | How many did it deliver? | `out` on the `out` row, 1, and the line under the table: 1 already delivered |
+    | What did it cost, and what did the cache save? | The `cost` and `avoided` columns and the `total:` line |
 
-    Here that's 5 sourced, 3 filtered, 2 new scores paid for, and Dana delivered, with Jane skipped as already delivered. For a resumed run, this receipt totals every part of it, so it's the one to quote.
+    Here that's 5 sourced, 3 filtered, 2 new scores paid for, and Dana delivered, with Jane skipped as already delivered. For a resumed run, the table counts each record once, by its latest outcome, across every session, so it's the one to quote. A run recorded by an older `gtme` prints `?` where its ledger never stored a number, such as `avoided`.
 
-    **What the cache saved isn't in the ledger.** The run's own receipt showed `$0.0300 avoided`, which is `cached` times the step's rate. [`gtme freeze RUN_ID`](/reference/cli/freeze) prints the pipeline the run used, rate included: 3 × `cost_per_record_usd: 0.01` is that $0.0300.
-
-1. To prove a receipt, rebuild its step table from `step_events` and `costs`, the ledger tables it's added up from:
+1. To prove a receipt, rebuild its step table from `step_events` and `costs`, the ledger tables it's read from. Each per-record event names its column in `detail.outcome`:
 
     ```sh
-    gtme query "SELECT step_id,
-                  sum(event = 'claimed') AS claimed,
-                  sum(event = 'done') AS done,
-                  sum(event = 'skipped_cache') AS cached,
-                  sum(event = 'failed') AS failed,
+    gtme query "WITH latest AS (
+                  SELECT id, step_id, json_extract(detail, '$.outcome') AS outcome,
+                         json_extract(detail, '$.avoided_usd') AS avoided,
+                         row_number() OVER (PARTITION BY step_id, identity_id
+                                            ORDER BY id DESC) AS n
+                  FROM step_events
+                  WHERE run_id = 'RUN_ID' AND json_extract(detail, '$.outcome') IS NOT NULL)
+                SELECT step_id, count(*) AS records,
+                  sum(outcome = 'out') AS out, sum(outcome = 'cached') AS cached,
+                  sum(outcome = 'filtered') AS filtered, sum(outcome = 'failed') AS failed,
+                  sum(outcome = 'already_delivered') AS already_delivered,
                   (SELECT coalesce(sum(amount_usd), 0) FROM costs c
-                   WHERE c.run_id = e.run_id AND c.step_id = e.step_id) AS usd
-                FROM step_events e
-                WHERE run_id = 'RUN_ID'
+                   WHERE c.run_id = 'RUN_ID' AND c.step_id = l.step_id) AS usd,
+                  coalesce(sum(avoided), 0) AS avoided
+                FROM latest l
+                WHERE n = 1
                 GROUP BY step_id
                 ORDER BY min(id)"
     ```
 
-    Replace `RUN_ID` with the same id. It prints:
+    Replace `RUN_ID` with the same id, in both places. It prints:
 
     ```
-    {"cached":0,"claimed":0,"done":1,"failed":0,"step_id":"source","usd":0}
-    {"cached":3,"claimed":2,"done":2,"failed":0,"step_id":"score","usd":0.02}
-    {"cached":0,"claimed":0,"done":5,"failed":0,"step_id":"keep","usd":0}
-    {"cached":1,"claimed":1,"done":1,"failed":0,"step_id":"out","usd":0}
-    4 rows
+    {"already_delivered":0,"avoided":0.03,"cached":3,"failed":0,"filtered":0,"out":2,"records":5,"step_id":"score","usd":0.02}
+    {"already_delivered":0,"avoided":0,"cached":0,"failed":0,"filtered":3,"out":2,"records":5,"step_id":"keep","usd":0}
+    {"already_delivered":1,"avoided":0,"cached":0,"failed":0,"filtered":0,"out":1,"records":2,"step_id":"out","usd":0}
+    3 rows
     ```
 
-    Every number matches the receipt, row for row, except `cached 1` on `out`, because `gtme runs` adds up ledger rows and nothing else. `skipped_cache` rows include the deliver step's `already_delivered` skip, which the receipt and `gtme runs` count as already delivered, not cached. The $0.02 on `score` is two `costs` rows, one per new person, both with `estimated` in `basis`.
+    Every number matches the receipt, row for row. `records` is the `in` column. The query keeps each record's latest event at each step, which is how the receipt counts a resumed run. The source row isn't here, because the source's event names no record. The $0.02 on `score` is two `costs` rows, one per new person, both with `estimated` in `basis`.
 
 1. List what each run of the last week cost:
 
@@ -264,10 +268,10 @@ total: $0.5000 spent
     It prints:
 
     ```
-    {"estimated":0.03,"measured":0,"pipeline":"hello","run":"01M3K4RSTADKBKQVXJ76WG7575","started":"2026-09-28T04:36"}
-    {"estimated":0,"measured":0,"pipeline":"hello","run":"01M3K4RSVACWB04NTNW6PP9CDP","started":"2026-09-28T04:36"}
-    {"estimated":0.02,"measured":0,"pipeline":"hello","run":"01M3K4RSW88DCY1YHGHE9QJ1F1","started":"2026-09-28T04:36"}
-    {"estimated":0,"measured":0.5,"pipeline":"openers","run":"01M3K4RSXBGSQFV2HW8AQYX6QA","started":"2026-09-28T04:36"}
+    {"estimated":0.03,"measured":0,"pipeline":"hello","run":"01M3QAG9FFDHY95DHAKSSX0PB1","started":"2026-09-29T19:33"}
+    {"estimated":0,"measured":0,"pipeline":"hello","run":"01M3QAG9GX892QZ22J8HVSJDGF","started":"2026-09-29T19:33"}
+    {"estimated":0.02,"measured":0,"pipeline":"hello","run":"01M3QAG9HSVM8SHXTK9XFB2DHQ","started":"2026-09-29T19:33"}
+    {"estimated":0,"measured":0.5,"pipeline":"openers","run":"01M3QAG9K5PNTN183GS6Y5E65N","started":"2026-09-29T19:33"}
     4 rows
     ```
 
@@ -303,7 +307,7 @@ total: $0.5000 spent
 **Any run in the ledger, and any week or month of them, answered from the ledger alone.** To have Claude Code report this way, paste this line:
 
 ```text
-Report on my gtme runs: list them, print the receipt of RUN_ID with gtme runs and read sourced, filtered, and delivered counts from its records line, check its counts and cost against step_events and costs with gtme query, then list this week's cost per run and this month's total by pipeline, with measured and estimated in separate columns.
+Report on my gtme runs: list them, print the receipt of RUN_ID with gtme runs and read sourced from its records line and filtered, cached, and delivered from its table, check its counts and cost against step_events and costs with gtme query, then list this week's cost per run and this month's total by pipeline, with measured and estimated in separate columns.
 ```
 
 Replace `RUN_ID` with the run you're asked about, or `last`.

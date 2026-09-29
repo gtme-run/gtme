@@ -2749,6 +2749,43 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-29 — M36 internals: the receipt from the ledger, crashed sends, settling (ADR-064)
+
+**Question:** How does `gtme runs RUN_ID` stay equal to the live receipt,
+how is "net across sessions" computed, what does an old run print, and
+how do the two held-delivery flags combine?
+**Choice:** (1) **One renderer.** The receipt's table and its total line
+are `PrintTable` and `TotalLine`, and both the live receipt and `gtme
+runs RUN_ID` call them, so the columns cannot drift. The ledger side
+rebuilds `StepStat` rows (`LedgerSteps`) and hands them over. (2) **Net
+means latest.** For each step, a record's column is its latest event
+carrying `detail.outcome` in the run, across every session; `in` is the
+records with any event at that step, leaving out a traverse's child
+events, which belong to the next segment. A reused filter judgment that
+failed carries `pass: false` and counts in both `cached` and `filtered`,
+as the live line does. The source row's `out` is the source's own
+`done` count. An unfinished run lists steps up to the last one the
+ledger saw, as the live receipt omits steps that never ran. (3) **Old
+runs are inferred.** Events without `outcome` are read by event,
+verdict and reason, the way the receipt read them; a step with a gate
+prints `in` as `N+?` with a note, and a cache skip's avoided is `?`.
+(4) **Unanswered excludes held.** The interrupted run's count leaves out
+dispatched sends that already have a `deliveries` row under that run,
+so a record shows once, as unanswered or as `held:`. (5) **Two flags,
+one record each.** A key list is checked before the run is reopened, so
+a refusal writes nothing. With both flags, a flag without a list takes
+what the other did not name; both without lists refuse. SPEC says a flag
+without a list applies to every held record and that a key named by both
+is an error; read literally, `--settle-unconfirmed=K1
+--resend-unconfirmed` would always refuse, which defeats the case the
+ADR names (settle three, resend one). (6) **Flags parse as optional
+lists.** `--flag` and `--flag=K1,K2` both work (a bool-style flag value).
+**Why:** equality by construction is cheaper to keep than equality by
+test, and the rest follows the ADR's "each record once, by its latest
+outcome."
+**Spec impact:** None beyond ADR-064's reconciliation (v0.58); v0.60
+records the behavioural notes.
+
 ### 2026-09-29 — A runner-side error stops a step's dispatch; an adapter crash does not
 
 **Question:** Since #79, a worker keeps draining the step's queue after a

@@ -70,7 +70,7 @@ CREATE TABLE step_events (
   run_id      TEXT NOT NULL,
   step_id     TEXT NOT NULL,
   identity_id TEXT,                       -- null for step-level events
-  event       TEXT NOT NULL,              -- claimed|done|failed|skipped_cache|pending|collected (ADR-038)|answered (ADR-049: a participant's answer awaiting collection)
+  event       TEXT NOT NULL,              -- claimed|dispatched (ADR-060: a deliver's send is about to leave)|done|failed|skipped_cache|gated (ADR-064: held back by when: or a membership gate)|settled (ADR-064: a held delivery the operator found at the target)|pending|collected (ADR-038)|answered (ADR-049: a participant's answer awaiting collection)
   detail      TEXT,                       -- JSON
   created_at  TEXT NOT NULL
 );
@@ -95,7 +95,7 @@ CREATE TABLE deliveries (
   idempotency    TEXT NOT NULL,           -- computed key, see §8 deliver
   run_id         TEXT NOT NULL,
   created_at     TEXT NOT NULL,
-  status         TEXT NOT NULL DEFAULT 'accepted',  -- accepted|confirmed|contradicted|sent (ADR-036)
+  status         TEXT NOT NULL DEFAULT 'accepted',  -- accepted|confirmed|contradicted|sent (ADR-036)|unconfirmed (ADR-060: in flight at a crash; held)|settled (ADR-064: held, then found at the target by the operator)
   sent_at        TEXT,                    -- set only by attestation (ADR-036)
   variables_hash TEXT NOT NULL DEFAULT '', -- resolved variables at delivery (ADR-045); drives redeliver: on_change
   UNIQUE(target, scope, idempotency)

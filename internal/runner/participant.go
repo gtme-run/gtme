@@ -229,6 +229,7 @@ func (r *runner) applyAnswer(ctx context.Context, st *planner.Step, it *item, an
 		}
 		detail["pass"], detail["reason"] = a.Pass, a.Reason
 		if !a.Pass {
+			detail["outcome"] = OutcomeFiltered
 			r.bump(st, func(s *StepStat) { s.Filtered++ })
 			if err := r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, "done", it.judgmentDetail(detail)); err != nil {
 				return err

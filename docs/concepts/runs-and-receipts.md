@@ -169,7 +169,7 @@ run                         pipeline  status  started                   records 
 01M3FBB6SRKX0B7GMSF2WMBJVW  hello     done    2026-09-26T17:13:58.840Z  3        -
 ```
 
-`gtme runs last` prints the same run from the ledger's side, totaled across resumes, and `gtme show --run last` prints its records as JSON, one per line.
+`gtme runs last` rebuilds this receipt from the ledger, across every resume, and `gtme show --run last` prints its records as JSON, one per line.
 
 ## Delivery idempotency
 
@@ -263,7 +263,7 @@ That's it. That's a run and its receipt.
 
 **A delivery says `accepted` until the provider proves more.** A vendor can answer "success" for a lead that was stored blank or never mailed, so the ledger records `accepted` until the provider attests the send.
 
-**What it costs.** After a resume, the receipt counts only that invocation, so it says $0. `gtme runs` holds the whole run's cost.
+**What it costs.** After a resume, the receipt counts only that invocation, so it says $0. `gtme runs RUN_ID` holds the whole run's cost.
 
 ## Where it shows up
 

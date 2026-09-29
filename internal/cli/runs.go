@@ -55,12 +55,29 @@ func cmdRuns(ctx context.Context, env Env, args []string) error {
 				return fail(ExitOther, "%v", err)
 			}
 			inFlight := "-"
-			if run.Status == ledger.StatusPending {
+			switch {
+			case run.Status == ledger.StatusPending:
 				n, err := l.InFlight(ctx, run.ID)
 				if err != nil {
 					return fail(ExitOther, "%v", err)
 				}
 				inFlight = fmt.Sprint(n)
+			case strings.HasPrefix(status, statusInterrupted):
+				// Sends with no answer before the process died (ADR-064): the
+				// same "sent, no answer yet" as a pending run's.
+				unanswered, err := l.UnansweredByRun(ctx, run.ID)
+				if err != nil {
+					return fail(ExitOther, "%v", err)
+				}
+				n := 0
+				for _, byTarget := range unanswered {
+					for _, c := range byTarget {
+						n += c
+					}
+				}
+				if n > 0 {
+					inFlight = fmt.Sprint(n)
+				}
 			}
 			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\n", run.ID, run.Pipeline, status, run.StartedAt, len(records), inFlight)
 		}
@@ -105,40 +122,18 @@ func printReceipt(ctx context.Context, env Env, l *ledger.Ledger, run ledger.Run
 		fmt.Fprintf(env.Stderr, "finished: %s\n", run.FinishedAt)
 	}
 
-	events, err := l.StepEventCounts(ctx, run.ID)
+	// The live receipt's table, rebuilt from the ledger (SPEC §8,
+	// ADR-064): the run's net outcome across all its sessions.
+	mirror, err := runner.LedgerSteps(ctx, l, run)
 	if err != nil {
 		return fail(ExitOther, "%v", err)
 	}
-	costs, err := l.CostsByStep(ctx, run.ID)
-	if err != nil {
-		return fail(ExitOther, "%v", err)
+	fmt.Fprintln(env.Stderr)
+	runner.PrintTable(env.Stderr, mirror.Steps, mirror.GatedUnknown)
+	fmt.Fprintln(env.Stderr, runner.TotalLine(mirror.Steps))
+	if mirror.Legacy && len(mirror.GatedUnknown) > 0 {
+		fmt.Fprintln(env.Stderr, "(recorded before gtme counted gated records: in+? is a floor)")
 	}
-	order, err := l.StepIDs(ctx, run.ID)
-	if err != nil {
-		return fail(ExitOther, "%v", err)
-	}
-
-	tw := tabwriter.NewWriter(env.Stderr, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(tw, "\nstep\tclaimed\tdone\tcached\tfailed\tcost")
-	var total ledger.CostTotal
-	for _, step := range order {
-		counts := events[step]
-		cost := costs[step]
-		total.Add(cost)
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", step,
-			count(counts["claimed"]), count(counts["done"]),
-			count(counts["skipped_cache"]), count(counts["failed"]), money(cost.Total()))
-	}
-	tw.Flush()
-	// Withheld because the destination already has them (ADR-062): never
-	// in the cached column.
-	for _, step := range order {
-		if n := events[step][ledger.AlreadyDelivered]; n > 0 {
-			fmt.Fprintf(env.Stderr, "%s: %d already delivered\n", step, n)
-		}
-	}
-	// The total carries its basis exactly as the live receipt did (ADR-046).
-	fmt.Fprintf(env.Stderr, "total: %s\n", runner.FormatCost(total))
 
 	// The states show where records stopped, which is the useful thing when a run
 	// did not finish cleanly.
@@ -188,10 +183,32 @@ func printReceipt(ctx context.Context, env Env, l *ledger.Ledger, run ledger.Run
 	}
 	sort.Strings(targets)
 	for _, t := range targets {
-		fmt.Fprintf(env.Stderr, "held:     %d unconfirmed at %s — may have reached it before the run stopped; check the target, then: %s --resend-unconfirmed\n",
+		fmt.Fprintf(env.Stderr, "held:     %d unconfirmed at %s — may have reached it before the run stopped; check the target, then: %s --resend-unconfirmed, or --settle-unconfirmed for the ones it already has\n",
 			held[t], t, resumeCommand(run))
 	}
 	if interrupted {
+		// What the dead process may have delivered (ADR-064), before any
+		// run holds it.
+		unanswered, err := l.UnansweredByRun(ctx, run.ID)
+		if err != nil {
+			return fail(ExitOther, "%v", err)
+		}
+		steps := make([]string, 0, len(unanswered))
+		for step := range unanswered {
+			steps = append(steps, step)
+		}
+		sort.Strings(steps)
+		for _, step := range steps {
+			targets := make([]string, 0, len(unanswered[step]))
+			for t := range unanswered[step] {
+				targets = append(targets, t)
+			}
+			sort.Strings(targets)
+			for _, t := range targets {
+				fmt.Fprintf(env.Stderr, "%s: %d sent to %s with no answer before the run stopped; the resume, or the next run to that target, holds them\n",
+					step, unanswered[step][t], t)
+			}
+		}
 		fmt.Fprintf(env.Stderr, "resume:   %s\n", resumeCommand(run))
 	}
 	return nil
