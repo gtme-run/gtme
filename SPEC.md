@@ -3136,7 +3136,10 @@ clause the build found: a resumed run that holds unconfirmed deliveries
 finishes `done`, and its receipt prints `--resume RUN_ID
 --resend-unconfirmed`, so the `done` refusal does not apply to that
 release; without the flag the refusal names it. Behavioural notes from
-the build: a held record is not counted as cached, skipped or failed —
+the build: any armed run's deliver step holds what a dead run left
+dispatched to the same target and scope, so a plain `gtme run` after a
+crash holds them too, under the dead run's id; a held record is not
+counted as cached, skipped or failed —
 the step line counts it `N unconfirmed` and it stays at the previous
 step's state; an interrupt during a deliver step prints the step line
 and ends `gtme: runner: <step>: interrupted`; `gtme runs RUN_ID` prints

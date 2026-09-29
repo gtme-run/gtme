@@ -719,44 +719,48 @@ func (l *Ledger) HoldDelivery(ctx context.Context, identityID, target, scope, id
 	return nil
 }
 
-// Unconfirmed lists the records of a run's step whose latest dispatched
-// event has no done or failed after it (SPEC §8, ADR-060): each may have
-// reached the target.
-func (l *Ledger) Unconfirmed(ctx context.Context, runID, stepID string) ([]string, error) {
+// OpenDispatch is a deliver send that was dispatched and never answered
+// (SPEC §8, ADR-060): it may have reached the target.
+type OpenDispatch struct {
+	IdentityID    string
+	RunID         string
+	Idempotency   string
+	VariablesHash string
+}
+
+// OpenDispatches lists, across every run, the sends to one (target, scope)
+// whose dispatched event has no done or failed after it at the same run and
+// step (ADR-060). The dispatched event's detail carries the delivery's key,
+// so any later run can hold what a dead one left in flight.
+func (l *Ledger) OpenDispatches(ctx context.Context, target, scope string) ([]OpenDispatch, error) {
 	rows, err := l.db.QueryContext(ctx,
-		`SELECT identity_id, event FROM step_events
-		 WHERE run_id = ? AND step_id = ? AND event IN (?, 'done', 'failed') AND identity_id IS NOT NULL
-		 ORDER BY created_at, id`, runID, stepID, EventDispatched)
+		`SELECT d.identity_id, d.run_id,
+		        json_extract(d.detail, '$.idempotency'), json_extract(d.detail, '$.variables_hash')
+		 FROM step_events d
+		 WHERE d.event = ? AND d.identity_id IS NOT NULL
+		   AND json_extract(d.detail, '$.target') = ? AND json_extract(d.detail, '$.scope') = ?
+		   AND NOT EXISTS (
+		     SELECT 1 FROM step_events a
+		     WHERE a.run_id = d.run_id AND a.step_id = d.step_id AND a.identity_id = d.identity_id
+		       AND a.event IN ('done', 'failed') AND (a.created_at > d.created_at OR (a.created_at = d.created_at AND a.id > d.id)))
+		 ORDER BY d.created_at, d.id`, EventDispatched, target, scope)
 	if err != nil {
 		return nil, fmt.Errorf("ledger: reading dispatched events: %w", err)
 	}
 	defer rows.Close()
-	open := map[string]bool{}
-	var order []string
+	var out []OpenDispatch
 	for rows.Next() {
-		var id, event string
-		if err := rows.Scan(&id, &event); err != nil {
+		var d OpenDispatch
+		var idem, hash sql.NullString
+		if err := rows.Scan(&d.IdentityID, &d.RunID, &idem, &hash); err != nil {
 			return nil, err
 		}
-		if event == EventDispatched {
-			if !open[id] {
-				order = append(order, id)
-			}
-			open[id] = true
-			continue
-		}
-		open[id] = false
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	var out []string
-	for _, id := range order {
-		if open[id] {
-			out = append(out, id)
+		d.Idempotency, d.VariablesHash = idem.String, hash.String
+		if d.Idempotency != "" {
+			out = append(out, d)
 		}
 	}
-	return out, nil
+	return out, rows.Err()
 }
 
 // UnconfirmedByRun counts a run's held deliveries per target (ADR-060), for

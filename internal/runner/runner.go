@@ -223,9 +223,6 @@ type runner struct {
 	simulate bool
 	// resend releases this run's held deliveries (ADR-060).
 	resend bool
-	// crashHeld is, per deliver step, the records a crash left dispatched
-	// with no answer (ADR-060): prepare holds them rather than send them.
-	crashHeld map[string]map[string]bool
 	// stdin and interactive are the in-run walk's terminal (ADR-049).
 	stdin       io.Reader
 	interactive bool
@@ -277,7 +274,6 @@ func Execute(ctx context.Context, o Options) (*Result, error) {
 		dry:          o.DryRun || o.Simulate,
 		simulate:     o.Simulate,
 		resend:       o.ResendUnconfirmed,
-		crashHeld:    map[string]map[string]bool{},
 		stdin:        o.Stdin,
 		interactive:  o.Interactive && o.Stdin != nil,
 		reg:          reg,

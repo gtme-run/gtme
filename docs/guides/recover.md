@@ -197,7 +197,7 @@ There's no receipt. The process died while `crm` was sending.
 
     **A run whose process died shows as `interrupted`.** A `gtme run` holds a lock on its run for as long as the process lives, so a free lock means nothing is running it ([SPEC §8](/spec#interrupted-runs--the-run-lock-adr-061)). A run whose process is still alive says `running`, and `--resume` refuses it and changes nothing, so two processes never work one run. If a vendor went down instead, the run ends `failed` and prints the error, and the steps from step 2 on are the same. Copy the id; the next steps call it `RUN_ID`.
 
-    Don't start the pipeline again without `--resume`. A plain `gtme run signups.yaml` prints the resume command, then starts a new run, and that new run sends the records that were mid-send at the crash a second time.
+    Resume instead of starting over. A plain `gtme run signups.yaml` prints the resume command and starts a new run, which also holds the records that were mid-send at the crash, but it scores all 12 people again, pays for it, and splits the work across two run ids.
 
 1. See how far each record got:
 

@@ -82,15 +82,9 @@ func (r *runner) runStep(ctx context.Context, i int) error {
 
 	stub := r.stubbed(st)
 	if heldOnCrash(st) && !r.dry {
-		ids, err := r.l.Unconfirmed(ctx, r.runID, st.ID)
-		if err != nil {
+		if err := r.holdOpenDispatches(ctx, st); err != nil {
 			return err
 		}
-		held := make(map[string]bool, len(ids))
-		for _, id := range ids {
-			held[id] = true
-		}
-		r.crashHeld[st.ID] = held
 	}
 	// Deliver preflight (SPEC §8, ADR-040): before any record moves, ask a
 	// preflighting adapter whether the live target is fit to send to. A
@@ -467,13 +461,6 @@ func (r *runner) prepare(ctx context.Context, st *planner.Step, identityID, toke
 		// redeliver: on_change, "the same delivery" means the same values.
 		rv := resolveVariables(st.Variables, it)
 		it.varsHash = hashVariables(rv.Resolved)
-		// A send a crash left unanswered is held, not repeated (SPEC §8,
-		// ADR-060): its row says unconfirmed, and the check below skips it.
-		if r.crashHeld[st.ID][it.identityID] && !r.dry {
-			if err := r.l.HoldDelivery(ctx, it.identityID, st.Target(), deliveryScope(st), idem, it.varsHash, r.runID); err != nil {
-				return nil, err
-			}
-		}
 		delivered, prior, err := r.l.DeliveredState(ctx, st.Target(), deliveryScope(st), idem)
 		if err != nil {
 			return nil, err
@@ -997,7 +984,9 @@ func (r *runner) processChunk(ctx context.Context, st *planner.Step, items []*it
 		// A deliver's send may leave the moment the session opens, so the
 		// ledger says so first (SPEC §8, ADR-060).
 		if st.IsDeliver {
-			if err := r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, ledger.EventDispatched, nil); err != nil {
+			if err := r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, ledger.EventDispatched, map[string]any{
+				"target": st.Target(), "scope": deliveryScope(st), "idempotency": it.idem, "variables_hash": it.varsHash,
+			}); err != nil {
 				return err
 			}
 		}
@@ -1496,6 +1485,38 @@ func (r *runner) failStat(st *planner.Step, reason string) {
 func heldOnCrash(st *planner.Step) bool {
 	return st.IsDeliver && !st.IsGroupDeliver &&
 		!(st.Manifest != nil && st.Manifest.Idempotency == "native")
+}
+
+// holdOpenDispatches holds every send to this step's target that a dead run
+// — this one before a crash, or any other whose process is gone — left
+// dispatched and unanswered (SPEC §8, ADR-060). Each gets an unconfirmed
+// row under the run that sent it, so the check in prepare skips it here and
+// in every later run, resumed or not. A living run's sends are in flight,
+// not crashed, and are left alone.
+func (r *runner) holdOpenDispatches(ctx context.Context, st *planner.Step) error {
+	open, err := r.l.OpenDispatches(ctx, st.Target(), deliveryScope(st))
+	if err != nil {
+		return err
+	}
+	alive := map[string]bool{}
+	for _, d := range open {
+		if d.RunID != r.runID {
+			live, seen := alive[d.RunID]
+			if !seen {
+				if live, err = r.l.RunAlive(d.RunID); err != nil {
+					return err
+				}
+				alive[d.RunID] = live
+			}
+			if live {
+				continue
+			}
+		}
+		if err := r.l.HoldDelivery(ctx, d.IdentityID, st.Target(), deliveryScope(st), d.Idempotency, d.VariablesHash, d.RunID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // holdInterrupted holds every unanswered record of a deliver session the

@@ -2753,11 +2753,17 @@ ride the build, machine-compared as always.
 how does the key reach `http/deliver`, where does the lock live, what
 does `gtme runs` touch, and what happens when the receipt's own release
 command meets the `done` refusal?
-**Choice:** (1) **The held set is read once per deliver step.** At step
-start (armed runs only) the runner reads the run's `dispatched` events
-with no later `done` or `failed` for that step; `prepare` writes each
-such record's `unconfirmed` row before the ordinary pre-send check,
-which then skips it. A held record gets no step event and keeps its
+**Choice:** (1) **The held set is read once per deliver step, across runs.**
+A `dispatched` event's detail carries the delivery's target, scope,
+idempotency key and variables hash. At step start (armed runs only) the
+runner reads every `dispatched` event to the step's target and scope
+with no later `done` or `failed` at its run and step, skips those of a
+run whose process is alive (in flight, not crashed), and writes an
+`unconfirmed` row for the rest under the run that sent them. The
+ordinary pre-send check then skips them. Reading across runs matters:
+the first cut read only the current run's events, so a plain `gtme run`
+after a `kill -9` sent the dead run's in-flight records again (found by
+re-running the recover guide). A held record gets no step event and keeps its
 state, so it is the step's non-terminal remainder, counted `N
 unconfirmed` and never as cached. The pre-send check releases a held
 row only under `--resend-unconfirmed` on the run that held it; any other

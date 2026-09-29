@@ -278,3 +278,28 @@ func TestNativeTargetIsResentAfterACrash(t *testing.T) {
 		t.Errorf("a native target holds nothing\nstderr:\n%s", res.stderr)
 	}
 }
+
+// TestPlainRunAfterACrashHoldsToo: a plain run after kill -9 — no resume —
+// must not send what the dead run had in flight either (ADR-060: no later
+// run sends it by habit). It holds them under the dead run's id.
+func TestPlainRunAfterACrashHoldsToo(t *testing.T) {
+	target := &slowTarget{delay: 200 * time.Millisecond}
+	srv := httptest.NewServer(target)
+	defer srv.Close()
+	h := newHarness(t)
+	h.write("people.csv", fortyCSV())
+	h.write("send.yaml", sendYAML("http/deliver", srv.URL))
+
+	crashMidSend(t, h, target, syscall.SIGKILL)
+	dead := h.queryStrings(`SELECT id FROM runs`)[0]
+	res := h.mustRun("run", "send.yaml")
+	assertOnce(t, target)
+	held := unconfirmedKeys(h)
+	if len(held) < 1 || len(held) > 4 {
+		t.Fatalf("unconfirmed rows = %d, want 1..4\nstderr:\n%s", len(held), res.stderr)
+	}
+	if n := h.queryInt(`SELECT count(*) FROM deliveries WHERE status = 'unconfirmed' AND run_id = ?`, dead); n != len(held) {
+		t.Errorf("held under the dead run = %d, want %d", n, len(held))
+	}
+	contains(t, res.stderr, "--resume "+dead+" --resend-unconfirmed", "the release names the dead run")
+}
