@@ -4608,6 +4608,87 @@ sentence; the binary ships no vendor), §11 (M35 queued), Changelog
 ROADMAP.md closes the deliver-binding engine entry and gains community
 process entries.
 
+### ADR-064: `gtme runs RUN_ID` is the receipt; a crashed run's sends show before the resume; a held delivery can be settled
+**Status:** Accepted (2026-09-29 — from issues #90, #189 and #190, found
+while writing the report and recover guides and building M34;
+human-approved by merging this packet; build queued as M36, after M35)
+**Context:** ADR-046 says `gtme runs <id>` mirrors the live receipt, and
+SPEC §8 repeats it, but the two print different tables: the receipt's
+`in`, `out`, `empty`, `cached`, `filtered`, `failed`, `avoided` and
+`adapter` against `gtme runs`' `claimed`, `done`, `cached`, `failed`
+(#90). A reader who learned one meets a second vocabulary in the other.
+The mirror cannot be built from today's ledger alone: a record held by
+`when:` or a membership gate writes no event; a filter's fail, an
+`on_missing` hold and a suppression all write `done` with `pass: false`,
+told apart only by reason text; and a cache skip does not record what it
+avoided. Separately, after a `kill -9` during a deliver step, `gtme runs`
+says `interrupted` and nothing more until an armed run reaches the step
+and holds the unanswered sends (#189), though the `dispatched` events
+already name them. And once the operator has checked the target, nothing
+can record the answer: a held delivery stays `unconfirmed` and on every
+receipt, and `--resend-unconfirmed` sends all of a run's held records or
+none (#190).
+**Decision:** (1) **`gtme runs RUN_ID` prints the receipt's table** —
+`step`, `adapter`, `in`, `out`, `empty`, `cached`, `filtered`, `failed`,
+`cost`, `avoided` — and, after M35, the same `already delivered` count
+the live receipt prints, followed by the run-level lines it prints today
+(status, started, finished, records by state, config, `held:`,
+`resume:`). It reports the run's net outcome: for each step, every record
+counted once, by its latest outcome at that step across all of the run's
+sessions, so a run resumed three times reads as one run. `adapter` comes
+from `runs.config_json`. (2) **Every per-record step event says which
+column it is.** `done`, `failed`, `skipped_cache`, `simulated` and
+`dry_run` events for a record carry `detail.outcome`, one of `out`,
+`empty`, `filtered`, `skipped`, `failed`, `cached`, `already_delivered`,
+`simulated` or `held_dry`; a record a `when:` or membership gate holds
+back writes a new event `gated`; a cache skip's detail carries
+`avoided_usd` (null when the estimate is unknown, which prints `?`). The
+columns reconcile exactly as the live line does (§8 record accounting).
+No DDL change: `step_events.event` and `detail` are TEXT. A run recorded
+before M36 has no `outcome`: its receipt infers each column from the
+event and reason as today, and prints `?` for `gated` records and
+`avoided`, which were not recorded. (3) **An interrupted run shows its
+unanswered sends.** For an `interrupted` run, `gtme runs` puts the count
+of `dispatched` events with no later `done` or `failed` in the `in
+flight` column, and `gtme runs RUN_ID` prints one line per target, read
+only: `send: 4 sent to http/deliver with no answer before the run
+stopped; the resume, or the next run to that target, holds them`. (4)
+**A held delivery can be settled, and the release can be selective.**
+`--resume RUN_ID` takes `--settle-unconfirmed[=KEY,...]` beside
+`--resend-unconfirmed[=KEY,...]`. With no keys, each applies to every
+record the run holds; with keys (identity keys, as the receipt names
+them), to those only, and a key the run does not hold is a validation
+error, as is a key given to both. Settling writes no request: the row's
+status becomes the new `settled` — the operator checked the target and
+found the record there — and a `settled` step event records it for the
+run. The pre-send check treats `settled` as delivered (`already
+delivered`). Records neither settled nor resent stay held. A `done` run
+accepts either flag, as it accepts `--resend-unconfirmed` today.
+**Consequences:** One vocabulary for "what happened in this run", live
+or after the fact, which is what the Report story asks. The mirror costs
+one detail field per event and one new event; nothing is backfilled, and
+old runs say `?` where the ledger never knew. An operator who finds three
+of four held leads at the target settles three and resends one. The
+receipt's held lines and the `held:` line disappear once nothing is
+`unconfirmed`. `settled` is the operator's word, not a provider's:
+attestation (ADR-036) still distinguishes `confirmed`, and ROADMAP's
+re-read of held deliveries would write `confirmed`, not `settled`.
+**Rejected:** *Amending ADR-046 to describe the two tables as different*
+(#90's option 2) — it keeps two vocabularies for one question.
+*Reconstructing the columns from reason strings* — reasons are operator
+prose and change with ADR-058's plain words. *A new `gtme deliveries`
+verb for settling* — the held set belongs to a run, `--resume` already
+carries the release, and a verb would add a surface to `help` for one
+action. *Marking a settled row `confirmed` or `accepted`* — both claim
+what gtme or the provider observed, and this is the operator's check.
+**Spec impact:** AMEND §3 (`step_events.event` gains `gated` and
+`settled`; `deliveries.status` gains `settled`; no migration), §8 (the
+`run` line; record accounting names `detail.outcome`; the terminal
+receipt paragraph defines the mirror; deliver idempotency's in-flight
+paragraph gains settling and selective release; the run-lock subsection
+gains the unanswered count and settling on a `done` run), §11 (M36
+queued), the Recover and Report stories, Changelog (v0.58).
+
 ### ADR-054: `traverse` — a run is a sequence of typed segments, and a type is a file
 **Status:** Accepted (2026-09-05 — design session; answers ADR-008's parked
 question and ROADMAP.md's "Entity types" (until this packet, "Object
