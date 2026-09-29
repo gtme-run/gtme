@@ -307,6 +307,16 @@ func Execute(ctx context.Context, o Options) (*Result, error) {
 				run.ID, run.Pipeline, o.Plan.Pipeline.Name)
 		}
 		fmt.Fprintf(r.stderr, "resuming run %s (%s)\n", run.ID, run.Pipeline)
+		// The run finishes under the file as it is now, so its snapshot is
+		// that file's (#137): `gtme runs` and `gtme freeze` then describe
+		// what the run did, and the operator is told the file moved.
+		changed, err := r.l.RecordRunConfig(ctx, run.ID, o.Plan.ResolvedPipeline())
+		if err != nil {
+			return nil, err
+		}
+		if changed {
+			fmt.Fprintf(r.stderr, "the pipeline changed since run %s started; the run now records the config it resumes with\n", run.ID)
+		}
 	} else {
 		// The config snapshot is the RESOLVED pipeline (SPEC §7, ADR-037):
 		// {query:}/{segment:} values as they evaluated at this run's start.
@@ -330,13 +340,15 @@ func Execute(ctx context.Context, o Options) (*Result, error) {
 	runErr := r.execute(ctx)
 
 	// Ctrl-C during an in-run walk (ADR-049) is not a failure: the answered
-	// records are settled, the rest are pending, and the run ends pending —
-	// finished on a context the signal did not cancel.
+	// records are settled, the rest are pending, and the run ends pending.
+	// Any other interrupt fails the run (#135). Either way the run is
+	// finished on a context the signal did not cancel, so the ledger says
+	// what the receipt says.
 	interrupted := errors.Is(runErr, errInterrupted)
 	if interrupted {
 		runErr = nil
-		ctx = context.WithoutCancel(ctx)
 	}
+	ctx = context.WithoutCancel(ctx)
 	status := ledger.StatusDone
 	if runErr != nil {
 		status = ledger.StatusFailed
@@ -1094,5 +1106,5 @@ func (r *runner) checkRegistry(entityType string, fields map[string]any) error {
 }
 
 func (r *runner) logStepFailure(ctx context.Context, st *planner.Step, cause error) {
-	_ = r.l.LogStepEvent(ctx, r.prov(st.ID), "", "failed", map[string]any{"error": cause.Error()})
+	_ = r.l.LogStepEvent(context.WithoutCancel(ctx), r.prov(st.ID), "", "failed", map[string]any{"error": cause.Error()})
 }

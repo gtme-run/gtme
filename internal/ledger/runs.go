@@ -76,6 +76,27 @@ func (l *Ledger) CreateRun(ctx context.Context, pipeline string, config any, dry
 	return run, nil
 }
 
+// RecordRunConfig replaces a resumed run's config snapshot with the resolved
+// pipeline it is resuming under, when that differs from what is recorded
+// (#137): the snapshot describes what the run finished with. It reports
+// whether the snapshot changed.
+func (l *Ledger) RecordRunConfig(ctx context.Context, runID string, config any) (bool, error) {
+	raw, err := json.Marshal(config)
+	if err != nil {
+		return false, fmt.Errorf("ledger: encoding run config: %w", err)
+	}
+	res, err := l.db.ExecContext(ctx,
+		`UPDATE runs SET config_json = ? WHERE id = ? AND config_json != ?`, string(raw), runID, string(raw))
+	if err != nil {
+		return false, fmt.Errorf("ledger: recording run config: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("ledger: recording run config: %w", err)
+	}
+	return n > 0, nil
+}
+
 // GetRun reads one run.
 func (l *Ledger) GetRun(ctx context.Context, id string) (Run, error) {
 	var r Run
@@ -134,8 +155,6 @@ func (l *Ledger) LastRun(ctx context.Context) (Run, error) {
 	return runs[0], nil
 }
 
-// FinishRun closes a run with a terminal status. A failure is sticky: once a
-// run is marked failed, a later call reporting success must not overwrite it.
 // LastRunForPipeline is the most recent run of a named pipeline.
 func (l *Ledger) LastRunForPipeline(ctx context.Context, pipeline string) (Run, error) {
 	var run Run
@@ -243,6 +262,8 @@ func (l *Ledger) LastJudgment(ctx context.Context, identityID, signature, input 
 	return j, true, nil
 }
 
+// FinishRun closes a run with a terminal status. A failure is sticky: once a
+// run is marked failed, a later call reporting success must not overwrite it.
 func (l *Ledger) FinishRun(ctx context.Context, runID, status string) error {
 	q := `UPDATE runs SET status = ?, finished_at = ? WHERE id = ?`
 	if status != StatusFailed {

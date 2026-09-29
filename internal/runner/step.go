@@ -966,6 +966,10 @@ func (r *runner) processChunk(ctx context.Context, st *planner.Step, items []*it
 	}
 	msgs = append(msgs, protocol.End())
 	sendErr := sess.SendStream(msgs)
+	// What the session says from here on is work already done, often paid
+	// for: it is recorded even when an interrupt kills the adapter mid-stream
+	// (#135). The signal ends the stream; it does not cancel the bookkeeping.
+	ctx = context.WithoutCancel(ctx)
 
 	for {
 		m, err := sess.Next()
@@ -1416,7 +1420,10 @@ func (r *runner) failItem(ctx context.Context, st *planner.Step, it *item, reaso
 	}
 	it.failed = true
 	r.failStat(st, reason)
-	return r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, "failed", map[string]any{"reason": reason})
+	// A failure is often the interrupt itself (#135): the receipt counts
+	// this record failed, so the ledger records it on a context the signal
+	// did not cancel.
+	return r.l.LogStepEvent(context.WithoutCancel(ctx), r.prov(st.ID), it.identityID, "failed", map[string]any{"reason": reason})
 }
 
 // failStat counts a failed record and its reason for the receipt.

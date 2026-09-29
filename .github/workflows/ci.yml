@@ -3,6 +3,12 @@
 # adapters by design (SPEC §11): no network beyond module download, no keys,
 # nothing sends. The live provider smoke tests (`make live`) are a human
 # gate (SPEC §12) and never run here.
+#
+# Docs fast path: a pull request that changes only files under docs/ runs
+# the tests that read docs/ (the reference and adapter-catalog drift gates,
+# and the generator's unit tests) instead of the full suite. The job names
+# stay the same, because branch protection requires `check` and
+# `build-darwin`. Pushes to main always run everything.
 name: ci
 
 on:
@@ -18,13 +24,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - id: scope
+        name: docs-only change?
+        run: .github/docs-only.sh "${{ github.event_name }}" "${{ github.event.pull_request.base.sha }}"
       # test/e2e shells out to the built binary and the Python fixture
       # adapters (mock-enrich-py, mock/deliver) — python3 stdlib only.
       - name: make check
+        if: steps.scope.outputs.docs_only != 'true'
         run: make check
+      - name: docs drift gates (docs-only change)
+        if: steps.scope.outputs.docs_only == 'true'
+        run: |
+          go test ./internal/docsgen/
+          go test ./test/e2e/ -run 'TestDocsReferenceMatchesSources|TestDocsAdaptersJSONMatchesBinary'
 
   # §13 targets darwin and linux; a cross-compile catches darwin-only build
   # breakage without paying for a macOS runner (pure Go, no cgo — SPEC §2).
@@ -32,8 +49,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: scope
+        name: docs-only change?
+        run: .github/docs-only.sh "${{ github.event_name }}" "${{ github.event.pull_request.base.sha }}"
       - uses: actions/setup-go@v5
+        if: steps.scope.outputs.docs_only != 'true'
         with:
           go-version-file: go.mod
       - name: cross-compile darwin/arm64
+        if: steps.scope.outputs.docs_only != 'true'
         run: GOOS=darwin GOARCH=arm64 go build ./...
