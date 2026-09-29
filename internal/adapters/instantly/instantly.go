@@ -38,9 +38,10 @@ var firstClassTargets = map[string]bool{
 //go:embed manifest.json
 var manifestJSON []byte
 
-func init() {
-	adapters.Register(manifestJSON, func() adapters.Adapter { return &Adapter{} })
-}
+// Manifest is the adapter's manifest.json (SPEC §6). The adapter is not
+// built into gtme (ADR-063): cmd/gtme-instantly runs it as a process
+// adapter, and the release ships this manifest beside that executable.
+func Manifest() []byte { return manifestJSON }
 
 // Adapter delivers leads to Instantly. HTTP is the seam tests stub.
 type Adapter struct {

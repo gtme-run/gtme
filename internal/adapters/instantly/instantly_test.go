@@ -238,10 +238,11 @@ func TestIsCampaignID(t *testing.T) {
 }
 
 func TestManifestContract(t *testing.T) {
-	resolved, err := adapters.Resolve(ID)
+	m, err := adapters.ParseManifest(Manifest())
 	if err != nil {
-		t.Fatalf("Resolve: %v", err)
+		t.Fatalf("ParseManifest: %v", err)
 	}
+	resolved := struct{ Manifest *adapters.Manifest }{m}
 	if resolved.Manifest.Role != adapters.RoleDeliver {
 		t.Errorf("role = %q", resolved.Manifest.Role)
 	}
@@ -355,11 +356,11 @@ func TestAttestsThreeWays(t *testing.T) {
 }
 
 func TestManifestDeclaresAttestation(t *testing.T) {
-	resolved, err := adapters.Resolve(ID)
+	m, err := adapters.ParseManifest(Manifest())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !resolved.Manifest.Attests {
+	if !m.Attests {
 		t.Error("instantly/add-to-campaign is the first attesting adapter (ADR-036)")
 	}
 }
