@@ -2780,6 +2780,121 @@ Reading an unambiguous answer as the array it denotes is decoding, the
 same kind of choice as stripping a markdown fence, and the system
 prompt's wording is not a contract.
 
+### 2026-09-29 — Concurrent first opens of a new ledger are serialized by SQLite (#153)
+
+**Question:** Two processes opening a ledger file that does not exist yet
+raced the migrations. Each read `schema_migrations` before its own
+migration transaction, so both saw nothing applied and the second failed
+with `table ... already exists`. Separately, the first connection's
+`journal_mode(WAL)` switch on a new file needs an exclusive lock, and
+SQLite reports `SQLITE_BUSY` for it without consulting `busy_timeout`, so
+the other process failed at open with `database is locked`.
+**Choice:** Each migration's transaction (already `BEGIN IMMEDIATE`, via
+`_txlock=immediate`) re-reads `schema_migrations` for its own name and
+skips a migration another process recorded while it waited for the write
+lock. The earlier read of the table stays as a fast path only. `Open`
+retries the first ping while SQLite reports the database locked, with a
+short capped backoff for up to 10 seconds, the same bound as
+`busy_timeout`. The creation of `schema_migrations` itself runs in a
+transaction too, so it waits on the same lock.
+**Why:** SQLite's write lock already serializes writers across processes,
+so it serializes migration without a second lock file beside the ledger.
+A new file would be something a second implementation sharing the
+ledger directory would have to know about; the write lock is not. The
+migration files stay as written (no `IF NOT EXISTS` rewrite), because
+the recorded name, checked under the lock, is what makes a migration
+idempotent.
+**Spec impact:** None. SPEC §0 (principle 10) leaves concurrency strategy to the
+implementation, and no DDL, output or exit code changes.
+`internal/ledger/open_race_test.go` opens one fresh path from eight
+goroutines and from six processes and asserts every open succeeds and
+each migration is recorded once.
+
+### 2026-09-29 — csv/deliver writes a non-string value as JSON (#164)
+
+**Question:** SPEC §10a fixes csv/deliver's columns but not how a cell
+renders a value that is not a string. The adapter fell back to Go's
+`fmt.Sprint`, so a list arrived as `[HubSpot (Marketing automation)
+Salesforce (CRM)]`, whose items cannot be split back out, an object as
+`map[a:x]`, and a large number as `2.5e+06`. Dry-run and simulate print
+the same values as JSON, so the two disagreed.
+**Choice:** A string is written as-is and a missing value as an empty
+cell, as before. Every other value (list, object, number, boolean) is
+written as compact JSON with HTML escaping off, so `R&D` stays `R&D`.
+A number therefore prints as JSON does (`2500000`, `42`), and a boolean
+as `true` or `false`, which is what it printed before.
+**Why:** JSON is the form the ledger stores values in and the form the
+rest of the CLI prints, and it round-trips: an importer or a person can
+recover the list. The CSV writer already quotes the cell, so the JSON's
+commas and quotes are safe inside it.
+**Spec impact:** None. Cell rendering is an unspecified detail of one
+built-in adapter's output file; no protocol, DDL, CLI output or exit
+code changes. `internal/adapters/csvdeliver/csvdeliver_test.go` covers a
+list, an object, numbers, a boolean, a quoted string and a missing
+value.
+
+### 2026-09-29 — `adapters update` moves a bare-id install to the index's current pin (#175)
+
+**Question:** A bare-id `add` pins the binding at the index row's `sha`
+(ADR-059) and records that sha as the ref in `.source.json`. `update`
+re-resolved the recorded ref, so it re-fetched the same commit forever
+and reported "pin unchanged" after the index had moved. How does
+`update` with no `@ref` find the new pin?
+**Choice:** When the recorded ref is a full commit sha and the registry
+index lists the same id at the same source (url and path) as a binding
+entry, `update` fetches the sha that row lists now. The fetch is
+verified and hash-checked against the index as on any add, and
+`.source.json` records the new sha as its ref. A branch or tag ref keeps
+following itself, as before. An explicit `@ref` always wins. If the
+index is unreachable, the pin stays where it is and `update` says so. A
+row whose id or source no longer matches is not followed: moving an
+install to a different repository or path is a remove and re-add.
+`.source.json` gains no field, so installs made by v0.7.0 and earlier
+update the same way.
+**Why:** `update` is the explicit request that SPEC §8 says moves a pin,
+and for a bare-id install the index is where the pin came from. This
+matches `update` of a process entry, which already moves to the release
+the index lists. Reading the recorded ref (a sha) rather than adding an
+"installed by id" marker covers the installs that already exist; an
+explicit full-sha install of the index's own source also follows the
+index, which is the only pin such an install could move to without an
+`@ref`.
+**Spec impact:** None. §8's "`update` re-fetches only when asked;
+nothing moves a pin implicitly" holds: the move happens only on an
+explicit `update`.
+
+### 2026-09-29 — The registry index lists every SPEC role, and a row the binary cannot read is skipped (#174)
+
+**Question:** `spec/schemas/registry-index.schema.json` limited `role` to
+six values, so a traverse or review entry could not be listed, and
+`LoadIndex` validated the whole document, so one such row made `gtme
+adapters search` and every bare-id `add` fail for every client. That
+whole-index refusal is also what broke pre-v0.7.0 binaries when the
+first process entry appeared. What should the schema allow, and what
+should a client do with a row it cannot read?
+**Choice:** (1) The index schema's `role` enum is SPEC §6's role list:
+`source`, `traverse`, `filter`, `enrich`, `verify`, `compose`, `review`,
+`deliver`. This conforms the schema to roles SPEC already defines. (2)
+`LoadIndex` validates the document (version, `bindings` an array, no
+unknown top-level members) whole, as before, and then each row on its
+own against the schema's row definition. A row that fails, whether for
+an unknown role or kind or a missing member, is left out of the index
+and recorded as skipped. `search` and a bare-id `add` or `update` print
+one warning per skipped row, naming its id (or `row N` when it has none)
+and the first schema failure, and carry on with the rest. (3) When `add`
+or `update` fetches a source whose index row was skipped, the content-hash
+check is skipped with a warning, exactly as when the index is
+unreachable, because the row's `sha256` cannot be trusted either.
+**Why:** a registry has to be able to list a new kind or role without
+breaking every older client, and one malformed row is the registry's
+problem, not every operator's. The document-level checks stay whole
+because a wrong `version` means the client cannot read any of it.
+**Spec impact:** None. SPEC §8 says `search` reads the index against the
+schema and does not say the index is refused as a whole; the enum change
+adds only roles §6 already defines. If the skip should become a promise
+registries can rely on for older clients, §8 would need a sentence to
+that effect, which is a spec change for approval.
+
 ### 2026-09-29 — Fixture matches on query parameters are exact (#166)
 
 **Question:** A fixture's `match` was a substring of "METHOD path" or of

@@ -281,7 +281,7 @@ export STACKLENS_API_KEY=sk_test_standin
 
     The loop saves each page, and `jq` wraps them into one file with one entry per page, each matched on its page number.
 
-    `config` is the step configuration verify runs with. It needs `technology` because the schema requires it, and `per_page: 2` makes verify walk all three pages. Each `match` is a piece of the request URL, and the host doesn't matter. Anchor it with `?` and `&`: gtme puts query parameters in alphabetical order, so `page` comes right after `?`, and a bare `page=2` would also match inside `per_page=2`. Verify would then pass with one page served twice.
+    `config` is the step configuration verify runs with. It needs `technology` because the schema requires it, and `per_page: 2` makes verify walk all three pages. Each `match` is a piece of the request URL, and the host doesn't matter. A `match` made of query parameters compares each one exactly, so `page=2` never matches `per_page=2`, and verify can't pass with one page served twice.
 
 1. Verify again:
 

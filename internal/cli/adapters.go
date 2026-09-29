@@ -168,10 +168,23 @@ func adaptersList(env Env) error {
 	return tw.Flush()
 }
 
-func adaptersSearch(env Env, q string) error {
+// loadIndex reads the registry index and warns, naming each, about rows
+// this gtme could not read and left out (#174).
+func loadIndex(env Env) (*adapterinstall.Index, error) {
 	ix, err := adapterinstall.LoadIndex()
 	if err != nil {
-		return fail(ExitNetwork, "%v", err)
+		return nil, fail(ExitNetwork, "%v", err)
+	}
+	for _, s := range ix.Skipped {
+		fmt.Fprintf(env.Stderr, "warning: registry index: skipped %s, a row this gtme cannot read (%s); a newer gtme may list it\n", s.ID, s.Reason())
+	}
+	return ix, nil
+}
+
+func adaptersSearch(env Env, q string) error {
+	ix, err := loadIndex(env)
+	if err != nil {
+		return err
 	}
 	hits := ix.Search(q)
 	if len(hits) == 0 {
@@ -229,7 +242,7 @@ func adaptersAddAll(env Env, args []string) error {
 // from its asset, anything else as a binding from its reference.
 func addOne(env Env, arg string, ix **adapterinstall.Index) error {
 	if bareIDRE.MatchString(arg) {
-		e, err := findEntry(arg, ix)
+		e, err := findEntry(env, arg, ix)
 		if err != nil {
 			return err
 		}
@@ -237,7 +250,7 @@ func addOne(env Env, arg string, ix **adapterinstall.Index) error {
 			return adaptersAddProcess(env, e)
 		}
 	}
-	ref, err := resolveAddRef(arg, ix)
+	ref, err := resolveAddRef(env, arg, ix)
 	if err != nil {
 		return err
 	}
@@ -245,11 +258,11 @@ func addOne(env Env, arg string, ix **adapterinstall.Index) error {
 }
 
 // findEntry reads the index once and returns the entry for a bare id.
-func findEntry(id string, ix **adapterinstall.Index) (*adapterinstall.Entry, error) {
+func findEntry(env Env, id string, ix **adapterinstall.Index) (*adapterinstall.Entry, error) {
 	if *ix == nil {
-		loaded, err := adapterinstall.LoadIndex()
+		loaded, err := loadIndex(env)
 		if err != nil {
-			return nil, fail(ExitNetwork, "%v", err)
+			return nil, err
 		}
 		*ix = loaded
 	}
@@ -269,7 +282,7 @@ var bareIDRE = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*(/[a-z0-9][a-z0-9_-]*)+$`
 // form as written, or a bare registry id resolved through the index to the
 // entry's source pinned at the index's sha (ADR-059) — exactly as pinned as
 // a full reference.
-func resolveAddRef(arg string, ix **adapterinstall.Index) (adapterinstall.Ref, error) {
+func resolveAddRef(env Env, arg string, ix **adapterinstall.Index) (adapterinstall.Ref, error) {
 	if !bareIDRE.MatchString(arg) {
 		ref, err := adapterinstall.ParseRef(arg)
 		if err != nil {
@@ -277,7 +290,7 @@ func resolveAddRef(arg string, ix **adapterinstall.Index) (adapterinstall.Ref, e
 		}
 		return ref, nil
 	}
-	e, err := findEntry(arg, ix)
+	e, err := findEntry(env, arg, ix)
 	if err != nil {
 		return adapterinstall.Ref{}, err
 	}
@@ -342,6 +355,8 @@ func adaptersUpdate(env Env, id, newRef string) error {
 	ref := adapterinstall.Ref{Owner: owner, Repo: repo, Path: src.Path, Ref: src.Ref}
 	if newRef != "" {
 		ref.Ref = newRef
+	} else if pin, ok := indexPin(env, id, src); ok {
+		ref.Ref = pin
 	}
 	tmp, b, hash, commit, err := fetchAndVerify(env, ref)
 	if err != nil {
@@ -377,6 +392,35 @@ func adaptersUpdate(env Env, id, newRef string) error {
 	return nil
 }
 
+// commitRE is a full commit sha: the ref a bare-id add records (ADR-059).
+var commitRE = regexp.MustCompile(`^[0-9a-f]{40}$`)
+
+// indexPin is where `update` with no @ref moves a binding pinned to a
+// commit (#175): a bare-id add records the index row's sha as its ref, and
+// re-resolving that sha would never move. When the index lists this id at
+// the same source, the pin it lists now is the one to fetch. A branch or
+// tag ref keeps following itself, and an unreachable index leaves the pin
+// where it is, with a warning.
+func indexPin(env Env, id string, src *adapterinstall.Source) (string, bool) {
+	if !commitRE.MatchString(src.Ref) {
+		return "", false
+	}
+	ix, err := loadIndex(env)
+	if err != nil {
+		fmt.Fprintf(env.Stderr, "warning: registry index unreachable, %s stays at its pinned commit: %v\n", id, err)
+		return "", false
+	}
+	e := ix.FindSource(src.URL, src.Path)
+	if e == nil || e.ID != id || e.IsProcess() {
+		return "", false
+	}
+	pin := e.Source.SHA
+	if pin == "" {
+		pin = e.Source.Ref
+	}
+	return pin, pin != ""
+}
+
 // fetchAndVerify is the shared front half of add and update: resolve, fetch,
 // verify (nothing installs unverified), hash, and check the hash against the
 // registry index when the index publishes this source (SPEC §11 M19).
@@ -389,10 +433,12 @@ func fetchAndVerify(env Env, ref adapterinstall.Ref) (dir string, b *binding.Bin
 	if err != nil {
 		return "", nil, "", "", fail(ExitNetwork, "%v", err)
 	}
-	ok := false
+	// The error returns below zero the named dir before deferred funcs run,
+	// so the cleanup holds its own copy of the path (#184).
+	fetched, ok := dir, false
 	defer func() {
 		if !ok {
-			os.RemoveAll(dir)
+			os.RemoveAll(fetched)
 		}
 	}()
 	fmt.Fprintf(env.Stderr, "fetched %s at %s\n", ref.String(), shortCommit(commit))
@@ -406,6 +452,8 @@ func fetchAndVerify(env Env, ref adapterinstall.Ref) (dir string, b *binding.Bin
 	}
 	if ix, ierr := adapterinstall.LoadIndex(); ierr != nil {
 		fmt.Fprintf(env.Stderr, "warning: registry index unreachable, content-hash check skipped: %v\n", ierr)
+	} else if s := ix.SkippedSource(ref.URL(), ref.Path); s != nil && ix.FindSource(ref.URL(), ref.Path) == nil {
+		fmt.Fprintf(env.Stderr, "warning: the registry index row for %s is one this gtme cannot read (%s), content-hash check skipped\n", s.ID, s.Reason())
 	} else if e := ix.FindSource(ref.URL(), ref.Path); e != nil && e.SHA256 != hash {
 		return "", nil, "", "", fail(ExitValidation,
 			"adapters: content hash mismatch for %s — the index lists %s, the fetched directory hashes to %s; the thing reviewed is not the thing fetched, refusing to install",
