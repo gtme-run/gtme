@@ -2749,6 +2749,37 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-29 — An AI step takes an unambiguous object answer as its array (#186)
+
+**Question:** About 8% of one operator's `ai/review` calls at
+`batch_size: 1` came back as a JSON object instead of the array the
+system prompt asks for, and each one paid for a full retry. Should the
+adapter take such an answer, and can the prompt head it off?
+**Choice:** Two object shapes are read as the array before validation.
+A bare object carrying an `identity_key` stands for a one-element array,
+but only when the batch has exactly one record. An object whose only key
+holds an array stands for that array, at any batch size. Every element is
+then validated exactly as before (identity keys, completeness, the
+declared shape), and any other shape, including a bare object for a
+larger batch, still fails and gets the one retry. The system prompt also
+gains a sentence saying the answer is an array even for one record, and
+never a bare or wrapping object. Structured outputs and an assistant
+prefill were considered and left out: both change the engine request
+rather than the adapter, and a prefill is not available on every model
+the step may name.
+**Why:** Both shapes say the same thing as the array with nothing left to
+guess, so a retry buys no information and costs a whole call. This is the
+same recovery `stripFence` already makes for a fenced answer. The issue
+tied the rise to the `template:` rename (ADR-057), but that change moved
+the operator text key and nothing else in prompt assembly; an operator
+template that describes a single output object is the likelier trigger,
+and the added sentence answers it from the system side.
+**Spec impact:** None. §10 item 3 fixes the output schema the model is
+asked for, and §2 fixes the retry on a validation failure; both stand.
+Reading an unambiguous answer as the array it denotes is decoding, the
+same kind of choice as stripping a markdown fence, and the system
+prompt's wording is not a contract.
+
 ### 2026-09-29 — M36 internals: the receipt from the ledger, crashed sends, settling (ADR-064)
 
 **Question:** How does `gtme runs RUN_ID` stay equal to the live receipt,
