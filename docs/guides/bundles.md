@@ -320,11 +320,12 @@ links:
     score   demo/enrich   3   0    -      3       -         -       $0    $0.0300
     keep    sql/filter    3   1    -      0       2         -       $0    -
     opener  text/compose  1   1    -      0       -         -       $0    -
-    out     csv/deliver   1   0    -      1       -         -       $0    $0.0000
-    total: $0 spent, $0.0300 avoided via cache (4 records skipped)
+    out     csv/deliver   1   0    -      0       -         -       $0    -
+    out: 1 already delivered
+    total: $0 spent, $0.0300 avoided via cache (3 records skipped)
     ```
 
-    `opener` wrote Jane a new line, `score` came from the cache, and `out` wrote nothing, since Jane already has a delivery on this ledger. That's the safety working: v2 reaches people v1 hasn't, which is the normal case for a new list.
+    `opener` wrote Jane a new line, `score` came from the cache, and `out` wrote nothing: `out: 1 already delivered` is Jane, who already has a delivery on this ledger. That's the safety working: v2 reaches people v1 hasn't, which is the normal case for a new list.
 
 1. Freeze the new run into its own folder, and compare the two versions:
 

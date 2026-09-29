@@ -2824,7 +2824,7 @@ decided contract, not shipped behavior.
   `done` run exits 2 (`TestResumeLastAndUnknownRun`'s no-op assertion
   becomes this refusal); `make check` passes.
 - **M35 — destinations and Instantly's move (ADR-062, ADR-063; §3, §5,
-  §6, §8, §9, §10, §10a, §11). Queued 2026-09-29, after M34.** Migration
+  §6, §8, §9, §10, §10a, §11). Built 2026-09-29 (changelog v0.58).** Migration
   `0015` backfills `scope` for `http/deliver` rows from the run's
   `runs.config_json` when the run had exactly one `http/deliver` step,
   mirrored in `spec/ledger.sql`'s comments. `http/deliver` declares
@@ -3222,6 +3222,22 @@ no reconstruction required from raw table scans.
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.58 — 2026-09-29 (M35 build: destinations and Instantly's move, built)
+**Changed:** §11 M35 marked built. Behavioural notes from the build: a
+`group/deliver` handoff to a group that already holds the record counts
+`already delivered` as well, since it is the same skip; both receipts
+print `STEP: N already delivered` under their table, and `gtme runs
+RUN_ID`'s `cached` column excludes those skips; migration `0015` also
+rescopes ADR-060's `dispatched` events, each by its own step's url, so a
+crash from before the upgrade is still held; the live preflight line
+names the destination as the receipt does; a config value failing its
+property's `pattern` is a plan error quoting the property's description;
+the Instantly campaign id is accepted in lowercase only; a process
+archive holds exactly `manifest.json` and `run`, and `gtme adapters
+update` moves a process entry to the release the index lists and refuses
+an `@ref`. The `gtme-bindings` index entry for Instantly follows the
+first release that carries its archives.
 
 ### v0.57 — 2026-09-29 (M34 build: crash and resume, built)
 **Changed:** §11 M34 marked built. §8's run-lock subsection gains one

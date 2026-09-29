@@ -267,11 +267,12 @@ Build both stages and run them in order:
     source    csv/source     0   8    -      0       -         -       $0    -
     score     demo/enrich    8   0    -      8       -         -       $0    $0.0800
     worth-it  sql/filter     8   5    -      0       3         -       $0    -
-    handoff   group/deliver  5   0    -      5       -         -       $0    ?
+    handoff   group/deliver  5   0    -      0       -         -       $0    -
+    handoff: 5 already delivered
     ...
     ```
 
-    All 5 handoffs count as cached, because gtme already recorded each one as a delivery and won't make it twice ([idempotency](/concepts/runs-and-receipts)), so Erin stays out. The `?` means the handoff has no price to avoid. Stage 1 has no send in it, so re-running it can't contact anyone.
+    All 5 handoffs count as already delivered, because gtme already recorded each one as a delivery and won't make it twice ([idempotency](/concepts/runs-and-receipts)), so Erin stays out. Stage 1 has no send in it, so re-running it can't contact anyone.
 
 1. See why the send lives in its own file. Copy `qualify.yaml` to `combined.yaml`, change its `name:` to `combined`, append an `out` step like the one in `send.yaml`, and plan it:
 
