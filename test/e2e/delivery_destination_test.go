@@ -89,8 +89,9 @@ func (f *fakeInstantly) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// TestInstantlyRenameIsTheSameCampaign: renaming a campaign in Instantly,
-// and the pipeline with it, does not make it a new destination.
+// TestInstantlyRenameIsTheSameCampaign: the campaign is configured by its
+// id (ADR-062), so renaming it in Instantly does not make it a new
+// destination, and the preflight line names it by its new name.
 func TestInstantlyRenameIsTheSameCampaign(t *testing.T) {
 	fake := &fakeInstantly{name: "Q3 VP Marketing"}
 	srv := httptest.NewServer(fake)
@@ -98,14 +99,11 @@ func TestInstantlyRenameIsTheSameCampaign(t *testing.T) {
 
 	h := newHarness(t)
 	h.write("contacts.csv", campaignZeroCSV)
-	pipeline := func(campaign string) string {
-		y := strings.Replace(outFloorYAML, "%s\n", "instantly/add-to-campaign\n", 1)
-		return strings.Replace(y, "%s", `      campaign: "`+campaign+`"
-      base_url: "`+srv.URL+`"`, 1)
-	}
+	y := strings.Replace(outFloorYAML, "%s\n", "instantly/add-to-campaign\n", 1)
+	h.write("p.yaml", strings.Replace(y, "%s", `      campaign: "`+fakeCampaignID+`"
+      base_url: "`+srv.URL+`"`, 1))
 	env := []string{"INSTANTLY_API_KEY=test-key"}
 
-	h.write("p.yaml", pipeline("Q3 VP Marketing"))
 	if res := h.runWithEnv(env, "", "run", "p.yaml"); res.code != 0 {
 		t.Fatalf("first run exit = %d\nstderr:\n%s", res.code, res.stderr)
 	}
@@ -116,7 +114,6 @@ func TestInstantlyRenameIsTheSameCampaign(t *testing.T) {
 	fake.mu.Lock()
 	fake.name = "Q3 VP Marketing (renamed)"
 	fake.mu.Unlock()
-	h.write("p.yaml", pipeline("Q3 VP Marketing (renamed)"))
 	res := h.runWithEnv(env, "", "run", "p.yaml")
 	if res.code != 0 {
 		t.Fatalf("second run exit = %d\nstderr:\n%s", res.code, res.stderr)
@@ -124,4 +121,19 @@ func TestInstantlyRenameIsTheSameCampaign(t *testing.T) {
 	if fake.leads != 2 {
 		t.Errorf("leads after the rename = %d, want 2 — the same campaign got the same people again\nstderr:\n%s", fake.leads, res.stderr)
 	}
+	contains(t, res.stderr, `campaign "Q3 VP Marketing (renamed)" (`+fakeCampaignID+`)`, "preflight names the renamed campaign")
+}
+
+// TestInstantlyCampaignNameIsAPlanError: a display name is not a
+// destination (ADR-062), and plan says to use the id without looking it up.
+func TestInstantlyCampaignNameIsAPlanError(t *testing.T) {
+	h := newHarness(t)
+	h.write("contacts.csv", campaignZeroCSV)
+	y := strings.Replace(outFloorYAML, "%s\n", "instantly/add-to-campaign\n", 1)
+	h.write("p.yaml", strings.Replace(y, "%s", `      campaign: "Q3 VP Marketing"`, 1))
+	res := h.runWithEnv([]string{"INSTANTLY_API_KEY=test-key"}, "", "plan", "p.yaml")
+	if res.code == 0 {
+		t.Fatalf("plan accepted a campaign name\nstderr:\n%s", res.stderr)
+	}
+	contains(t, res.stderr, `config campaign "Q3 VP Marketing" is not accepted: The campaign's id`, "plan error")
 }

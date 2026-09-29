@@ -3,9 +3,10 @@
 // (SPEC §10.6).
 //
 // This adapter puts people into a live sending sequence. Everything about it is
-// therefore conservative: the campaign must already exist, the campaign name is
-// resolved once per run, and delivery is gated by the runner's idempotency table
-// so a re-run cannot add the same person twice.
+// therefore conservative: the campaign must already exist and is named by its
+// id, never its display name (a renamed campaign is the same destination,
+// SPEC §10.6, ADR-062), and delivery is gated by the runner's idempotency
+// table so a re-run cannot add the same person twice.
 package instantly
 
 import (
@@ -59,8 +60,13 @@ type config struct {
 func parseConfig(raw map[string]any) (config, error) {
 	c := config{SkipIfInCampaign: true, BaseURL: DefaultBaseURL}
 	c.Campaign, _ = raw["campaign"].(string)
-	if strings.TrimSpace(c.Campaign) == "" {
+	c.Campaign = strings.TrimSpace(c.Campaign)
+	if c.Campaign == "" {
 		return c, fmt.Errorf("instantly/add-to-campaign: config.campaign is required")
+	}
+	if !IsCampaignID(c.Campaign) {
+		return c, fmt.Errorf("instantly/add-to-campaign: campaign %q is not a campaign id; "+
+			"the adapter takes the campaign's id (a lowercase UUID, in the campaign's URL in Instantly), not its name", c.Campaign)
 	}
 	if v, ok := raw["skip_if_in_campaign"].(bool); ok {
 		c.SkipIfInCampaign = v
@@ -112,17 +118,14 @@ func (a *Adapter) Run(ctx context.Context, p adapters.Ports) error {
 			if apiKey == "" {
 				return &httpx.Error{Kind: httpx.KindAuth, Provider: "instantly", Msg: "INSTANTLY_API_KEY is not set"}
 			}
-			// Resolve the campaign once per invocation, before any lead is sent.
-			campaignID, err = a.resolveCampaign(ctx, cfg, apiKey)
-			if err != nil {
-				return err
-			}
+			// The campaign is named by its id (ADR-062): no lookup.
+			campaignID = cfg.Campaign
 			opened = true
 			if m.Preflight {
 				// A preflight session (SPEC §5, ADR-040): check the live
 				// campaign against what this step sends; send nothing.
-				status, reason, checks := a.preflight(ctx, cfg, apiKey, campaignID)
-				if err := w.Write(protocol.Preflight(status, reason, checks)); err != nil {
+				destination, status, reason, checks := a.preflight(ctx, cfg, apiKey, campaignID)
+				if err := w.Write(protocol.PreflightTo(destination, status, reason, checks)); err != nil {
 					return err
 				}
 				return w.Write(protocol.End())
@@ -249,10 +252,15 @@ func compareLead(sent leadRequest, stored storedLead) (string, string) {
 // every target appears as {{name}} in some step; no variant lacks one.
 // A readable failure is blocked; a target that cannot be read is
 // inconclusive — never a block on a guess.
-func (a *Adapter) preflight(ctx context.Context, cfg config, apiKey, campaignID string) (string, string, []protocol.Check) {
+func (a *Adapter) preflight(ctx context.Context, cfg config, apiKey, campaignID string) (string, string, string, []protocol.Check) {
+	destination := "campaign " + campaignID
 	detail, err := a.getCampaign(ctx, cfg, apiKey, campaignID)
 	if err != nil {
-		return protocol.PreflightInconclusive, "campaign could not be read: " + err.Error(), nil
+		return destination, protocol.PreflightInconclusive, "campaign could not be read: " + err.Error(), nil
+	}
+	// The receipt names the campaign the id points at (SPEC §5, ADR-062).
+	if name := detail.name(); name != "" {
+		destination = fmt.Sprintf("campaign %q (%s)", name, campaignID)
 	}
 	var checks []protocol.Check
 	var blocked []string
@@ -321,11 +329,11 @@ func (a *Adapter) preflight(ctx context.Context, cfg config, apiKey, campaignID 
 
 	switch {
 	case len(blocked) > 0:
-		return protocol.PreflightBlocked, strings.Join(blocked, "; "), checks
+		return destination, protocol.PreflightBlocked, strings.Join(blocked, "; "), checks
 	case len(unreadable) > 0:
-		return protocol.PreflightInconclusive, "the campaign response carried no readable " + strings.Join(unreadable, ", "), checks
+		return destination, protocol.PreflightInconclusive, "the campaign response carried no readable " + strings.Join(unreadable, ", "), checks
 	default:
-		return protocol.PreflightOK, "", checks
+		return destination, protocol.PreflightOK, "", checks
 	}
 }
 

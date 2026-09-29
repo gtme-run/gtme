@@ -7,6 +7,7 @@ package adapters
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -421,6 +422,9 @@ func (m *Manifest) ValidateConfig(config map[string]any) error {
 	if err := m.refusedConfig(config); err != nil {
 		return err
 	}
+	if err := m.mismatchedConfig(config); err != nil {
+		return err
+	}
 	if err := m.config.Validate(normalizeForSchema(config)); err != nil {
 		return fmt.Errorf("adapters: %s: invalid config: %w", m.ID, err)
 	}
@@ -453,6 +457,40 @@ func (m *Manifest) refusedConfig(config map[string]any) error {
 			continue
 		}
 		return fmt.Errorf("adapters: %s@%d: config %s is not accepted: %s", m.ID, m.Version, k, strings.TrimSpace(p.Description))
+	}
+	return nil
+}
+
+// mismatchedConfig names a string config value that fails its property's
+// pattern, with the property's description as the fix — an identifier the
+// adapter needs in one form, such as Instantly's campaign id rather than its
+// name (ADR-062) — instead of a bare jsonschema pattern error.
+func (m *Manifest) mismatchedConfig(config map[string]any) error {
+	var doc struct {
+		Properties map[string]struct {
+			Pattern     string `json:"pattern"`
+			Description string `json:"description"`
+		} `json:"properties"`
+	}
+	if json.Unmarshal(m.ConfigSchema, &doc) != nil {
+		return nil
+	}
+	keys := make([]string, 0, len(config))
+	for k := range config {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		p, ok := doc.Properties[k]
+		s, isString := config[k].(string)
+		if !ok || !isString || p.Pattern == "" || strings.TrimSpace(p.Description) == "" {
+			continue
+		}
+		re, err := regexp.Compile(p.Pattern)
+		if err != nil || re.MatchString(s) {
+			continue
+		}
+		return fmt.Errorf("adapters: %s@%d: config %s %q is not accepted: %s", m.ID, m.Version, k, s, strings.TrimSpace(p.Description))
 	}
 	return nil
 }
