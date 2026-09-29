@@ -264,7 +264,7 @@ func TestCacheExampleShowsTheDelta(t *testing.T) {
 	contains(t, second.stderr, "score: 3 in, 0 out, 3 cached", "second run cache-skips")
 	contains(t, second.stderr, "$0.0300", "the receipt prints the dollars avoided")
 	contains(t, second.stderr, "avoided via cache", "second receipt")
-	contains(t, second.stderr, "out: 1 in, 0 out, 1 cached", "nothing delivered twice")
+	contains(t, second.stderr, "out: 1 in, 0 out, 0 cached, 0 filtered, 0 failed, 1 already delivered", "nothing delivered twice")
 	if n := h.queryInt(`SELECT count(*) FROM costs WHERE provider = 'demo'`); n != 3 {
 		t.Errorf("demo cost rows after the second run = %d, want 3 (no adapter call)", n)
 	}

@@ -130,6 +130,13 @@ func printReceipt(ctx context.Context, env Env, l *ledger.Ledger, run ledger.Run
 			count(counts["skipped_cache"]), count(counts["failed"]), money(cost.Total()))
 	}
 	tw.Flush()
+	// Withheld because the destination already has them (ADR-062): never
+	// in the cached column.
+	for _, step := range order {
+		if n := events[step][ledger.AlreadyDelivered]; n > 0 {
+			fmt.Fprintf(env.Stderr, "%s: %d already delivered\n", step, n)
+		}
+	}
 	// The total carries its basis exactly as the live receipt did (ADR-046).
 	fmt.Fprintf(env.Stderr, "total: %s\n", runner.FormatCost(total))
 

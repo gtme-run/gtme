@@ -49,6 +49,17 @@ func TestHTTPDeliverScopesToTheURL(t *testing.T) {
 	if got := b.Load(); got != 2 {
 		t.Errorf("webhook B received %d, want 2 — it has never seen these records\nstderr:\n%s", got, res.stderr)
 	}
+
+	// A second run to the same URL withholds both: already delivered, which
+	// is neither a cache hit nor money saved (ADR-062).
+	again := h.mustRun("run", "b.yaml")
+	if got := b.Load(); got != 2 {
+		t.Errorf("webhook B received %d after a re-run, want 2", got)
+	}
+	contains(t, again.stderr, "0 cached, 0 filtered, 0 failed, 2 already delivered", "re-run to the same URL")
+	if strings.Contains(again.stderr, "avoided via cache") {
+		t.Errorf("an already-delivered skip reported as cost avoided:\n%s", again.stderr)
+	}
 }
 
 // fakeInstantly is the slice of the Instantly v2 API the adapter touches,

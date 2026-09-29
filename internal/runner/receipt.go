@@ -81,6 +81,13 @@ func PrintReceipt(w io.Writer, res *Result) {
 			dash(s.Filtered), dash(s.Failed), money(s.Cost.Total()), avoided)
 	}
 	tw.Flush()
+	// Withheld because the destination already has them (SPEC §8, ADR-062):
+	// outside the cached column and the avoided total.
+	for _, s := range res.Steps {
+		if s.AlreadyDelivered > 0 {
+			fmt.Fprintf(w, "%s: %d already delivered\n", s.ID, s.AlreadyDelivered)
+		}
+	}
 	// Failures, with their reasons (SPEC §8: every error names its fix). One
 	// line per distinct reason, most frequent first; a bare count in the
 	// table would leave a missing key looking like bad data.

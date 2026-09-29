@@ -81,7 +81,7 @@ func TestRedeliverOnChange(t *testing.T) {
 	if asserts != 1 {
 		t.Errorf("asserts after unchanged re-run = %d, want 1", asserts)
 	}
-	contains(t, res.stderr, "1 cached", "unchanged re-run receipt")
+	contains(t, res.stderr, "1 already delivered", "unchanged re-run receipt")
 	if n := h.queryInt(`SELECT count(*) FROM step_events WHERE step_id='sync' AND json_extract(detail,'$.reason')='unchanged'`); n != 1 {
 		t.Errorf("unchanged skip events = %d, want 1", n)
 	}
@@ -115,7 +115,7 @@ func TestRedeliverOnChange(t *testing.T) {
 	if asserts != 3 {
 		t.Errorf("asserts under redeliver: never = %d, want 3", asserts)
 	}
-	contains(t, res.stderr, "1 cached", "never re-run receipt")
+	contains(t, res.stderr, "1 already delivered", "never re-run receipt")
 }
 
 // TestRedeliverNeedsNativeIdempotency: intent cannot opt an unsafe target
