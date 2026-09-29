@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"time"
 
@@ -47,6 +48,34 @@ type Run struct {
 	// run in every other respect, but it finishes nothing a once: source
 	// counts.
 	Dry bool
+	// Pid and Host name the process that last created or resumed the run
+	// (SPEC §3, ADR-061), for display: liveness is the run lock, never these.
+	Pid  int
+	Host string
+}
+
+// runColumns is every runs column a Run carries, in scanRun's order.
+const runColumns = `id, pipeline, config_json, started_at, finished_at, status, dry, pid, host`
+
+type scanner interface{ Scan(dest ...any) error }
+
+func scanRun(row scanner) (Run, error) {
+	var r Run
+	var finished, host sql.NullString
+	var pid sql.NullInt64
+	if err := row.Scan(&r.ID, &r.Pipeline, &r.ConfigJSON, &r.StartedAt, &finished, &r.Status, &r.Dry, &pid, &host); err != nil {
+		return Run{}, err
+	}
+	r.FinishedAt = finished.String
+	r.Pid = int(pid.Int64)
+	r.Host = host.String
+	return r, nil
+}
+
+// processIdentity is this process's pid and hostname, as a run records them.
+func processIdentity() (int, string) {
+	host, _ := os.Hostname()
+	return os.Getpid(), host
 }
 
 // CreateRun opens a run with a snapshot of the resolved config; dry marks a
@@ -59,6 +88,7 @@ func (l *Ledger) CreateRun(ctx context.Context, pipeline string, config any, dry
 			return Run{}, fmt.Errorf("ledger: encoding run config: %w", err)
 		}
 	}
+	pid, host := processIdentity()
 	run := Run{
 		ID:         ulid.New(),
 		Pipeline:   pipeline,
@@ -66,10 +96,12 @@ func (l *Ledger) CreateRun(ctx context.Context, pipeline string, config any, dry
 		StartedAt:  l.stamp(l.now()),
 		Status:     StatusRunning,
 		Dry:        dry,
+		Pid:        pid,
+		Host:       host,
 	}
 	_, err := l.db.ExecContext(ctx,
-		`INSERT INTO runs (id, pipeline, config_json, started_at, status, dry) VALUES (?, ?, ?, ?, ?, ?)`,
-		run.ID, run.Pipeline, run.ConfigJSON, run.StartedAt, run.Status, run.Dry)
+		`INSERT INTO runs (id, pipeline, config_json, started_at, status, dry, pid, host) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		run.ID, run.Pipeline, run.ConfigJSON, run.StartedAt, run.Status, run.Dry, run.Pid, run.Host)
 	if err != nil {
 		return Run{}, fmt.Errorf("ledger: inserting run: %w", err)
 	}
@@ -99,24 +131,19 @@ func (l *Ledger) RecordRunConfig(ctx context.Context, runID string, config any) 
 
 // GetRun reads one run.
 func (l *Ledger) GetRun(ctx context.Context, id string) (Run, error) {
-	var r Run
-	var finished sql.NullString
-	err := l.db.QueryRowContext(ctx,
-		`SELECT id, pipeline, config_json, started_at, finished_at, status, dry FROM runs WHERE id = ?`, id).
-		Scan(&r.ID, &r.Pipeline, &r.ConfigJSON, &r.StartedAt, &finished, &r.Status, &r.Dry)
+	r, err := scanRun(l.db.QueryRowContext(ctx, `SELECT `+runColumns+` FROM runs WHERE id = ?`, id))
 	if err == sql.ErrNoRows {
 		return Run{}, ErrNotFound
 	}
 	if err != nil {
 		return Run{}, fmt.Errorf("ledger: reading run: %w", err)
 	}
-	r.FinishedAt = finished.String
 	return r, nil
 }
 
 // ListRuns returns runs newest first, at most limit (0 = all).
 func (l *Ledger) ListRuns(ctx context.Context, limit int) ([]Run, error) {
-	q := `SELECT id, pipeline, config_json, started_at, finished_at, status, dry FROM runs ORDER BY id DESC`
+	q := `SELECT ` + runColumns + ` FROM runs ORDER BY id DESC`
 	args := []any{}
 	if limit > 0 {
 		q += " LIMIT ?"
@@ -129,12 +156,10 @@ func (l *Ledger) ListRuns(ctx context.Context, limit int) ([]Run, error) {
 	defer rows.Close()
 	var out []Run
 	for rows.Next() {
-		var r Run
-		var finished sql.NullString
-		if err := rows.Scan(&r.ID, &r.Pipeline, &r.ConfigJSON, &r.StartedAt, &finished, &r.Status, &r.Dry); err != nil {
+		r, err := scanRun(rows)
+		if err != nil {
 			return nil, fmt.Errorf("ledger: listing runs: %w", err)
 		}
-		r.FinishedAt = finished.String
 		out = append(out, r)
 	}
 	if err := rows.Err(); err != nil {
@@ -157,19 +182,14 @@ func (l *Ledger) LastRun(ctx context.Context) (Run, error) {
 
 // LastRunForPipeline is the most recent run of a named pipeline.
 func (l *Ledger) LastRunForPipeline(ctx context.Context, pipeline string) (Run, error) {
-	var run Run
-	var finished sql.NullString
-	err := l.db.QueryRowContext(ctx,
-		`SELECT id, pipeline, config_json, started_at, finished_at, status, dry FROM runs
-		 WHERE pipeline = ? ORDER BY started_at DESC, id DESC LIMIT 1`, pipeline).
-		Scan(&run.ID, &run.Pipeline, &run.ConfigJSON, &run.StartedAt, &finished, &run.Status, &run.Dry)
+	run, err := scanRun(l.db.QueryRowContext(ctx,
+		`SELECT `+runColumns+` FROM runs WHERE pipeline = ? ORDER BY started_at DESC, id DESC LIMIT 1`, pipeline))
 	if err == sql.ErrNoRows {
 		return Run{}, ErrNotFound
 	}
 	if err != nil {
 		return Run{}, fmt.Errorf("ledger: reading runs: %w", err)
 	}
-	run.FinishedAt = finished.String
 	return run, nil
 }
 
@@ -275,10 +295,12 @@ func (l *Ledger) FinishRun(ctx context.Context, runID, status string) error {
 	return nil
 }
 
-// ReopenRun marks a run running again, for --resume.
+// ReopenRun marks a run running again, for --resume, under this process's
+// pid and host (ADR-061).
 func (l *Ledger) ReopenRun(ctx context.Context, runID string) error {
+	pid, host := processIdentity()
 	if _, err := l.db.ExecContext(ctx,
-		`UPDATE runs SET status = ?, finished_at = NULL WHERE id = ?`, StatusRunning, runID); err != nil {
+		`UPDATE runs SET status = ?, finished_at = NULL, pid = ?, host = ? WHERE id = ?`, StatusRunning, pid, host, runID); err != nil {
 		return fmt.Errorf("ledger: reopening run: %w", err)
 	}
 	return nil

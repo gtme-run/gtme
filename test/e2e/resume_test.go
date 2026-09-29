@@ -124,15 +124,17 @@ func TestResumeLastAndUnknownRun(t *testing.T) {
 	}
 	contains(t, res.stderr, "unknown run", "stderr")
 
-	// Resuming a finished run is a no-op that reports itself as such; an
-	// unchanged file says nothing about its config.
-	res = h.mustRun("run", "pipeline.yaml", "--resume", "last")
-	contains(t, res.stderr, "already sourced", "stderr")
-	if strings.Contains(res.stderr, "the pipeline changed") {
-		t.Errorf("an unchanged pipeline must not report a config change\nstderr:\n%s", res.stderr)
+	// A finished run has nothing to resume (SPEC §8, ADR-061): refused, and
+	// the run is left exactly as it was.
+	done := h.queryStrings(`SELECT id FROM runs`)[0]
+	finished := h.queryStrings(`SELECT finished_at FROM runs WHERE id = ?`, done)[0]
+	res = h.run("run", "pipeline.yaml", "--resume", "last")
+	if res.code != 2 {
+		t.Errorf("exit = %d, want 2 when resuming a done run", res.code)
 	}
-	if strings.Contains(res.stderr, "mock: 3 in") {
-		t.Error("resuming a finished run must not redo its work")
+	contains(t, res.stderr, "run "+done+" is done; nothing to resume", "stderr")
+	if got := h.queryStrings(`SELECT status || ' ' || finished_at FROM runs WHERE id = ?`, done)[0]; got != "done "+finished {
+		t.Errorf("the refused run changed: %s", got)
 	}
 }
 

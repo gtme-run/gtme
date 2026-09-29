@@ -105,9 +105,17 @@ func cmdRun(ctx context.Context, env Env, args []string) error {
 	// sourcing anew — nothing is submitted twice by habit. --simulate runs
 	// against a throwaway ledger and never defers, so it is exempt.
 	if *resume == "" && !*simulate {
-		if last, err := l.LastRunForPipeline(ctx, p.Name); err == nil && last.Status == ledger.StatusPending {
-			*resume = last.ID
-			fmt.Fprintf(env.Stderr, "collecting run %s — the latest run of %q ended with a step in flight\n", last.ID, p.Name)
+		if last, err := l.LastRunForPipeline(ctx, p.Name); err == nil {
+			switch status, _ := liveness(l, last); {
+			case last.Status == ledger.StatusPending:
+				*resume = last.ID
+				fmt.Fprintf(env.Stderr, "collecting run %s — the latest run of %q ended with a step in flight\n", last.ID, p.Name)
+			case status == statusInterrupted:
+				// Never resumed by habit (ADR-061): a crashed deliver step may
+				// hold records a person should check first (ADR-060).
+				fmt.Fprintf(env.Stderr, "run %s of %q was interrupted; this starts a new run. To finish that one instead: gtme run %s --resume %s\n",
+					last.ID, p.Name, positional[0], last.ID)
+			}
 		}
 	}
 	if *dryRun {
@@ -141,6 +149,10 @@ func cmdRun(ctx context.Context, env Env, args []string) error {
 		runner.PrintReceipt(env.Stderr, res)
 	}
 	if runErr != nil {
+		var refused *runner.RefusedError
+		if errors.As(runErr, &refused) {
+			return fail(ExitValidation, "%v", refused)
+		}
 		// A provider that rejected our credentials or rate-limited us deserves its
 		// own exit code, not a generic failure (SPEC §8).
 		if code := httpx.ExitCodeFor(runErr); code != 0 {
