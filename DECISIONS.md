@@ -2749,6 +2749,90 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-29 — An AI step takes an unambiguous object answer as its array (#186)
+
+**Question:** About 8% of one operator's `ai/review` calls at
+`batch_size: 1` came back as a JSON object instead of the array the
+system prompt asks for, and each one paid for a full retry. Should the
+adapter take such an answer, and can the prompt head it off?
+**Choice:** Two object shapes are read as the array before validation.
+A bare object carrying an `identity_key` stands for a one-element array,
+but only when the batch has exactly one record. An object whose only key
+holds an array stands for that array, at any batch size. Every element is
+then validated exactly as before (identity keys, completeness, the
+declared shape), and any other shape, including a bare object for a
+larger batch, still fails and gets the one retry. The system prompt also
+gains a sentence saying the answer is an array even for one record, and
+never a bare or wrapping object. Structured outputs and an assistant
+prefill were considered and left out: both change the engine request
+rather than the adapter, and a prefill is not available on every model
+the step may name.
+**Why:** Both shapes say the same thing as the array with nothing left to
+guess, so a retry buys no information and costs a whole call. This is the
+same recovery `stripFence` already makes for a fenced answer. The issue
+tied the rise to the `template:` rename (ADR-057), but that change moved
+the operator text key and nothing else in prompt assembly; an operator
+template that describes a single output object is the likelier trigger,
+and the added sentence answers it from the system side.
+**Spec impact:** None. §10 item 3 fixes the output schema the model is
+asked for, and §2 fixes the retry on a validation failure; both stand.
+Reading an unambiguous answer as the array it denotes is decoding, the
+same kind of choice as stripping a markdown fence, and the system
+prompt's wording is not a contract.
+
+### 2026-09-29 — Concurrent first opens of a new ledger are serialized by SQLite (#153)
+
+**Question:** Two processes opening a ledger file that does not exist yet
+raced the migrations. Each read `schema_migrations` before its own
+migration transaction, so both saw nothing applied and the second failed
+with `table ... already exists`. Separately, the first connection's
+`journal_mode(WAL)` switch on a new file needs an exclusive lock, and
+SQLite reports `SQLITE_BUSY` for it without consulting `busy_timeout`, so
+the other process failed at open with `database is locked`.
+**Choice:** Each migration's transaction (already `BEGIN IMMEDIATE`, via
+`_txlock=immediate`) re-reads `schema_migrations` for its own name and
+skips a migration another process recorded while it waited for the write
+lock. The earlier read of the table stays as a fast path only. `Open`
+retries the first ping while SQLite reports the database locked, with a
+short capped backoff for up to 10 seconds, the same bound as
+`busy_timeout`. The creation of `schema_migrations` itself runs in a
+transaction too, so it waits on the same lock.
+**Why:** SQLite's write lock already serializes writers across processes,
+so it serializes migration without a second lock file beside the ledger.
+A new file would be something a second implementation sharing the
+ledger directory would have to know about; the write lock is not. The
+migration files stay as written (no `IF NOT EXISTS` rewrite), because
+the recorded name, checked under the lock, is what makes a migration
+idempotent.
+**Spec impact:** None. SPEC §0 (principle 10) leaves concurrency strategy to the
+implementation, and no DDL, output or exit code changes.
+`internal/ledger/open_race_test.go` opens one fresh path from eight
+goroutines and from six processes and asserts every open succeeds and
+each migration is recorded once.
+
+### 2026-09-29 — csv/deliver writes a non-string value as JSON (#164)
+
+**Question:** SPEC §10a fixes csv/deliver's columns but not how a cell
+renders a value that is not a string. The adapter fell back to Go's
+`fmt.Sprint`, so a list arrived as `[HubSpot (Marketing automation)
+Salesforce (CRM)]`, whose items cannot be split back out, an object as
+`map[a:x]`, and a large number as `2.5e+06`. Dry-run and simulate print
+the same values as JSON, so the two disagreed.
+**Choice:** A string is written as-is and a missing value as an empty
+cell, as before. Every other value (list, object, number, boolean) is
+written as compact JSON with HTML escaping off, so `R&D` stays `R&D`.
+A number therefore prints as JSON does (`2500000`, `42`), and a boolean
+as `true` or `false`, which is what it printed before.
+**Why:** JSON is the form the ledger stores values in and the form the
+rest of the CLI prints, and it round-trips: an importer or a person can
+recover the list. The CSV writer already quotes the cell, so the JSON's
+commas and quotes are safe inside it.
+**Spec impact:** None. Cell rendering is an unspecified detail of one
+built-in adapter's output file; no protocol, DDL, CLI output or exit
+code changes. `internal/adapters/csvdeliver/csvdeliver_test.go` covers a
+list, an object, numbers, a boolean, a quoted string and a missing
+value.
+
 ### 2026-09-29 — `adapters update` moves a bare-id install to the index's current pin (#175)
 
 **Question:** A bare-id `add` pins the binding at the index row's `sha`
