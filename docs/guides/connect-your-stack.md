@@ -101,7 +101,7 @@ steps:
   - id: send
     use: instantly/add-to-campaign
     with:
-      campaign: "Q4 CRM follow-up"
+      campaign: 0198a0b1-7e6d-4c5b-9a8f-1e2d3c4b5a69   # the campaign id, from its URL in Instantly
     variables:
       first_line: first_line
       ps_line: ps_line
@@ -229,7 +229,7 @@ steps:
         warning:   optional credential ANTHROPIC_WORKSPACE_ID is not set; this step will fail at run time if it needs it
         est/record: ?
 
-   3. send [deliver] — instantly/add-to-campaign@1
+   3. send [deliver] — instantly/add-to-campaign@2
    ...
         creds:     INSTANTLY_API_KEY (resolved)
         est/record: $0.0000
@@ -269,16 +269,16 @@ steps:
 
    Read two things. There's no `simulation gap:` line, so every adapter had recorded responses to serve; a gap line names an adapter simulate couldn't vouch for. And `send: resolved variables` lists the fields the `send` step hands the campaign, here `first_line` and `ps_line`. The last line's "run again without --dry-run to arm" is dry-run's wording. After simulate, the dry-run is next, not the armed run.
 
-1. Dry-run it. In `hubspot-to-instantly.yaml`, keep `limit: 5` and set `campaign:` to your campaign's name as Instantly shows it. The dry-run spends model tokens and sends nothing:
+1. Dry-run it. In `hubspot-to-instantly.yaml`, keep `limit: 5` and set `campaign:` to your campaign's id, from its URL in Instantly. The dry-run spends model tokens and sends nothing:
 
    ```sh
    gtme run hubspot-to-instantly.yaml --dry-run
    ```
 
-   Before any record moves, preflight reads the campaign and reports whether it's active and every email uses both variables (the decision record, [ADR-040](/decisions#adr-040)). In Your stack's run of the same step, the line reads:
+   Before any record moves, preflight reads the campaign, prints its name, and reports whether it's active and every email uses both variables (the decision record, [ADR-040](/decisions#adr-040)). For a campaign named Q4 CRM follow-up, the receipt's line reads:
 
    ```
-   send: preflight ok — 3 check(s) (✓ campaign active, ✓ variable first_line referenced, ✓ variable ps_line referenced)
+   send: preflight ok — campaign "Q4 CRM follow-up" (0198a0b1-7e6d-4c5b-9a8f-1e2d3c4b5a69) — 3 check(s) (✓ campaign active, ✓ variable first_line referenced, ✓ variable ps_line referenced)
    ```
 
    A failed check names the fix: activate the campaign, or add the missing variable to every email. Then read every `first_line` and `ps_line` in the resolved variables, the exact text the armed run sends.

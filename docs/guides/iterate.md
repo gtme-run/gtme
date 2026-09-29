@@ -262,11 +262,12 @@ Nine people are in `out.csv`, each with a line about growth. The `keep` query re
     score   demo/enrich   5   5    -      0       -         -       $0.0500  -
     keep    sql/filter    5   2    -      0       3         -       $0       -
     opener  text/compose  2   2    -      0       -         -       $0       -
-    out     csv/deliver   2   0    -      2       -         -       $0       $0.0000
-    total: $0.0500 (estimated) spent, $0.0000 avoided via cache (2 records skipped)
+    out     csv/deliver   2   0    -      0       -         -       $0       -
+    out: 2 already delivered
+    total: $0.0500 (estimated) spent
     ```
 
-    The whole chain ran on 5 records for $0.0500. Two people passed `keep`, and `out` shows `cached 2`: both are already in `out.csv`, so the deliver step skips them and there's nothing to review. This run can't show you the new line, and an armed run wouldn't send it to them.
+    The whole chain ran on 5 records for $0.0500. Two people passed `keep`, and `out: 2 already delivered` says both are already in `out.csv`. The deliver step skips them, so there's nothing to review. A skipped delivery saves nothing, so it isn't `cached`. This run can't show you the new line, and an armed run wouldn't send it to them.
 
 1. Read what the edit ran again. This counts the newest run's events per step, by reason:
 
@@ -299,7 +300,7 @@ Nine people are in `out.csv`, each with a line about growth. The `keep` query re
     | `score` | Called the adapter for all 5 | It's new, so nothing was cached. Next time it reuses these scores for 30 days. |
     | `keep` | Judged all 5 | A `sql/filter` step recomputes on every run, so a changed query takes effect at once, for $0. |
     | `opener` | Composed 2 again | Both had a line from the launch, but the template changed. |
-    | `out` | Skipped 2 | Both are already in `out.csv`. |
+    | `out` | Skipped 2 as already delivered | Both are already in `out.csv`. |
 
 1. See why `opener` ran again. Compare Jane's two compositions:
 
