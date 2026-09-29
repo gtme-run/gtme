@@ -549,6 +549,40 @@ source:
 	contains(t, res.stderr, `"widget"`, "csv plan problem names the type")
 }
 
+// TestAdaptersVerifyHandInstalledProcessAdapter (#168): a process adapter
+// put on GTME_ADAPTER_PATH by hand, as manifest.json + run, is one that
+// `gtme adapters` lists and `gtme adapters verify` checks, not "not
+// installed".
+func TestAdaptersVerifyHandInstalledProcessAdapter(t *testing.T) {
+	h := newHarness(t)
+	root := t.TempDir()
+	dir := filepath.Join(root, "territory-owner")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := `{"id": "territory/owner", "version": 1, "role": "enrich", "entity_type": "person",
+  "needs": {"type": "object", "required": ["company_domain"], "properties": {"company_domain": {"type": "string"}}},
+  "provides": {"type": "object", "additionalProperties": false, "properties": {"territory.owner": {"type": "string"}}},
+  "cost_estimate_usd": 0}`
+	if err := os.WriteFile(filepath.Join(dir, "manifest.json"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "run"), []byte("#!/bin/sh\ncat >/dev/null\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	env := []string{"GTME_ADAPTER_PATH=" + root}
+
+	list := h.runWithEnv(env, "", "adapters")
+	contains(t, list.stderr, "territory/owner", "adapters list")
+	contains(t, list.stderr, "installed by hand", "adapters list")
+
+	res := h.runWithEnv(env, "", "adapters", "verify", "territory/owner")
+	if res.code != 0 {
+		t.Fatalf("verify exit = %d, want 0 for a hand-installed process adapter\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "territory/owner v1 — enrich (person), process adapter", "verify output")
+}
+
 // TestAdaptersFailedAddLeavesNoTempDir (#184): every refusal after the fetch
 // (failing fixtures, no fixtures, a content-hash mismatch, a failed update)
 // removes the fetched directory instead of leaving it in TMPDIR.
