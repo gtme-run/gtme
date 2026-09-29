@@ -33,6 +33,16 @@ jobs:
                 -o "dist/gtme" ./cmd/gtme
             tar -czf "dist/gtme_${VERSION}_${target%/*}_${target#*/}.tar.gz" -C dist gtme
             rm dist/gtme
+            # instantly/add-to-campaign, a registry process entry (ADR-063):
+            # manifest.json + run at the archive root, the manifest written by
+            # the executable itself so the two cannot drift. The gtme-bindings
+            # index pins each archive's sha256 from checksums.txt.
+            mkdir -p dist/instantly
+            GOOS="${target%/*}" GOARCH="${target#*/}" \
+              go build -trimpath -o dist/instantly/run ./cmd/gtme-instantly
+            go run ./cmd/gtme-instantly --manifest > dist/instantly/manifest.json
+            tar -czf "dist/gtme-instantly_${VERSION}_${target%/*}_${target#*/}.tar.gz" -C dist/instantly manifest.json run
+            rm -r dist/instantly
           done
           (cd dist && shasum -a 256 *.tar.gz > checksums.txt)
       - name: create release
@@ -41,4 +51,4 @@ jobs:
         run: |
           gh release create "${GITHUB_REF_NAME}" dist/* \
             --title "gtme ${GITHUB_REF_NAME}" \
-            --notes "Prebuilt binaries for macOS and Linux (arm64/amd64). Verify with checksums.txt, untar, put \`gtme\` on your PATH, run \`gtme init\`. Building from source stays \`git clone && ./install.sh\`. The CLI surface is SPEC.md §8; agents start with \`gtme help --agent\`."
+            --notes "Prebuilt binaries for macOS and Linux (arm64/amd64). The gtme-instantly archives are the instantly/add-to-campaign process adapter; install it with \`gtme adapters add instantly/add-to-campaign\`, which pins each archive by its checksum. Verify with checksums.txt, untar, put \`gtme\` on your PATH, run \`gtme init\`. Building from source stays \`git clone && ./install.sh\`. The CLI surface is SPEC.md §8; agents start with \`gtme help --agent\`."

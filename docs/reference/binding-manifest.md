@@ -75,7 +75,7 @@ The keys that say what the binding is. `Process manifest` says whether a process
 | `credentials` | array of string | no | Process manifest: Env var names the runner MUST inject. A missing one is a plan-time error (SPEC.md §6). | same key |
 | `credentials_optional` | array of string | no | Process manifest: Injected when present, never blocks a plan (SPEC.md §6). Used by adapters that can work several ways, such as an AI step with a local engine. | same key |
 | `idempotency` | one of `native`, `ledger` | no | Which party guarantees delivery dedupe: the vendor's own semantics (native, such as an assert/upsert endpoint) or the runner's deliveries table (ledger). Required for role: deliver. | same key |
-| `idempotency_scope` | string | no | Deliver bindings (ADR-044): config key whose resolved value scopes deliveries rows (SPEC §8). Optional. | same key |
+| `idempotency_scope` | string | no | Deliver bindings (ADR-044): config key whose resolved value scopes deliveries rows (SPEC §8). Optional. The key MUST hold a stable identifier of the destination (an id, an API slug, a file path, a URL), never a display name its owner can change (ADR-062); where the identifier has a shape, constrain the key to it in config_schema so a name is a plan error. | same key |
 
 ## Process manifest keys a binding does not take
 

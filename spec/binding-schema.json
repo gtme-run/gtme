@@ -356,7 +356,7 @@
     },
     "idempotency_scope": {
       "type": "string",
-      "description": "Deliver bindings (ADR-044): config key whose resolved value scopes deliveries rows (SPEC §8). Optional."
+      "description": "Deliver bindings (ADR-044): config key whose resolved value scopes deliveries rows (SPEC §8). Optional. The key MUST hold a stable identifier of the destination (an id, an API slug, a file path, a URL), never a display name its owner can change (ADR-062); where the identifier has a shape, constrain the key to it in config_schema so a name is a plan error."
     },
     "cost": {
       "type": "object",
