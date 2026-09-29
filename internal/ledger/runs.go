@@ -27,6 +27,11 @@ const (
 	EventCollected = "collected"
 )
 
+// EventDispatched is committed for a deliver step's record just before its
+// session opens (SPEC §8, ADR-060): a record with it and no later done or
+// failed at that step may have reached the target.
+const EventDispatched = "dispatched"
+
 // StateSourced is a record's state before any step has touched it.
 const StateSourced = "sourced"
 
@@ -672,21 +677,107 @@ func (l *Ledger) StepIDs(ctx context.Context, runID string) ([]string, error) {
 	return out, nil
 }
 
+// PriorDelivery is what the ledger knows about an earlier delivery of one
+// (target, scope, idempotency) triple (SPEC §8, ADR-044).
+type PriorDelivery struct {
+	VariablesHash string // what it was delivered with (ADR-045)
+	Status        string // accepted|confirmed|contradicted|sent|unconfirmed
+	RunID         string // the run that delivered, or held, it
+}
+
 // DeliveredState reports whether this (target, scope, idempotency) triple was
-// delivered before — in this run or any earlier one (SPEC §8, ADR-044) — and
-// the variables hash it was delivered with (ADR-045).
-func (l *Ledger) DeliveredState(ctx context.Context, target, scope, idempotency string) (bool, string, error) {
-	var hash string
+// delivered before — in this run or any earlier one (SPEC §8, ADR-044) — or
+// held unconfirmed after a crash (ADR-060).
+func (l *Ledger) DeliveredState(ctx context.Context, target, scope, idempotency string) (bool, PriorDelivery, error) {
+	var d PriorDelivery
+	var runID sql.NullString
 	err := l.db.QueryRowContext(ctx,
-		`SELECT variables_hash FROM deliveries WHERE target = ? AND scope = ? AND idempotency = ?`,
-		target, scope, idempotency).Scan(&hash)
+		`SELECT variables_hash, status, run_id FROM deliveries WHERE target = ? AND scope = ? AND idempotency = ?`,
+		target, scope, idempotency).Scan(&d.VariablesHash, &d.Status, &runID)
 	if err == sql.ErrNoRows {
-		return false, "", nil
+		return false, PriorDelivery{}, nil
 	}
 	if err != nil {
-		return false, "", fmt.Errorf("ledger: reading deliveries: %w", err)
+		return false, PriorDelivery{}, fmt.Errorf("ledger: reading deliveries: %w", err)
 	}
-	return true, hash, nil
+	d.RunID = runID.String
+	return true, d, nil
+}
+
+// HoldDelivery records a delivery that may have reached the target before a
+// crash (SPEC §8, ADR-060): a row with status unconfirmed, so no run sends it
+// again by habit. A row already there — delivered, or held before — stands.
+func (l *Ledger) HoldDelivery(ctx context.Context, identityID, target, scope, idempotency, variablesHash, runID string) error {
+	_, err := l.db.ExecContext(ctx,
+		`INSERT INTO deliveries (id, identity_id, target, scope, idempotency, variables_hash, run_id, created_at, status)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(target, scope, idempotency) DO NOTHING`,
+		ulid.New(), identityID, target, scope, idempotency, variablesHash, runID, l.stamp(l.now()), DeliveryUnconfirmed)
+	if err != nil {
+		return fmt.Errorf("ledger: holding delivery: %w", err)
+	}
+	return nil
+}
+
+// Unconfirmed lists the records of a run's step whose latest dispatched
+// event has no done or failed after it (SPEC §8, ADR-060): each may have
+// reached the target.
+func (l *Ledger) Unconfirmed(ctx context.Context, runID, stepID string) ([]string, error) {
+	rows, err := l.db.QueryContext(ctx,
+		`SELECT identity_id, event FROM step_events
+		 WHERE run_id = ? AND step_id = ? AND event IN (?, 'done', 'failed') AND identity_id IS NOT NULL
+		 ORDER BY created_at, id`, runID, stepID, EventDispatched)
+	if err != nil {
+		return nil, fmt.Errorf("ledger: reading dispatched events: %w", err)
+	}
+	defer rows.Close()
+	open := map[string]bool{}
+	var order []string
+	for rows.Next() {
+		var id, event string
+		if err := rows.Scan(&id, &event); err != nil {
+			return nil, err
+		}
+		if event == EventDispatched {
+			if !open[id] {
+				order = append(order, id)
+			}
+			open[id] = true
+			continue
+		}
+		open[id] = false
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, id := range order {
+		if open[id] {
+			out = append(out, id)
+		}
+	}
+	return out, nil
+}
+
+// UnconfirmedByRun counts a run's held deliveries per target (ADR-060), for
+// its receipt in `gtme runs`.
+func (l *Ledger) UnconfirmedByRun(ctx context.Context, runID string) (map[string]int, error) {
+	rows, err := l.db.QueryContext(ctx,
+		`SELECT target, count(*) FROM deliveries WHERE run_id = ? AND status = ? GROUP BY target`, runID, DeliveryUnconfirmed)
+	if err != nil {
+		return nil, fmt.Errorf("ledger: counting held deliveries: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var target string
+		var n int
+		if err := rows.Scan(&target, &n); err != nil {
+			return nil, err
+		}
+		out[target] = n
+	}
+	return out, rows.Err()
 }
 
 // RecordDelivery marks a record delivered. A duplicate key is not an error: it
@@ -718,6 +809,9 @@ const (
 	DeliveryConfirmed    = "confirmed"
 	DeliveryContradicted = "contradicted"
 	DeliverySent         = "sent"
+	// DeliveryUnconfirmed is a send that may have reached the target before a
+	// crash (ADR-060): held, never sent again but by --resend-unconfirmed.
+	DeliveryUnconfirmed = "unconfirmed"
 )
 
 // Delivery is one deliveries row, as gtme show reports it.

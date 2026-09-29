@@ -39,6 +39,8 @@ A table. One row per gtme run; config_json is the resolved pipeline.
 | `finished_at` | TEXT |  |
 | `status` | TEXT | NOT NULL DEFAULT 'running' |
 | `dry` | INTEGER | NOT NULL DEFAULT 0 |
+| `pid` | INTEGER |  |
+| `host` | TEXT |  |
 
 ## Definition
 
@@ -52,6 +54,8 @@ CREATE TABLE runs (
   started_at  TEXT NOT NULL,
   finished_at TEXT,
   status      TEXT NOT NULL DEFAULT 'running',  -- running|done|failed|pending (ADR-038: ended with a step in flight)
-  dry         INTEGER NOT NULL DEFAULT 0  -- 1 for a --dry-run rehearsal (ADR-052 (7)): finishes nothing a once: source counts
+  dry         INTEGER NOT NULL DEFAULT 0, -- 1 for a --dry-run rehearsal (ADR-052 (7)): finishes nothing a once: source counts
+  pid         INTEGER,                    -- ADR-061: the executing process, set at create and at resume; display only
+  host        TEXT                        -- ADR-061: its hostname; liveness is the run lock (§8), never these
 );
 ```

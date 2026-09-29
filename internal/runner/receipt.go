@@ -209,6 +209,28 @@ func PrintReceipt(w io.Writer, res *Result) {
 		fmt.Fprintf(w, "%s: %d record(s) in flight (%s); the next `gtme run` of this pipeline collects, or `gtme run --resume %s`\n",
 			s.ID, s.InFlight, strings.Join(s.Tokens, ", "), res.RunID)
 	}
+	// Held deliveries (SPEC §8, ADR-060): each may have reached the target
+	// before a crash, so none was sent again. They are named, with the one
+	// command that releases them, grouped by the run that held them.
+	for _, s := range res.Steps {
+		byRun := map[string][]string{}
+		var runs []string
+		for _, h := range s.Unconfirmed {
+			if _, ok := byRun[h.RunID]; !ok {
+				runs = append(runs, h.RunID)
+			}
+			byRun[h.RunID] = append(byRun[h.RunID], h.IdentityKey)
+		}
+		for _, run := range runs {
+			keys := byRun[run]
+			sort.Strings(keys)
+			fmt.Fprintf(w, "%s: %d record(s) may have reached %s before run %s stopped and were not sent again:\n", s.ID, len(keys), s.Use, run)
+			for _, k := range keys {
+				fmt.Fprintf(w, "  %s\n", k)
+			}
+			fmt.Fprintf(w, "Check the target, then: gtme run %s --resume %s --resend-unconfirmed\n", pipelineArg(res), run)
+		}
+	}
 	// Attestation (SPEC §8, ADR-036): accepted is never sent; an attesting
 	// adapter's confirmed/contradicted refine it, and every inconclusive
 	// delivery is named — accepted, not confirmed.
@@ -336,4 +358,13 @@ func Summary(res *Result) string {
 		parts = append(parts, fmt.Sprintf("%s=%d", s.ID, s.Out))
 	}
 	return strings.Join(parts, " ")
+}
+
+// pipelineArg is the pipeline file for a command the receipt prints: the one
+// the operator ran, else one named for the pipeline.
+func pipelineArg(res *Result) string {
+	if res.PipelinePath != "" {
+		return res.PipelinePath
+	}
+	return res.Pipeline + ".yaml"
 }

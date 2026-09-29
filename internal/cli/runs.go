@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -168,6 +169,20 @@ func printReceipt(ctx context.Context, env Env, l *ledger.Ledger, run ledger.Run
 			fmt.Fprintf(env.Stderr, "config:  %d steps recorded (`gtme freeze %s` rebuilds the pipeline)\n",
 				len(steps), run.ID)
 		}
+	}
+	// Deliveries this run held after a crash (ADR-060), and the release.
+	held, err := l.UnconfirmedByRun(ctx, run.ID)
+	if err != nil {
+		return fail(ExitOther, "%v", err)
+	}
+	targets := make([]string, 0, len(held))
+	for t := range held {
+		targets = append(targets, t)
+	}
+	sort.Strings(targets)
+	for _, t := range targets {
+		fmt.Fprintf(env.Stderr, "held:     %d unconfirmed at %s — may have reached it before the run stopped; check the target, then: %s --resend-unconfirmed\n",
+			held[t], t, resumeCommand(run))
 	}
 	if interrupted {
 		fmt.Fprintf(env.Stderr, "resume:   %s\n", resumeCommand(run))

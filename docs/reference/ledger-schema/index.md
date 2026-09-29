@@ -67,7 +67,7 @@ The rows the views rank and join. Read them for provenance.
 | [`identities`](/reference/ledger-schema/identities) | id, entity_type, identity_key, created_at | one row per person/company; identity_key per SPEC §4 |
 | [`field_values`](/reference/ledger-schema/field_values) | id, identity_id, field, value, source, confidence, run_id, referent, created_at | append-only facts: (identity_id, field, value JSON, source, confidence, run_id, created_at) |
 | [`relations`](/reference/ledger-schema/relations) | from_id, relation, to_id, created_at | typed edges between identities, such as works_at (person → company) |
-| [`runs`](/reference/ledger-schema/runs) | id, pipeline, config_json, started_at, finished_at, status, dry | one row per gtme run; config_json is the resolved pipeline |
+| [`runs`](/reference/ledger-schema/runs) | id, pipeline, config_json, started_at, finished_at, status, dry, pid, host | one row per gtme run; config_json is the resolved pipeline |
 | [`run_records`](/reference/ledger-schema/run_records) | run_id, identity_id, state, verdicts | a run's membership: state = last completed step id, verdicts = {step_id: pass\|fail} |
 | [`step_events`](/reference/ledger-schema/step_events) | id, run_id, step_id, identity_id, event, detail, created_at | per-record trail: claimed\|done\|failed\|skipped_cache\|dry_run\|simulated, detail JSON |
 | [`costs`](/reference/ledger-schema/costs) | id, run_id, step_id, identity_id, provider, amount_usd, basis, detail, created_at | spend per step/record; basis measured\|estimated (ADR-046: measured only when read back from vendor-reported cost metadata; a rate multiplied out is estimated) |

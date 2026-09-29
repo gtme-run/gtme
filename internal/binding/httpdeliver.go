@@ -22,6 +22,11 @@ import (
 // HTTPDeliverID is the adapter id.
 const HTTPDeliverID = "http/deliver"
 
+// IdempotencyKeyField is the reserved record field the runner fills with a
+// delivery's Idempotency-Key for http/deliver (SPEC §10a, ADR-060). The
+// engine takes it out of the record and sends it as the header.
+const IdempotencyKeyField = "$idempotency_key"
+
 var httpDeliverManifest = []byte(`{
   "id": "http/deliver",
   "version": 1,

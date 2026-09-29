@@ -2747,6 +2747,53 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-29 — M34 internals: crash and resume (ADR-060, ADR-061)
+
+**Question:** How are the records a crash left in flight found and held,
+how does the key reach `http/deliver`, where does the lock live, what
+does `gtme runs` touch, and what happens when the receipt's own release
+command meets the `done` refusal?
+**Choice:** (1) **The held set is read once per deliver step.** At step
+start (armed runs only) the runner reads the run's `dispatched` events
+with no later `done` or `failed` for that step; `prepare` writes each
+such record's `unconfirmed` row before the ordinary pre-send check,
+which then skips it. A held record gets no step event and keeps its
+state, so it is the step's non-terminal remainder, counted `N
+unconfirmed` and never as cached. The pre-send check releases a held
+row only under `--resend-unconfirmed` on the run that held it; any other
+run, whatever its `redeliver:`, counts it held and names that run in
+the release command. (2) **An interrupted deliver session holds instead
+of failing.** When the session dies and the run's context was cancelled,
+its unanswered records get `unconfirmed` rows rather than `failed`
+events; a session that dies on its own still fails them, since the
+adapter's exit is its answer. (3) **Claimed and dispatched are
+committed before the session opens**, for every step (only deliver
+steps log `dispatched`), and a deliver step's chunk size is 1. (4)
+**The key rides a reserved record field.** For `http/deliver` only, the
+runner adds `$idempotency_key` to the record; the engine removes it
+before building the template context and sets `Idempotency-Key` unless
+the config set that header under any capitalization. The key is computed
+from `deliveryScope`, so a scope change reaches it with no further code.
+(5) **The lock is `flock` on `locks/<run_id>.lock` beside the ledger.**
+Creating a run locks right after the insert; resuming locks before
+`ReopenRun`, so a refused resume writes nothing. A refusal is retried
+four times at 50 ms, because a `gtme runs` probe holds a shared lock
+for an instant. The probe opens the file read-only and treats a missing
+file as free, so `gtme runs` creates nothing. (6) **A `done` run with
+held deliveries can be resumed for their release.** ADR-061 refused
+every resume of a `done` run, while ADR-060's receipt prints `--resume
+RUN_ID --resend-unconfirmed` for exactly such a run. The release is
+allowed, and without the flag the refusal says how to release; SPEC §8
+gained the clause (v0.56). (7) **The resume command `gtme runs` prints
+names `<pipeline>.yaml`**, since the ledger does not record the file;
+the live receipt and the plain-run notice use the file the operator ran.
+**Why:** each keeps the ledger's account exact with the fewest moving
+parts: one read per step, one row per held record, one lock file per
+run, and nothing written by a read verb.
+**Spec impact:** None beyond ADR-060/061's reconciliation (v0.55) and
+the §8 clause in (6) (v0.56), which resolves the two ADRs' disagreement
+in the direction the receipt already promised.
+
 ### 2026-09-28 — Resume and interrupt: `last` is per pipeline, Ctrl-C finishes the run, a resume records its config
 
 **Question:** Three recover bugs found while the recover and launch
