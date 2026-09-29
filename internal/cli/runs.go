@@ -151,9 +151,30 @@ func printReceipt(ctx context.Context, env Env, l *ledger.Ledger, run ledger.Run
 	}
 	fmt.Fprintf(env.Stderr, "records: %d", len(records))
 	if len(states) > 0 {
+		// In step order, sourced first (#127): byte-stable for agents and
+		// golden tests, and it reads as the pipeline does.
+		rank := map[string]int{ledger.StateSourced: -1}
+		for i, s := range mirror.Steps {
+			rank[s.ID] = i
+		}
+		order := make([]string, 0, len(states))
+		for state := range states {
+			order = append(order, state)
+		}
+		sort.Slice(order, func(i, j int) bool {
+			ri, oki := rank[order[i]]
+			rj, okj := rank[order[j]]
+			if oki != okj {
+				return oki // known steps before any state the config does not name
+			}
+			if ri != rj {
+				return ri < rj
+			}
+			return order[i] < order[j]
+		})
 		parts := make([]string, 0, len(states))
-		for state, n := range states {
-			parts = append(parts, fmt.Sprintf("%s=%d", state, n))
+		for _, state := range order {
+			parts = append(parts, fmt.Sprintf("%s=%d", state, states[state]))
 		}
 		fmt.Fprintf(env.Stderr, " (%s)", strings.Join(parts, " "))
 	}
