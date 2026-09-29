@@ -614,7 +614,10 @@ the question itself: a re-read that finds the record settles the row as
 `confirmed`, and one that finds nothing makes the resend safe. That
 needs a session shape the protocol does not have yet (an attestation for
 a record that was not sent in this session), so it is spec-visible and
-takes its own packet. Held for receipts: the first crashes against an
+takes its own packet. ADR-064 (2026-09-29) added the manual path:
+`--settle-unconfirmed` writes `settled`, the operator's word; a re-read
+would write `confirmed`, the provider's, so the two stay distinct. Held
+for receipts: the first crashes against an
 attesting target will say whether checking by hand is a real burden.
 
 ## Batch delivery
