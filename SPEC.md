@@ -196,7 +196,9 @@ CREATE TABLE runs (
   started_at  TEXT NOT NULL,
   finished_at TEXT,
   status      TEXT NOT NULL DEFAULT 'running',  -- running|done|failed|pending (ADR-038: ended with a step in flight)
-  dry         INTEGER NOT NULL DEFAULT 0  -- 1 for a --dry-run rehearsal (ADR-052 (7)): finishes nothing a once: source counts
+  dry         INTEGER NOT NULL DEFAULT 0, -- 1 for a --dry-run rehearsal (ADR-052 (7)): finishes nothing a once: source counts
+  pid         INTEGER,                    -- ADR-061: the executing process, set at create and at resume; display only
+  host        TEXT                        -- ADR-061: its hostname; liveness is the run lock (§8), never these
 );
 
 CREATE TABLE run_records (
@@ -212,7 +214,7 @@ CREATE TABLE step_events (
   run_id      TEXT NOT NULL,
   step_id     TEXT NOT NULL,
   identity_id TEXT,                       -- null for step-level events
-  event       TEXT NOT NULL,              -- claimed|done|failed|skipped_cache|pending|collected (ADR-038)|answered (ADR-049: a participant's answer awaiting collection)
+  event       TEXT NOT NULL,              -- claimed|dispatched (ADR-060: a deliver's send is about to leave)|done|failed|skipped_cache|pending|collected (ADR-038)|answered (ADR-049: a participant's answer awaiting collection)
   detail      TEXT,                       -- JSON
   created_at  TEXT NOT NULL
 );
@@ -237,7 +239,7 @@ CREATE TABLE deliveries (
   idempotency    TEXT NOT NULL,           -- computed key, see §8 deliver
   run_id         TEXT NOT NULL,
   created_at     TEXT NOT NULL,
-  status         TEXT NOT NULL DEFAULT 'accepted',  -- accepted|confirmed|contradicted|sent (ADR-036)
+  status         TEXT NOT NULL DEFAULT 'accepted',  -- accepted|confirmed|contradicted|sent (ADR-036)|unconfirmed (ADR-060: in flight at a crash; held)
   sent_at        TEXT,                    -- set only by attestation (ADR-036)
   variables_hash TEXT NOT NULL DEFAULT '', -- resolved variables at delivery (ADR-045); drives redeliver: on_change
   UNIQUE(target, scope, idempotency)
@@ -1122,7 +1124,7 @@ At execution time, per step, per record:
 gtme init                          # create ledger + ~/.gtme
 gtme secret set KEY [VALUE]        # VALUE omitted → prompt, no echo
 gtme plan pipeline.yaml [--viz|--viz-only]   # validate + print plan, no execution; --viz appends the diagram, --viz-only prints it alone
-gtme run  pipeline.yaml [--resume RUN_ID] [--dry-run] [--simulate]
+gtme run  pipeline.yaml [--resume RUN_ID [--resend-unconfirmed]] [--dry-run] [--simulate]
 gtme query "SQL"                   # read-only SQL against the ledger
 gtme query --save NAME "SQL"       # saved segment
 gtme show <identity-key>           # read-only projection inspector
@@ -1182,9 +1184,10 @@ filter's output is a verdict and a deliver's is a send, so neither counts
 `empty`. Per step, `in` MUST reconcile: `out + empty + filtered + failed
 + gated + skipped + cached`. `in` therefore counts every record eligible at
 the step, not only those handed to the adapter; a record still in flight,
-held by a dry run, or passed through a simulation gap is the non-terminal
-remainder and the line names it (`N in flight`, `N held (dry run)`,
-`N simulated`), so the identity holds for a step that has not settled.
+held by a dry run, passed through a simulation gap, or held unconfirmed
+after a crash (ADR-060) is the non-terminal remainder and the line names
+it (`N in flight`, `N held (dry run)`, `N simulated`, `N unconfirmed`),
+so the identity holds for a step that has not settled.
 
 A source MUST reconcile what it read against what it sourced, classifying
 the difference — records that coalesced into identities the ledger already
@@ -1356,6 +1359,34 @@ fixture engine (a rehearsal that ended in flight would rehearse nothing)
 and says so; `--dry-run` on a deferred pipeline is a plan warning — there
 is no deliver step to hold back.
 
+### Interrupted runs — the run lock (ADR-061)
+
+A process executing a run MUST hold an exclusive advisory lock (`flock`)
+on `locks/<run_id>.lock` in the ledger file's directory, taken when it
+creates or reopens the run and held until the process exits, and MUST
+record its `pid` and `host` on the run (§3). Liveness is the lock, never
+the pid. A `running` run whose lock can be taken has no living process:
+`gtme runs` shows it as `interrupted`, derived at read time with no
+ledger write (`runs.status` is not changed), and its receipt ends with
+the command that resumes it:
+
+```
+status:   interrupted (was pid 4312 on mbp)
+resume:   gtme run send.yaml --resume 01J…
+```
+
+A `running` run recorded on another host shows `running (on HOST)`.
+`--resume` MUST take the lock; when the lock is held it refuses with exit
+2 — `run 01J… is still running (pid 4312 on mbp); wait for it, or stop
+that process and resume` — and touches nothing. `--resume` of a `done`
+run refuses with exit 2 — `run 01J… is done; nothing to resume`; a
+`failed`, `pending` or interrupted run resumes. A plain `gtme run` whose
+pipeline's latest run is interrupted says so on stderr with the resume
+command and sources anew; it never resumes an interrupted run by itself,
+because a crashed deliver step may hold unconfirmed records (§8 deliver
+idempotency) that a person should check first. Collect-first for a
+`pending` run (above) is unchanged.
+
 ### People and agents answer — `human/*`, `agent/*`, `gtme answer` (ADR-048, ADR-049)
 
 `human/filter`, `human/compose` and `human/review` (§10) fill the three
@@ -1433,6 +1464,28 @@ refine `accepted` to `confirmed` or `contradicted` per record after a
 re-read; `inconclusive` stays `accepted` with a receipt warning. Promotion
 to `sent` is the `listen` verb's job (ROADMAP.md) and MUST be
 compare-and-swap on the observed `(status, sent_at)` pair.
+
+**In flight at a crash (ADR-060).** An adapter-backed deliver step runs
+one record per adapter session, and the runner MUST commit a
+`dispatched` step event for the record before opening its session
+(`group/deliver` has no session and is unaffected). A record with
+`dispatched` and no later `done` or `failed` at that step is
+*unconfirmed*: its request may have reached the target. When a run
+resumes, or when an interrupted run finishes, the runner MUST NOT send
+an unconfirmed record again: it writes the record's `deliveries` row
+with `status = unconfirmed`, and the check above skips such a row with
+reason `unconfirmed`, in this run and in every later one. The exception
+is a target whose manifest declares `idempotency: native` (§6): the
+record is sent again, because the target upserts. Only
+`--resend-unconfirmed` on `--resume` sends a held record, and the
+adapter's answer then replaces the row's status. The receipt names every
+held record and prints that command:
+
+```
+send: 40 in, 36 out, 4 unconfirmed
+4 records may have reached http/deliver before run 01J… stopped and were not sent again.
+Check the target, then: gtme run send.yaml --resume 01J… --resend-unconfirmed
+```
 
 The dedupe key is `(target, scope, idempotency)` (ADR-044). `target` is
 the adapter id (or `group:<name>`, ADR-032), so a pipeline delivering to
@@ -2318,7 +2371,12 @@ target recurring across runs are the cue to mint a named binding.
 record to any URL — the binding engine's deliver role invoked
 anonymously. Config: `url` (templatable), optional
 `method`/`query`/`headers`/`auth`/`body` (a template; its default is the
-resolved variables object). The step-level `idempotency:` key is
+resolved variables object). Every request carries `Idempotency-Key`: the
+hex SHA-256 of the delivery's `target`, `scope` and idempotency key
+joined by NUL (§8), identical on every run and resume, so a target that
+honors the header can dedupe what the ledger cannot see (ADR-060); a
+`headers.Idempotency-Key` in config overrides it. The step-level
+`idempotency:` key is
 REQUIRED — even the trivial case cannot infer delivery semantics, it
 must be told (ADR-023) — and a missing one is a plan error, not a
 defaulted identity key.
@@ -2683,6 +2741,34 @@ decided contract, not shipped behavior.
   the index's `sha`; a `harvest/profile` step with `posts_limit` fails
   plan naming `harvest/recent-posts`; `make check` and the plugin e2e
   pass with the entries installed from a local path.
+- **M34 — crash and resume (ADR-060, ADR-061; §3, §8, §10a, §11).
+  Queued 2026-09-28.** Migration `0014` adds `runs.pid` and `runs.host`,
+  mirrored in `spec/ledger.sql`. An adapter-backed deliver step runs one
+  record per session and commits `dispatched` before each;
+  resume and an interrupted finish hold unconfirmed records as
+  `deliveries` rows with `status = unconfirmed`, except at a target
+  declaring `idempotency: native`; the pre-send check skips them with
+  reason `unconfirmed`; `--resend-unconfirmed` (valid only with
+  `--resume`) releases them; the receipt and `gtme runs RUN_ID` count
+  `N unconfirmed` and print the release command. `http/deliver` sends
+  `Idempotency-Key`. Every executing run holds its
+  `flock` on `locks/<run_id>.lock`; `gtme runs` derives `interrupted`;
+  `--resume` refuses a live run and a `done` run with exit 2; a plain
+  `gtme run` after an interrupted one prints the resume command.
+  Acceptance, offline, against a scratch `GTME_LEDGER` and a built
+  binary: a 40-record `http/deliver` step at `--concurrency 4` to a local
+  target that blocks each request, killed with `kill -9` after 12
+  arrivals, then resumed, delivers every `Idempotency-Key` at most once,
+  leaves 4 `unconfirmed` rows and prints them with the command; the
+  command sends exactly those 4 and their rows become `accepted`; the
+  same crash by Ctrl-C writes the 4 rows at finish without a resume; a
+  test binding declaring `idempotency: native` is re-sent the 4 instead;
+  a fresh run of the same pipeline skips them with reason `unconfirmed`;
+  while a run executes, `gtme runs` shows `running` and `--resume` of it
+  exits 2; after `kill -9`, `gtme runs` shows `interrupted`, leaves the
+  ledger file unchanged, and the resume reaches `done`; `--resume` of a
+  `done` run exits 2 (`TestResumeLastAndUnknownRun`'s no-op assertion
+  becomes this refusal); `make check` passes.
 - **M28 — types and traverse (ADR-054; §3, §4, §4a, §5, §6, §7, §8, §9,
   §10a, §13). Built 2026-09-05 (changelog v0.43).** A type is a file: `spec/fields/*.json` gain
   `kind`, `identity` and per-field `reference`, §4 derivation reads the
@@ -2962,7 +3048,8 @@ adapters' freshness windows, **when** the operator runs the same
 **then** every overlapping identity's enrich/verify steps are skipped via
 `step_events.event='skipped_cache'` (§7), the receipt reports cost avoided
 > 0, and no identity that was already in `deliveries` for this target
-produces a second `deliveries` row (§8 idempotency).
+produces a second `deliveries` row (§8 idempotency), and no record held
+`unconfirmed` after a crash (ADR-060) is sent.
 
 ### Interrogate
 **Invariant:** what the system knows about one record is always one
@@ -3011,7 +3098,17 @@ step, some not), **when** the operator runs `gtme run pipeline.yaml
 --resume RUN_ID`, **then** every record whose `run_records.state` already
 reflects completion of a step does not re-invoke that step's adapter or
 incur that step's cost again, and the run reaches `status='done'` covering
-the records that had not yet completed.
+the records that had not yet completed. **Given** a run killed during a
+deliver step whose target does not declare `idempotency: native`,
+**when** it is resumed, **then** no record whose `dispatched` event has
+no `done` or `failed` after it is sent again: each has a `deliveries`
+row with `status='unconfirmed'`, the receipt names it with the
+`--resend-unconfirmed` command, and only that flag sends it (ADR-060).
+**Given** a run whose process died without finishing, **when** the
+operator runs `gtme runs`, **then** the run shows `interrupted` with no
+ledger write and `gtme runs RUN_ID` prints the `--resume` command;
+**and** a `--resume` of a run whose process is still alive, or of a run
+that is `done`, exits 2 without touching the run (ADR-061).
 
 ### Report
 **Invariant:** what happened in a run, and what it cost, is always
@@ -3029,6 +3126,19 @@ no reconstruction required from raw table scans.
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.55 — 2026-09-29 (ADR-060/061 reconciliation: deliveries in flight at a crash, interrupted runs; build queued as M34)
+**Changed:** §3 `runs` gains `pid` and `host` (migration `0014`),
+`step_events.event` gains `dispatched`, and `deliveries.status` gains
+`unconfirmed`; §8's `run` line gains `--resend-unconfirmed`, deliver
+idempotency gains the in-flight rule (one record per session,
+`dispatched` before the send, unconfirmed records held unless the target
+is natively idempotent), record accounting names `N unconfirmed`, and a
+new subsection defines the run lock, the derived `interrupted` status and
+the two `--resume` refusals (a live run, a `done` run); §10a
+`http/deliver` sends `Idempotency-Key`; §11 M34 queued; the Top-up and
+Recover stories gain the clauses. No wire change; the exit codes are
+unchanged, and both refusals use exit 2.
 
 ### v0.54 — 2026-09-28 (issue #171: mock-enrich-py's field names)
 **Fixed:** §10 item 7 and the golden transcript `spec/wire/basic-run.ndjson`
