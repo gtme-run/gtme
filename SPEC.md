@@ -235,7 +235,7 @@ CREATE TABLE deliveries (
   id             TEXT PRIMARY KEY,
   identity_id    TEXT NOT NULL,
   target         TEXT NOT NULL,           -- adapter id, or group:<name> for a handoff (ADR-032)
-  scope          TEXT NOT NULL DEFAULT '', -- resolved idempotency_scope config value (ADR-044); '' = unscoped
+  scope          TEXT NOT NULL DEFAULT '', -- the destination's stable identifier: the idempotency_scope config value (ADR-044, ADR-062); '' = unscoped
   idempotency    TEXT NOT NULL,           -- computed key, see §8 deliver
   run_id         TEXT NOT NULL,
   created_at     TEXT NOT NULL,
@@ -637,7 +637,7 @@ Adapter → runner:
 {"type":"VERDICT","key":{...},"pass":true,"reason":"..."}  // filter steps
 {"type":"ATTEST","key":{...},"status":"confirmed|contradicted|inconclusive","reason":"..."}  // deliver steps declaring attests (§6)
 {"type":"PENDING","token":"...","detail":{...}}           // work in flight (ADR-038): collect under token
-{"type":"PREFLIGHT","status":"ok|blocked|inconclusive","checks":[{"name":"...","ok":true,"detail":"..."}]}  // deliver steps declaring preflights (§6)
+{"type":"PREFLIGHT","status":"ok|blocked|inconclusive","destination":"...","checks":[{"name":"...","ok":true,"detail":"..."}]}  // deliver steps declaring preflights (§6); destination optional (ADR-062)
 {"type":"COST","key":{...}|null,"provider":"harvest","amount_usd":0.012,"basis":"estimated","detail":{...}}
 {"type":"STATE","cursor":{...}}                            // resumable sources
 {"type":"LOG","level":"info|warn|error","msg":"..."}
@@ -699,8 +699,11 @@ Rules:
   fact says sends would be meaningless or wrong (the runner fails the step
   before any record is dispatched, §8); `inconclusive`, the target could
   not be read (reported ok with a warning). `checks` lists what was
-  examined for the receipt. An adapter that does not declare `preflights`
-  is never asked; one that is asked MUST NOT send anything in that session.
+  examined for the receipt. `destination` (OPTIONAL, ADR-062) is a
+  display label for what the step delivers to, such as a campaign's name
+  and id; the receipt prints it, and nothing keys on it. An adapter that
+  does not declare `preflights` is never asked; one that is asked MUST
+  NOT send anything in that session.
 - `confidence` is per-field, OPTIONAL, default 1.0.
 - COST is best-effort but every v0 built-in adapter that spends money or
   tokens MUST emit it (estimate token cost from the API usage response).
@@ -729,8 +732,9 @@ Each adapter has a `manifest.json`. Built-ins embed theirs; external adapters
 ship it next to the executable. Discovery path for external adapters:
 `~/.gtme/adapters/<name>/` containing `manifest.json` + executable named `run`,
 or a `binding.yaml` (§10a) — installed by hand or by `gtme adapters add`
-(§8, ADR-042), which records the binding's source and pin in `.source.json`
-beside it. A `use:` id that resolves to no built-in and nothing on the
+(§8, ADR-042), which records the source and pin in `.source.json` beside
+it. `adapters add` installs a registry process entry (ADR-063) as the
+same `manifest.json` + `run` pair. A `use:` id that resolves to no built-in and nothing on the
 discovery path is a plan error naming the command that would install it,
 `gtme adapters add <id>` (ADR-059); plan does not consult the registry
 index to decide whether the id exists there. The canonical schema for this file is
@@ -773,7 +777,11 @@ index to decide whether the id exists there. The canonical schema for this file 
   `ledger` or undeclared keeps the hard dedupe floor.
 - `idempotency_scope` (deliver adapters, optional; ADR-044): the name of a
   config key whose resolved value scopes this adapter's `deliveries` rows —
-  see §8 deliver idempotency. Undeclared means unscoped (`''`).
+  see §8 deliver idempotency. Undeclared means unscoped (`''`). The key
+  MUST hold a stable identifier of the destination — an id, an API slug,
+  a file path, a URL — and never a display name its owner can change
+  (ADR-062). Where the identifier has a shape (a UUID), `config_schema`
+  SHOULD constrain the key to it, so a name is a plan error.
 - `credentials_optional`: env var names injected when present, exactly like
   `credentials`, but a missing one is a `gtme plan` warning, never an error.
   For an adapter that can genuinely work more than one way — a step that
@@ -1182,7 +1190,11 @@ record that advanced without the step writing any field MUST be counted
 `empty` and printed beside `out`; `out + empty` is what advanced. A
 filter's output is a verdict and a deliver's is a send, so neither counts
 `empty`. Per step, `in` MUST reconcile: `out + empty + filtered + failed
-+ gated + skipped + cached`. `in` therefore counts every record eligible at
++ gated + skipped + cached + already delivered`. A deliver step counts a
+record it withheld because the destination already has it (reason
+`already_delivered` or `unchanged`, §8 deliver idempotency) as `already
+delivered`, never as `cached`: not re-sending is the contract, not a
+saving (ADR-062). `in` therefore counts every record eligible at
 the step, not only those handed to the adapter; a record still in flight,
 held by a dry run, passed through a simulation gap, or held unconfirmed
 after a crash (ADR-060) is the non-terminal remainder and the line names
@@ -1222,7 +1234,9 @@ posts:   10 in, 8 out, 2 empty — 84 traversed (post), 3 already in this run
 
 **Terminal receipt** (stderr, end of run): records in/out per step, cache
 skips, cost per step and total, cost avoided via cache (sum of
-`cost_estimate_usd` for skipped records; `?` if unknown). Totals carry
+`cost_estimate_usd` for skipped records; `?` if unknown). An
+already-delivered skip is neither a cache skip nor cost avoided; a
+deliver step's line reports it as `N already delivered` (ADR-062). Totals carry
 their basis (ADR-046): a purely measured total prints bare; a purely
 estimated one prints `total: $X (estimated)`; a mixed run splits —
 `total: $X ($Y measured + $Z estimated)`. `gtme runs <id>` mirrors the
@@ -1294,12 +1308,29 @@ registry id (`gtme adapters add apollo/search apollo/enrich`) resolves
 through the index to that entry's `source`, pinned at the index's `sha`,
 so a bare id is exactly as pinned as a full reference (ADR-059). Each
 reference is verified and installed on its own; one that fails does not
-undo the others, and the exit code reports the failure. The binary
-carries the floor (`csv/*`, `http/*`, `sql/*`, `ai/*`, `group/*`, the
-runner-owned `human/*`, `agent/*` and `text/compose`, and the keyless
-`demo/enrich`) and no vendor: every adapter named for a vendor is a
-registry entry (ADR-059), with the one exception §10 item 6 states until
-it moves.
+undo the others, and the exit code reports the failure.
+
+**Process entries (ADR-063).** An index entry is `kind: binding` (the
+default) or `kind: process`. A process entry is a prebuilt process
+adapter: it carries `assets`, one per §13 target (`darwin/arm64`,
+`darwin/amd64`, `linux/amd64`, `linux/arm64`), each an archive URL and
+its SHA-256, and its `source` names the code it was built from. `add`
+downloads this platform's archive, refuses a checksum mismatch, unpacks
+`manifest.json` and `run` into the discovery path (§6), validates the
+manifest, writes `.source.json` (asset URL, SHA-256, release tag,
+commit), and prints the same reviewable surface as for a binding. A
+platform with no asset is refused, naming the platforms that have one.
+`update` moves the pin, and nothing moves it implicitly: upgrading gtme
+does not upgrade an installed adapter. Process entries are verified
+only — built by gtme-run CI from a tagged commit whose tests passed — so
+for them "nothing installs unverified" means the pinned checksum, a
+manifest that validates, and those tests; install does not re-run
+fixtures. Community entries are bindings.
+
+The binary carries the floor (`csv/*`, `http/*`, `sql/*`, `ai/*`,
+`group/*`, the runner-owned `human/*`, `agent/*` and `text/compose`, and
+the keyless `demo/enrich`) and no vendor: every adapter named for a
+vendor is a registry entry (ADR-059, ADR-063).
 
 ### Event-driven pipelines: a scheduled run over a file a receiver writes (ADR-009; the spool adapter deferred, ADR-055)
 
@@ -1457,7 +1488,8 @@ there is no prompt to script and no person to rehearse.
 Per deliver step: idempotency key = the value of the field named by the
 step's `idempotency` config (default: the identity key). Before calling
 the adapter for a record, the runner MUST check `deliveries`; on hit, it
-MUST skip (`skipped_cache` semantics, reason `already_delivered`). On
+MUST skip (a `skipped_cache` event, reason `already_delivered`; the
+receipt counts it `already delivered`, not `cached`, ADR-062). On
 successful adapter RECORD/END for that record, the runner MUST insert
 into `deliveries` with `status = accepted` (ADR-036; column lands with
 M14). `accepted` means the provider took the request; `sent` is written
@@ -1496,7 +1528,10 @@ a campaign and to a CRM dedupes each independently (ADR-031). `scope` is
 the resolved value of the config key the manifest names in
 `idempotency_scope` (§6), `''` when it declares none — so the same
 record into the *same* campaign can never double-add, while delivery
-into a different campaign is a fresh decision. A global "never touch
+into a different campaign is a fresh decision. Because the scope is the
+destination's stable identifier (ADR-062), renaming a campaign in the
+vendor's UI leaves it the same destination, and a second URL is a new
+one. A global "never touch
 this address twice through this adapter" is a policy, not a constraint:
 declare it as a suppression group (ADR-021), which sees touches across
 every adapter.
@@ -1574,9 +1609,13 @@ warning; **`blocked` fails the step before a single record is dispatched**
 either way:
 
 ```
-send: preflight ok — 4 checks (campaign active, 3 sequence steps, every variable referenced, no unfilled variants)
+send: preflight ok — campaign "Q3 VP Marketing" (0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b) — 4 checks (campaign active, 3 sequence steps, every variable referenced, no unfilled variants)
 send: preflight BLOCKED — sequence step 2 does not reference {{body_step_2}}
 ```
+
+When the PREFLIGHT answer carries `destination` (§5, ADR-062), the line
+names it, so a step configured by id still shows the operator which
+campaign it is.
 
 This is the class of failure attestation cannot see: every request
 succeeds and nothing meaningful sends. `plan` stays zero-network; under
@@ -1784,9 +1823,9 @@ steps:
       template: "{{ record.first_name | default: 'there' }}, a note for {{ record.company_name }}"
 
   - id: send              # ADR-031: a deliver adapter is an ordinary step
-    use: instantly/add-to-campaign
+    use: instantly/add-to-campaign   # gtme adapters add instantly/add-to-campaign (ADR-063)
     with:
-      campaign: "Q3 VP Marketing"
+      campaign: 0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b   # the campaign id (ADR-062); preflight prints its name
     variables:            # ADR-018/019: egress mapping, and the step's dynamic needs
       first_line: first_line
       ps_line: ps_line
@@ -1957,8 +1996,8 @@ tests that run offline against fixtures) or runner-owned steps. Vendor
 entries are registry entries (ADR-059): bindings in the `gtme-bindings`
 repository, verified tier, installed with `gtme adapters add <id>` (§8),
 their contracts stated here because the canonical pipeline (§9) uses
-them. Item 6 is the one vendor still built in, until the engine can carry
-what it does (ROADMAP.md).
+them. Item 6 is a registry *process* entry (ADR-063): a Go process
+adapter, prebuilt per platform, installed the same way.
 
 1. **`csv/source`** — reads a CSV path from config; header row → field
    names; `email`/`linkedin_url`/`name`/`company_domain` columns feed
@@ -2063,14 +2102,17 @@ what it does (ROADMAP.md).
    (ADR-033); output schema enforced; config supports `uses:` and `of:`
    (a revision of an existing value is a compose with a referent,
    ADR-048); prompt assembly and entity-agnosticism as item 3.
-6. **`instantly/add-to-campaign`** (deliver, person; `idempotency_scope:
-   campaign`, ADR-044 — the scope is the configured campaign *name*, so a
-   renamed campaign is a new dedupe scope; the one vendor adapter still
-   built in, a Go process adapter until the binding engine can declare
-   name resolution, preflight and attestation, ADR-059) — Instantly v2 API,
-   `Authorization: Bearer $INSTANTLY_API_KEY`: create/attach lead to
-   campaign by name (resolve campaign name → id via list endpoint once per
-   run; error if absent). Declares dynamic needs (§6, ADR-019) with a
+6. **`instantly/add-to-campaign`** (deliver, person; version 2;
+   `idempotency_scope: campaign`, ADR-044 — `campaign` is the campaign's
+   id, a lowercase UUID, so a campaign renamed in Instantly stays the same
+   destination, ADR-062; a verified registry process entry built from
+   `cmd/gtme-instantly`, ADR-063) — Instantly v2 API,
+   `Authorization: Bearer $INSTANTLY_API_KEY`: create/attach lead to the
+   campaign by id. Any other `campaign` value is a plan error that says
+   the adapter takes the id and where to find it; plan does not look a
+   name up. `skip_if_in_campaign` (default `true`) is sent with every
+   lead; Instantly documents it as skipping a lead already in the
+   campaign. Declares dynamic needs (§6, ADR-019) with a
    static floor of `email`; everything else it sends derives from the
    step's `variables:` mapping (ADR-018) — a target name matching one of
    Instantly's first-class lead fields (`first_name`, `last_name`,
@@ -2081,7 +2123,9 @@ what it does (ROADMAP.md).
    campaign exists and is Active, that the sequence has at least as many
    steps as the copy assumes (the highest `_step_N` suffix among the
    `variables:` targets), that every `variables:` target appears as
-   `{{name}}` in some step body, and that no A/B variant lacks one.
+   `{{name}}` in some step body, and that no A/B variant lacks one. Its
+   PREFLIGHT answer carries `destination` as the campaign's name and id
+   (§5, ADR-062).
 7. **`mock-enrich-py`** (external, Python 3 stdlib only) — reads protocol
    from stdin, adds fields `mock.score` (derived deterministically from the
    identity key) and `mock.note`, emits COST 0. Proves the external adapter
@@ -2180,7 +2224,7 @@ so `gtme plan` treats both tiers identically; named external bindings are
 discovered on the §6 path (`~/.gtme/adapters/<name>/` containing
 `binding.yaml` instead of an executable), and reach that path by hand or
 from the registry (§8 `gtme adapters`, ADR-042) — the binary ships the
-floor and no vendor binding (ADR-059); vendor bindings are registry
+floor and no vendor (ADR-059, ADR-063); vendor adapters are registry
 entries, verified before they install. `spec/bindings/` keeps one binding
 as the worked example `gtme help --bindings` prints, registered as no
 adapter. `gtme help --bindings` (§8,
@@ -2193,7 +2237,9 @@ signing, computation — it graduates to a process adapter. No expression
 language may ever grow inside binding YAML. Bindings cover anything that
 sells an API; process adapters cover anything that must be fought for
 (a managed provider absorbing the fight — HarvestAPI over scraping — is
-tier 1; only DIY scraping is tier 2).
+tier 1; only DIY scraping is tier 2). Graduating changes the tier, not
+the distribution: a verified process adapter can still be a registry
+entry (§8, ADR-063).
 
 **Engine unification:** inline `http/*` steps are the binding engine
 invoked anonymously with config carried in the pipeline YAML; a named
@@ -2374,7 +2420,12 @@ target recurring across runs are the cue to mint a named binding.
 record to any URL — the binding engine's deliver role invoked
 anonymously. Config: `url` (templatable), optional
 `method`/`query`/`headers`/`auth`/`body` (a template; its default is the
-resolved variables object). Every request carries `Idempotency-Key`: the
+resolved variables object). It declares `idempotency_scope: url`
+(ADR-062): the scope is the `url` as configured, before rendering, so a
+URL templating `{{record.*}}` keeps one scope per step, and any change to
+the URL's text is a new destination. A destination told apart only by
+`query`, `headers` or `body` is not told apart; give it its own URL or a
+named binding. Every request carries `Idempotency-Key`: the
 hex SHA-256 of the delivery's `target`, `scope` and idempotency key
 joined by NUL (§8), identical on every run and resume, so a target that
 honors the header can dedupe what the ledger cannot see (ADR-060); a
@@ -2745,7 +2796,7 @@ decided contract, not shipped behavior.
   plan naming `harvest/recent-posts`; `make check` and the plugin e2e
   pass with the entries installed from a local path.
 - **M34 — crash and resume (ADR-060, ADR-061; §3, §8, §10a, §11).
-  Built 2026-09-29 (changelog v0.56).** Migration `0014` adds `runs.pid` and `runs.host`,
+  Built 2026-09-29 (changelog v0.57).** Migration `0014` adds `runs.pid` and `runs.host`,
   mirrored in `spec/ledger.sql`. An adapter-backed deliver step runs one
   record per session and commits `dispatched` before each;
   resume and an interrupted finish hold unconfirmed records as
@@ -2772,6 +2823,46 @@ decided contract, not shipped behavior.
   ledger file unchanged, and the resume reaches `done`; `--resume` of a
   `done` run exits 2 (`TestResumeLastAndUnknownRun`'s no-op assertion
   becomes this refusal); `make check` passes.
+- **M35 — destinations and Instantly's move (ADR-062, ADR-063; §3, §5,
+  §6, §8, §9, §10, §10a, §11). Queued 2026-09-29, after M34.** Migration
+  `0015` backfills `scope` for `http/deliver` rows from the run's
+  `runs.config_json` when the run had exactly one `http/deliver` step,
+  mirrored in `spec/ledger.sql`'s comments. `http/deliver` declares
+  `idempotency_scope: url`. The receipt and `gtme runs RUN_ID` count
+  `already_delivered` and `unchanged` skips as `N already delivered`,
+  outside `cached` and cost avoided. PREFLIGHT gains the optional
+  `destination` (`spec/schemas/`, the Go protocol package), and the
+  preflight line prints it. `instantly/add-to-campaign` becomes version
+  2: `campaign` is a lowercase UUID in `config_schema`, the name lookup
+  and its cache are deleted, and preflight fills `destination`. The
+  adapter moves to `cmd/gtme-instantly` and leaves
+  `internal/adapters/all`. `release.yml` builds
+  `gtme-instantly_<tag>_<os>_<arch>.tar.gz` for the four targets into
+  the same `checksums.txt`. `spec/schemas/registry-index.schema.json`
+  gains `kind` and `assets`, and `gtme adapters add`/`update`/`verify`
+  handle process entries. `gtme-bindings`' index gains the Instantly
+  entry after the first release that carries the archives, and its
+  contribution rules and `spec/binding-schema.json`'s
+  `idempotency_scope` description state ADR-062's rule. `examples/`,
+  §9-derived docs, README, START.md, ADAPTERS.md, the plugin skills and
+  the docs pages that configure a campaign by name change to an id and
+  gain the install line; `docs/_adapters.json` is regenerated.
+  Acceptance, offline: `TestHTTPDeliverScopesToTheURL` passes (webhook B
+  receives both records after webhook A did); in
+  `TestInstantlyRenameIsTheSameCampaign`, configured by id, a rename in
+  the fake adds no lead and the second run's preflight line prints the
+  new name; a campaign given as a name fails `gtme plan` naming the id;
+  a second run to the same URL reports `2 already delivered`, `0
+  cached`, and no cost avoided; a ledger migrated from a pre-`0015`
+  copy with one `http/deliver` step per run has every such row's scope
+  equal to what a new run computes, and a run with two such steps keeps
+  `''`; `gtme help --agent` from a clean HOME lists no vendor adapter;
+  `gtme adapters add` installs a process entry from a local index and
+  archive, refuses a checksum mismatch and a platform with no asset, and
+  the installed adapter passes the Instantly e2e tests against the fake;
+  `make check` passes. The first live run of the installed adapter,
+  against a shell campaign with no sending accounts, is recorded in
+  VALIDATION.md by hand.
 - **M28 — types and traverse (ADR-054; §3, §4, §4a, §5, §6, §7, §8, §9,
   §10a, §13). Built 2026-09-05 (changelog v0.43).** A type is a file: `spec/fields/*.json` gain
   `kind`, `identity` and per-field `reference`, §4 derivation reads the
@@ -3052,7 +3143,9 @@ adapters' freshness windows, **when** the operator runs the same
 `step_events.event='skipped_cache'` (§7), the receipt reports cost avoided
 > 0, and no identity that was already in `deliveries` for this target
 produces a second `deliveries` row (§8 idempotency), and no record held
-`unconfirmed` after a crash (ADR-060) is sent.
+`unconfirmed` after a crash (ADR-060) is sent. The records withheld
+because this destination already has them are reported as `already
+delivered`, not as cached or as cost avoided (ADR-062).
 
 ### Interrogate
 **Invariant:** what the system knows about one record is always one
@@ -3130,7 +3223,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
 
-### v0.56 — 2026-09-29 (M34 build: crash and resume, built)
+### v0.57 — 2026-09-29 (M34 build: crash and resume, built)
 **Changed:** §11 M34 marked built. §8's run-lock subsection gains one
 clause the build found: a resumed run that holds unconfirmed deliveries
 finishes `done`, and its receipt prints `--resume RUN_ID
@@ -3150,6 +3243,23 @@ removes before templates see the record; `gtme runs` derives
 never creates a lock file; the resume command `gtme runs` prints names
 the file `<pipeline>.yaml`, since the ledger records the pipeline's name,
 not its path.
+
+### v0.56 — 2026-09-29 (ADR-062/063 reconciliation: a delivery's scope is the destination's stable identifier; process entries in the registry, Instantly leaves the binary; build queued as M35)
+**Changed:** §6 `idempotency_scope` MUST name a stable identifier of the
+destination, never a display name; §3's `deliveries.scope` comment says
+so, and migration `0015` backfills `http/deliver` scopes from
+`runs.config_json`; §10a `http/deliver` declares `idempotency_scope:
+url`, the URL as configured; §8 record accounting and the terminal
+receipt count an already-delivered skip as `already delivered`, not as
+`cached` or cost avoided; §10 item 6 takes the campaign id only (version
+2), and §9's canonical pipeline configures one; §5 PREFLIGHT gains the
+optional `destination`, which §8's preflight line prints; §6 and §8
+`gtme adapters` gain registry process entries (`kind`, `assets`,
+checksum-pinned, verified only); §10's intro, item 6 and §10a say the
+binary carries no vendor, and §10a's graduation rule says a graduated
+adapter can still be a registry entry; §11 M35 queued; the Top-up story
+gains the clause. The one wire change is additive (PREFLIGHT
+`destination`); no exit code changes.
 
 ### v0.55 — 2026-09-29 (ADR-060/061 reconciliation: deliveries in flight at a crash, interrupted runs; build queued as M34)
 **Changed:** §3 `runs` gains `pid` and `host` (migration `0014`),
