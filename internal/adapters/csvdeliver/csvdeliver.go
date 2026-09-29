@@ -8,8 +8,10 @@
 package csvdeliver
 
 import (
+	"bytes"
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -185,6 +187,11 @@ func appendRow(cfg config, key protocol.Key, fields map[string]any) error {
 	return err
 }
 
+// stringify renders a variable's value as one CSV cell. A string is
+// written as-is; anything else (a list, an object, a number, a boolean) is
+// written as JSON, the form dry-run and simulate print, so a list item that
+// holds a space or a comma can still be told apart (#164). HTML escaping is
+// off: the cell is read by people and importers, not a browser.
 func stringify(v any) string {
 	switch t := v.(type) {
 	case nil:
@@ -192,6 +199,12 @@ func stringify(v any) string {
 	case string:
 		return t
 	default:
-		return fmt.Sprint(t)
+		var b bytes.Buffer
+		enc := json.NewEncoder(&b)
+		enc.SetEscapeHTML(false)
+		if err := enc.Encode(t); err != nil {
+			return fmt.Sprint(t)
+		}
+		return strings.TrimSuffix(b.String(), "\n")
 	}
 }
