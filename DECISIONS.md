@@ -2561,7 +2561,9 @@ manifest surface already).
 
 ### ADR-044: Delivery dedupe scopes to the campaign, not the adapter
 **Status:** Accepted (2026-08-31 — from Campaign 1 story 5, VALIDATION.md
-2026-08-30 and AUDIT.md (b) item 5; human-approved 2026-08-31)
+2026-08-30 and AUDIT.md (b) item 5; human-approved 2026-08-31. Instantly's
+name scope in (2) and the backstop wording in (3) amended 2026-09-29 by
+ADR-062: a scope is the destination's stable identifier)
 **Context:** `deliveries` dedupes on UNIQUE(target, idempotency) with
 `target` = the adapter id, so a record delivered to campaign A is
 silently cache-skipped when a later pipeline delivers to campaign B
@@ -4114,7 +4116,9 @@ noun list gains *leg*; `docs/_outline.yaml`'s terms gain `leg`.
 **Status:** Accepted (2026-09-26 — from a design session after the
 registry's catalog pages went live; human-approved by merging this
 packet; build queued as M33, Instantly's move sequenced behind the engine
-work ROADMAP.md names)
+work ROADMAP.md names. Decision (4) superseded 2026-09-29 by ADR-063:
+Instantly leaves the binary as a registry process entry, and the engine
+work closes)
 **Context:** ADR-042 put vendors in a registry and kept a carve-out: "the
 binary carries the floor and the reference twins, nothing else … the
 reference twins stay because they are the conformance kit for the Go
@@ -4356,6 +4360,197 @@ decision, not a habit.
 §8 (a subsection on the run lock and interrupted runs; the `--resume`
 refusals), §11 (M34 queued), the Recover story, Changelog (v0.55). The
 ledger's directory gains `locks/`.
+
+### ADR-062: A delivery's scope is the destination's stable identifier
+**Status:** Accepted (2026-09-29 — from two failing offline tests written
+while tracing delivery dedupe per destination; human-approved by merging
+this packet; build queued as M35)
+**Context:** ADR-044 keys `deliveries` on `(target, scope, idempotency)`,
+where `scope` is the value of the config key a deliver manifest names in
+`idempotency_scope`. The runner computes it from config before any
+session opens, so an adapter cannot correct it. Per destination today:
+`attio/assert` scopes on the object slug, `csv/deliver` on the path, and
+a group handoff on `group:<name>`, which gtme owns. All three are stable.
+Two destinations are not:
+
+- `http/deliver` declares no `idempotency_scope`, so every URL shares the
+  scope `''`. A record delivered to webhook A is skipped at webhook B,
+  which has never seen it. The skip goes through the same path as a cache
+  hit, so the receipt counts it `cached` and adds it to "avoided via
+  cache".
+- `instantly/add-to-campaign` scopes on the configured `campaign`, which
+  accepts a display name. ADR-044 said so in the open: a renamed campaign
+  is a new scope. In practice, renaming a campaign in Instantly (and in
+  the YAML to match) makes the same campaign a new destination, and the
+  next armed run adds everyone again.
+
+Both are reproduced offline on the branch `fix/deliver-scope`
+(`TestHTTPDeliverScopesToTheURL`, `TestInstantlyRenameIsTheSameCampaign`).
+ADR-044's migration also named a backstop that is narrower than it said.
+The adapter sends `skip_if_in_campaign: true` unless config sets it
+false, and Instantly's API reference describes that flag in one line
+("Whether to skip if the lead is already in the campaign"), with no
+default and no documented response for a skipped lead.
+**Decision:** (1) **The rule.** `idempotency_scope` MUST name a config key
+whose value identifies the destination stably: an id, an API slug, a file
+path or a URL. It MUST NOT name a display name that the destination's
+owner can change. The rule binds deliver bindings as well as built-ins,
+so `spec/binding-schema.json` states it and so do `gtme-bindings`'
+contribution rules. The runner cannot test stability, so where an
+identifier has a shape (a UUID), the manifest's `config_schema` SHOULD
+constrain the key to it, which turns a name into a plan error. (2)
+**Instantly takes the campaign id only.** `campaign` is the campaign's
+UUID, lowercase, and any other value is a plan error that says the
+adapter takes the id and says where to find it. Plan stays offline and
+does not look the name up. The adapter's name-to-id lookup and its
+per-process cache are deleted, and the manifest's version becomes 2
+because a config that was valid is now refused. The operator still sees
+the campaign's name: the preflight session already reads the campaign,
+and the PREFLIGHT message gains an optional `destination` string, a
+display label for what the step delivers to. The preflight line prints it
+at `--dry-run` and at the start of an armed run:
+`send: preflight ok — campaign "Q3 VP Marketing" (0198a0b1-…) — 4 checks (…)`.
+The field is additive: any deliver adapter that preflights may fill it,
+and a runner that predates it ignores it. With `preflight: false` the
+line is not printed and no request is added. (3) **`http/deliver`
+declares `idempotency_scope: url`.** The scope is the `url` as
+configured, before rendering, so a URL that templates `{{record.*}}` still
+has one scope per step: the destination is the endpoint the operator
+wrote, not each record's path. Changing the URL's text, even a trailing
+slash, makes a new destination. A destination told apart only by
+`query:`, `headers:` or `body` is not told apart, so the operator gives
+it its own URL or a named binding with its own scope. The value is the
+one `runs.config_json` already stores, so the ledger holds no URL it did
+not already hold, and no receipt prints it. ADR-060's `Idempotency-Key`
+includes the scope, so after this decision it differs per URL as well.
+(4) **An already-delivered skip is not a cache hit.** A skip with reason
+`already_delivered` or `unchanged` stays a `skipped_cache` event with its
+reason, so the event vocabulary does not change. The receipt counts it
+apart, as `N already delivered` on the step line. It is not in `cached`,
+and it is not in "avoided via cache", because not re-sending is the
+contract and nothing was saved. Record accounting gains the term. (5)
+**Migration `0015` backfills `http/deliver` scopes.** For each
+`http/deliver` row whose scope is `''`, the migration reads the url of
+the `http/deliver` step in that run's `runs.config_json` (joined on
+`deliveries.run_id`). A run with exactly one such step backfills. A run
+with two or more is ambiguous, so its rows keep `''`, match nothing, and
+the next run to each URL may send those records once. Instantly rows
+scoped on a name cannot be mapped offline, because the ledger never
+stored the id. They stay as they are and match no id scope, so the first
+armed run of that campaign after the upgrade may add those leads again,
+once. The backstop is the adapter's default `skip_if_in_campaign: true`,
+as documented above, and it is absent where config set the flag false.
+**Consequences:** A renamed campaign stays the same destination, a
+second webhook receives what the first received, and the receipt stops
+reporting a withheld send as money saved. The operator copies a campaign
+id once instead of typing a name. ADR-060's note that the adapter caches
+a resolved campaign name becomes moot, because no name is ever resolved:
+one record per session adds no Instantly request, even when the adapter
+runs as its own process (ADR-063). The failing tests change with the
+decision. `TestInstantlyRenameIsTheSameCampaign` configures the id both
+times, renames only in the fake, and also asserts that the preflight line
+prints the new name. M35 adds a test that a name is a plan error.
+`examples/demo.yaml`, `examples/apollo-to-instantly.yaml` and the docs
+that configure a campaign by name change to an id. The bundles already
+use one.
+**Rejected:** *Scoping on the id that preflight resolves.* It keeps names
+working, but it makes dedupe correctness depend on a network check that
+the operator can switch off, and `--simulate` could not compute the
+scope. *Re-keying name-scoped rows at the first preflight after the
+upgrade.* It couples the wire to a one-time migration on a pre-alpha
+ledger. *Normalizing URLs* (case, trailing slash, default port). The
+rules are the target's, not gtme's, and a normalized key that merges two
+real endpoints fails silently, while an unnormalized one fails loudly by
+sending.
+**Spec impact:** AMEND §3 (the `deliveries.scope` comment; migration
+`0015`), §5 (PREFLIGHT `destination`), §6 (`idempotency_scope`), §8
+(record accounting, the terminal receipt, deliver idempotency, deliver
+preflight), §10 item 6, §10a (`http/deliver`), §11 (M35 queued), the
+Top-up story, Changelog (v0.56). `spec/schemas/` and
+`spec/binding-schema.json` change in M35.
+
+### ADR-063: A process adapter can be a registry entry — Instantly leaves the binary in Go
+**Status:** Accepted (2026-09-29 — follows ADR-062, which removes
+Instantly's name resolution; human-approved by merging this packet; build
+queued as M35. Supersedes ADR-059 (4))
+**Context:** ADR-059 moved every vendor adapter to the registry except
+`instantly/add-to-campaign`, which stayed built in until the binding
+engine could declare `resolve:`, `preflight:` and `attest:`. ADR-062
+removes the need for `resolve:`. The other two are harder. Two of the
+four preflight checks count and cross-reference: the sequence must have
+as many steps as the highest `_step_N` target assumes, and every variant
+of step N must carry its own step's target. That is the computation §10a's
+graduation rule sends to a process adapter. Making it engine vocabulary
+would grow logic inside binding YAML for one consumer, at several times
+the Go adapter's 200 lines. So Instantly stays a Go process adapter. What
+kept it in the binary was distribution, not language: the registry
+installs bindings only (§8), and a process adapter reaches the discovery
+path (§6: `manifest.json` plus an executable `run`) only by hand.
+**Decision:** (1) **The registry index gains process entries.** An entry
+gains `kind: binding | process`, which defaults to `binding`. A process
+entry carries `assets`, one per platform in §13's targets (`darwin/arm64`,
+`darwin/amd64`, `linux/amd64`, `linux/arm64`), each an archive URL with
+its SHA-256. Its `source` names the code it was built from (repository,
+path, ref, commit), so a reviewer can read what runs. (2) **Install.**
+`gtme adapters add <id>` downloads the archive for this platform and
+refuses a checksum mismatch. It unpacks `manifest.json` and `run` into
+`~/.gtme/adapters/<id, slashes → dashes>/`, validates the manifest, and
+writes `.source.json` (asset URL, SHA-256, release tag, commit). It prints
+the same reviewable surface as for a binding: credentials, needs,
+provides and declared capabilities. With no asset for this platform, it
+refuses and names the platforms that have one. `gtme adapters update`
+moves the pin as it does for a binding, and nothing moves it implicitly,
+so upgrading gtme does not upgrade the adapter. (3) **Process entries are
+verified only.** A verified process entry is built by gtme-run CI from a
+tagged commit whose tests passed, and published as release assets. For a
+process entry, "nothing installs unverified" means a pinned checksum, a
+manifest that validates, and tests that ran in that CI. Install does not
+re-run fixtures, because a process adapter's fixtures need its own
+harness. Community entries stay bindings: an index that points at
+strangers' executables is a different trust model, and that model is
+not decided here. (4) **Instantly moves in M35.** Its source stays in
+the gtme module, as `cmd/gtme-instantly` over the existing package, and
+leaves `internal/adapters/all`. gtme's release workflow builds
+`gtme-instantly_<tag>_<os>_<arch>.tar.gz` (holding `manifest.json` and
+`run`) beside the gtme archives, listed in the same `checksums.txt`, and
+`gtme-bindings`' index gains the process entry at that release. The id
+stays the same, and the version is 2 (ADR-062). (5) **The binary carries
+the floor and no vendor.** That is ADR-059's end state, reached through
+distribution and not through the engine. ROADMAP.md's "Deliver bindings
+that preflight and attest" closes. A later deliver adapter that needs
+preflight or attestation is a process entry. §10a's graduation rule gains
+the sentence that a graduated adapter can still be a registry entry.
+**Consequences:** A pipeline that delivers to Instantly needs one install
+line, `gtme adapters add instantly/add-to-campaign`, as Apollo and Attio
+already do. The plan error for an uninstalled id already names it
+(ADR-059). With one record per session (ADR-060), each lead costs a
+process start, which is milliseconds against the network round-trip.
+Because the adapter stays in the gtme module, it keeps sharing
+`internal/protocol` and `internal/httpx`, and a protocol change ships
+both at one release. The e2e tests build it into a temporary directory
+on the discovery path, as M33's tests install registry entries from a
+local copy. The Homebrew formula is unchanged. The catalog relabels
+Instantly from "built in" to "verified", and `docs/_adapters.json`
+regenerates. The live validations in VALIDATION.md were run against the
+built-in adapter, and the first live run of the installed one is an M35
+follow-up, run by hand.
+**Rejected:** *Engine `preflight:` and `attest:` blocks.* See the context:
+this is the graduation rule's case, with one consumer. *Keeping Instantly
+built in.* It leaves two distribution models, and a catalog "built in"
+label that nothing explains. *A Homebrew formula per adapter.* Discovery
+is per-user (`~/.gtme/adapters/`), and it would tie installing an adapter
+to one package manager. *`go install` from source.* Operators do not
+have a Go toolchain. *Moving the Go source to `gtme-bindings`.* That
+puts a Go toolchain and a copy of the protocol packages in that
+repository's CI, and Go's `internal/` packages cannot be imported across
+modules.
+**Spec impact:** AMEND §6 (discovery: `adapters add` also installs
+process entries), §8 (`gtme adapters`: process entries, install,
+verification, the floor), §10 (intro, item 6), §10a (graduation rule
+sentence; the binary ships no vendor), §11 (M35 queued), Changelog
+(v0.56). `spec/schemas/registry-index.schema.json` changes in M35.
+ROADMAP.md closes the deliver-binding engine entry and gains community
+process entries.
 
 ### ADR-054: `traverse` — a run is a sequence of typed segments, and a type is a file
 **Status:** Accepted (2026-09-05 — design session; answers ADR-008's parked
