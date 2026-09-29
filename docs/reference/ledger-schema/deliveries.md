@@ -75,6 +75,6 @@ CREATE TABLE deliveries (
 
 - [Top up](/guides/top-up)
 - [Iterate](/guides/iterate): The target, scope, and key each delivery row carries
-- [Recover](/guides/recover): The table a deliver step checks before it sends
+- [Recover](/guides/recover): The table a deliver step checks before it sends, where a held record's row says unconfirmed
 - [Segment](/guides/segment): Every delivery row, with the target and scope a slice can narrow on
 - [Run on cron and events](/guides/cron-and-events)

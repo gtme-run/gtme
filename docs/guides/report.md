@@ -177,7 +177,7 @@ total: $0.5000 spent
     01M3K4RSTADKBKQVXJ76WG7575  hello     done    2026-09-28T04:36:01.994Z  3        -
     ```
 
-    Runs are newest first, and `started` is in UTC. `records` counts the people each run touched. `in flight` counts records still waiting on a person or a vendor, and such a run's status is `pending`. A [dry-run](/concepts/gate-ladder) shows as `done (dry)`, and what it spent is real.
+    Runs are newest first, and `started` is in UTC. `records` counts the people each run touched. `in flight` counts records still waiting on a person or a vendor, and such a run's status is `pending`. A [dry-run](/concepts/gate-ladder) shows as `done (dry)`, and what it spent is real. A run whose process died shows as `interrupted`.
 
 1. Print one run's receipt from the ledger. This is the third `hello` run:
 
