@@ -2749,6 +2749,30 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-29 — A runner-side error stops a step's dispatch; an adapter crash does not
+
+**Question:** Since #79, a worker keeps draining the step's queue after a
+chunk fails, which is right when the adapter crashed (the next session
+may succeed) and is what stopped the pool from hanging (#77). But a chunk
+also fails when the runner or the ledger does: a ledger write refused, a
+session that cannot open. Draining then dispatched, and for a paid step
+billed, every remaining chunk with nothing recordable (#82).
+**Choice:** The two kinds are told apart by type. `chunkFailed`, the one
+path for a session that died or broke protocol, returns a
+`sessionCrash`; the pool keeps draining on it as before. Any other error
+closes a stop channel: the dispatcher sends no further chunk, the chunks
+already in a session finish (they are not cancelled, since their work is
+under way and often paid for), and the step returns the first error. The
+undispatched records stay at the previous state, so `--resume` picks them
+up once the cause is fixed. The issue suggested cancelling a derived
+context instead; that would also kill the sessions in flight and throw
+away answers already paid for.
+**Why:** a failure the runner cannot record is a reason to stop spending,
+and an adapter's failure is not; the error's type is where that
+difference already lives.
+**Spec impact:** None. The e2e test provokes the runner-side failure with
+an adapter that adds a SQLite trigger refusing its own field's writes.
+
 ### 2026-09-29 — M34 internals: crash and resume (ADR-060, ADR-061)
 
 **Question:** How are the records a crash left in flight found and held,
