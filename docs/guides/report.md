@@ -98,12 +98,12 @@ The three runs end with these total lines:
 ```
 total: $0.0300 (estimated) spent
 ...
-total: $0 spent, $0.0300 avoided via cache (4 records skipped)
+total: $0 spent, $0.0300 avoided via cache (3 records skipped)
 ...
-total: $0.0200 (estimated) spent, $0.0300 avoided via cache (4 records skipped)
+total: $0.0200 (estimated) spent, $0.0300 avoided via cache (3 records skipped)
 ```
 
-The second run found every score still fresh in the ledger and paid for none. `4 records skipped` adds skips across steps: three cached scores and one delivery already made. The third run paid for the two new people only.
+The second run found every score still fresh in the ledger and paid for none. `3 records skipped` is the three cached scores. Jane's delivery, already made, prints as `out: 1 already delivered` and isn't counted as a cache skip. The third run paid for the two new people only.
 
 To put a real bill in the ledger too, save a second [pipeline](/concepts/pipeline) as `openers.yaml`. A copywriter writes an opener by hand for anyone scoring 90 or more, and bills $0.50 each:
 
@@ -198,13 +198,14 @@ total: $0.5000 spent
     source  -        1     -       -       $0
     score   2        2     3       -       $0.0200
     keep    -        5     -       -       $0
-    out     1        1     1       -       $0
+    out     1        1     -       -       $0
+    out: 1 already delivered
     total: $0.0200 (estimated)
     records: 5 (score=3 out=2), 3 with a fail verdict (filtered, or a send withheld)
     config:  3 steps recorded (`gtme freeze 01M3K4RSW88DCY1YHGHE9QJ1F1` rebuilds the pipeline)
     ```
 
-    **This receipt counts ledger events, so its columns differ from the table the run printed.** `claimed` counts records a step sent to its [adapter](/concepts/adapter-tiers), `done` counts records it finished, and `cached` counts records it skipped. This table shows where to read each answer:
+    **This receipt counts ledger events, so its columns differ from the table the run printed.** `claimed` counts records a step sent to its [adapter](/concepts/adapter-tiers), `done` counts records it finished, and `cached` counts records it reused from the ledger. This table shows where to read each answer:
 
     | Question | Where |
     |---|---|
@@ -244,7 +245,7 @@ total: $0.5000 spent
     4 rows
     ```
 
-    Every number matches the receipt, row for row, because `gtme runs` adds up ledger rows and nothing else. The $0.02 on `score` is two `costs` rows, one per new person, both with `estimated` in `basis`.
+    Every number matches the receipt, row for row, except `cached 1` on `out`, because `gtme runs` adds up ledger rows and nothing else. `skipped_cache` rows include the deliver step's `already_delivered` skip, which the receipt and `gtme runs` count as already delivered, not cached. The $0.02 on `score` is two `costs` rows, one per new person, both with `estimated` in `basis`.
 
 1. List what each run of the last week cost:
 

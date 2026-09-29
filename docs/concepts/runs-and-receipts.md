@@ -130,13 +130,13 @@ steps:
 | `in` | Records eligible at the step, before any gate or cache. A source has nothing upstream, so its `in` is 0. |
 | `out` | Records the step contributed to: it wrote a field, passed a filter, or made a delivery. |
 | `empty` | Records that moved on without the step writing any field. Only steps that write fields count it. |
-| `cached` | Records skipped because the ledger already had the answer: a fresh field, the same judgment, or a delivery already made. |
+| `cached` | Records skipped because the ledger already had the answer: a fresh field or the same judgment. A delivery already made counts as `already delivered`. |
 | `filtered` | Records a filter step stopped. |
 | `failed` | Records that errored at the step. Each distinct reason prints on its own line under the table. |
 | `cost` | What the step spent in this run, summed from its cost rows. |
 | `avoided` | The adapter's per-record estimate for each record the step skipped. `?` means the adapter publishes no estimate. |
 
-Every row after the source reconciles: `in` equals `out + empty + cached + filtered + failed`, plus records a `when:` gate passed over or `on_missing:` skipped. Read the `keep` row that way and you get 3 = 1 + 2. In a dry-run, the `out` row names what it held back, such as `1 held (dry run)`. The [steps and roles](/concepts/steps-and-roles) page covers which role can fill which column.
+Every row after the source reconciles: `in` equals `out + empty + cached + filtered + failed`, plus records already delivered, gated by `when:`, or skipped by `on_missing:`. Read the `keep` row that way and you get 3 = 1 + 2. In a dry-run, the `out` row names what it held back, such as `1 held (dry run)`. The [steps and roles](/concepts/steps-and-roles) page covers which role can fill which column.
 
 **The total line carries its basis.** `demo/enrich` multiplies a configured rate, so its dollars are estimated and the total says `(estimated)`. A vendor that reports its own charge records a measured cost, which prints bare, and a run with both splits into `$X ($Y measured + $Z estimated)`. A second run adds what the cache saved, and the ledger page walks through that receipt.
 
@@ -186,7 +186,7 @@ gtme query "SELECT target, scope, idempotency, status FROM deliveries"
 
 The key is the field named by `idempotency:`, here `email`. The target is the [adapter](/concepts/adapter-tiers). The scope is the setting the adapter names: the path for `csv/deliver`, the campaign for Instantly.
 
-A repeat is skipped with the reason `already_delivered` ([SPEC §8](/spec#deliver-idempotency)). A different path or campaign delivers again, per the decision record, [ADR-044](/decisions#adr-044). A rule that holds across every target is a suppression [group](/concepts/groups).
+A repeat is skipped with the reason `already_delivered` ([SPEC §8](/spec#deliver-idempotency)), counted as `already delivered`. A different path or campaign delivers again, per the decision record, [ADR-044](/decisions#adr-044). A rule that holds across every target is a suppression [group](/concepts/groups).
 
 `accepted` means the target took the request. A delivery becomes `sent` only when the provider attests it, that is, reports back that it sent ([ADR-036](/decisions#adr-036)). A target that updates in place delivers again when the delivered values change, and `attio/assert`, a registry entry, is the only target that does today ([ADR-045](/decisions#adr-045)).
 

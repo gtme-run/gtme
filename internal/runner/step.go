@@ -135,7 +135,7 @@ func (r *runner) runStep(ctx context.Context, i int) error {
 		}
 		// in counts every record eligible at this step (SPEC §8, ADR-053), so
 		// the line reconciles: in = out + empty + cached + filtered + failed +
-		// gated + skipped (+ simulated, held, in flight).
+		// gated + skipped + already delivered (+ simulated, held, in flight).
 		r.bump(st, func(s *StepStat) { s.In++ })
 		if st.WhenStep != "" && !rr.Passed(st.WhenStep) {
 			r.bump(st, func(s *StepStat) { s.Gated++ })
@@ -246,6 +246,7 @@ func (r *runner) preflight(ctx context.Context, st *planner.Step) error {
 
 	status, reason := protocol.PreflightInconclusive, "the adapter reported no preflight"
 	var checks []protocol.Check
+	var destination string
 	for {
 		m, err := sess.Next()
 		if errors.Is(err, io.EOF) {
@@ -260,7 +261,7 @@ func (r *runner) preflight(ctx context.Context, st *planner.Step) error {
 		}
 		switch m.Type {
 		case protocol.TypePreflight:
-			status, reason, checks = m.Status, m.Reason, m.Checks
+			status, reason, checks, destination = m.Status, m.Reason, m.Checks, m.Destination
 		case protocol.TypeLog:
 			r.forwardLog(st, m)
 		case protocol.TypeRecord, protocol.TypeVerdict, protocol.TypeAttest:
@@ -280,22 +281,34 @@ func (r *runner) preflight(ctx context.Context, st *planner.Step) error {
 		reason = fmt.Sprintf("unrecognised preflight status %q", status)
 		status = protocol.PreflightInconclusive
 	}
-	r.bump(st, func(s *StepStat) { s.Preflight, s.PreflightReason, s.PreflightChecks = status, reason, checks })
+	r.bump(st, func(s *StepStat) {
+		s.Preflight, s.PreflightReason, s.PreflightChecks = status, reason, checks
+		s.PreflightDestination = destination
+	})
 	detail := map[string]any{"status": status, "reason": reason, "checks": checks}
+	if destination != "" {
+		detail["destination"] = destination
+	}
 	if err := r.l.LogStepEvent(ctx, r.prov(st.ID), "", "preflight", detail); err != nil {
 		return err
 	}
+	// The destination names what a step configured by id delivers to
+	// (SPEC §8, ADR-062).
+	dest := ""
+	if destination != "" {
+		dest = destination + " — "
+	}
 	switch status {
 	case protocol.PreflightInconclusive:
-		fmt.Fprintf(r.stderr, "%s [warn]: preflight inconclusive — %s; proceeding\n", st.ID, reason)
+		fmt.Fprintf(r.stderr, "%s [warn]: preflight inconclusive — %s%s; proceeding\n", st.ID, dest, reason)
 	case protocol.PreflightBlocked:
-		fmt.Fprintf(r.stderr, "%s: preflight BLOCKED — %s\n", st.ID, reason)
+		fmt.Fprintf(r.stderr, "%s: preflight BLOCKED — %s%s\n", st.ID, dest, reason)
 		if r.dry {
 			return nil
 		}
 		return fmt.Errorf("runner: %s: preflight blocked — %s (nothing was sent; fix the target and run again, or --resume)", st.ID, reason)
 	default:
-		fmt.Fprintf(r.stderr, "%s: preflight ok — %d check(s)\n", st.ID, len(checks))
+		fmt.Fprintf(r.stderr, "%s: preflight ok — %s%d check(s)\n", st.ID, dest, len(checks))
 	}
 	return nil
 }
@@ -786,6 +799,9 @@ func (r *runner) printStepLine(st *planner.Step) {
 		line += fmt.Sprintf(", %d empty", stat.Empty)
 	}
 	line += fmt.Sprintf(", %d cached, %d filtered, %d failed", stat.CacheSkips, stat.Filtered, stat.Failed)
+	if stat.AlreadyDelivered > 0 {
+		line += fmt.Sprintf(", %d already delivered", stat.AlreadyDelivered)
+	}
 	if stat.Gated > 0 {
 		line += fmt.Sprintf(", %d gated", stat.Gated)
 	}
@@ -909,6 +925,29 @@ func (r *runner) judgmentSkip(ctx context.Context, st *planner.Step, it *item) (
 
 // skip advances a record past a step without calling the adapter.
 func (r *runner) skip(ctx context.Context, st *planner.Step, it *item, reason string) error {
+	if err := r.advancePast(ctx, st, it, reason); err != nil {
+		return err
+	}
+	if ledger.AlreadyDeliveredReason(reason) {
+		// The destination already has it (SPEC §8, ADR-062): not re-sending is
+		// the contract, not a saving, so it is neither cached nor avoided.
+		r.bump(st, func(s *StepStat) { s.AlreadyDelivered++ })
+		return nil
+	}
+	r.bump(st, func(s *StepStat) {
+		s.CacheSkips++
+		if st.CostEstimate != nil {
+			s.AvoidedUSD += *st.CostEstimate
+		} else {
+			s.AvoidedUnknown = true
+		}
+	})
+	return nil
+}
+
+// advancePast records a skipped_cache event with its reason and moves the
+// record past the step.
+func (r *runner) advancePast(ctx context.Context, st *planner.Step, it *item, reason string) error {
 	if err := r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, "skipped_cache",
 		map[string]any{"reason": reason}); err != nil {
 		return err
@@ -918,14 +957,6 @@ func (r *runner) skip(ctx context.Context, st *planner.Step, it *item, reason st
 	}
 	it.advanced = true
 	r.emit(it.key, nil)
-	r.bump(st, func(s *StepStat) {
-		s.CacheSkips++
-		if st.CostEstimate != nil {
-			s.AvoidedUSD += *st.CostEstimate
-		} else {
-			s.AvoidedUnknown = true
-		}
-	})
 	return nil
 }
 

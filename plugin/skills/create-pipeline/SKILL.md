@@ -46,10 +46,11 @@ Shapes to draw from, each a runnable bundle in the repo's `bundles/`
 (read its README; copy its `pipeline.yaml` out as the start):
 qualify → group → send; email waterfall; the account shape; events via
 CSV + cron; posts to engagers. `gtme help --agent` has every built-in
-adapter's contract and four example pipelines. Vendor adapters other than
-Instantly (Apollo, Harvest, Attio, HubSpot) are registry entries: `gtme
+adapter's contract and four example pipelines. Every vendor adapter
+(Apollo, Harvest, Attio, HubSpot, Instantly) is a registry entry: `gtme
 adapters search <vendor>` finds one, and `gtme adapters add <id> <id>`
-installs several at once, each verified first.
+installs several at once, each verified first. Instantly takes its
+campaign by id, never by name.
 
 ## 4. Build one step at a time
 

@@ -65,13 +65,13 @@ paid reveal, AI compose, CRM delivery — runs **offline**. The vendor
 adapters serve their recorded fixtures, the AI steps answer synthetically
 and say so in provenance, delivery is held with its merge variables
 resolved into the receipt. No keys, no spend, nothing persisted. The
-Apollo adapters are registry entries, so one keyless command fetches
-them first; the run itself touches no network.
+Apollo and Instantly adapters are registry entries, so one keyless command
+fetches them first; the run itself touches no network.
 
 ```sh
 mkdir -p gtme-start && cd gtme-start
 curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/demo.yaml
-gtme adapters add apollo/search apollo/enrich   # verified offline against their fixtures, then pinned
+gtme adapters add apollo/search apollo/enrich instantly/add-to-campaign   # verified, then pinned
 gtme run demo.yaml --simulate
 ```
 
@@ -163,13 +163,14 @@ the filter judges, Apollo reveals only past the filter, the compose
 writes, and an Instantly campaign receives. Every rung of the ladder
 before the last spends nothing on delivery; the last is armed by a human.
 
-The Instantly campaign named in `demo.yaml` (`with: { campaign: ... }`)
-must exist; edit the name to one of yours. The dry run reads it and
+The Instantly campaign in `demo.yaml` (`with: { campaign: ... }`) must
+exist; replace the id with one of yours, copied from the campaign's URL in
+Instantly. The dry run reads it and
 reports whether it is fit to send to — active, with a sequence that
 references every variable the step sends — before a single record moves.
 
 ```sh
-gtme adapters add apollo/search apollo/enrich   # skip if See it run installed them
+gtme adapters add apollo/search apollo/enrich instantly/add-to-campaign   # skip if See it run installed them
 gtme secret set APOLLO_API_KEY
 gtme secret set ANTHROPIC_API_KEY
 gtme secret set INSTANTLY_API_KEY

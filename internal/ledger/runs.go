@@ -600,10 +600,29 @@ func (l *Ledger) CostsByStep(ctx context.Context, runID string) (map[string]Cost
 	return out, nil
 }
 
-// StepEventCounts counts a run's events per (step, event) pair.
+// AlreadyDelivered is the count bucket StepEventCounts reports for a deliver
+// step's skipped_cache events whose reason says the destination already has
+// the record (SPEC §8, ADR-062). It is a receipt category, not an event name:
+// the events stay skipped_cache with their reason.
+const AlreadyDelivered = "already_delivered"
+
+// AlreadyDeliveredReason reports whether a skipped_cache reason means the
+// destination already has the record — a withheld send, not a cache hit.
+func AlreadyDeliveredReason(reason string) bool {
+	return reason == "already_delivered" || reason == "unchanged"
+}
+
+// StepEventCounts counts a run's events per (step, event) pair. A deliver
+// step's already-delivered skips count under AlreadyDelivered, not under
+// skipped_cache, so a mirror of the receipt never calls them cached.
 func (l *Ledger) StepEventCounts(ctx context.Context, runID string) (map[string]map[string]int, error) {
 	rows, err := l.db.QueryContext(ctx,
-		`SELECT step_id, event, count(*) FROM step_events WHERE run_id = ? GROUP BY step_id, event`, runID)
+		`SELECT step_id,
+		        CASE WHEN event = 'skipped_cache'
+		              AND json_extract(detail, '$.reason') IN ('already_delivered', 'unchanged')
+		             THEN '`+AlreadyDelivered+`' ELSE event END AS bucket,
+		        count(*)
+		 FROM step_events WHERE run_id = ? GROUP BY step_id, bucket`, runID)
 	if err != nil {
 		return nil, fmt.Errorf("ledger: counting step events: %w", err)
 	}

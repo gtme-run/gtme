@@ -326,11 +326,12 @@ With your own CSV, your headers and counts will differ.
     source   csv/source    0   3    -      0       -         -       $0    -
     leaders  sql/filter    3   2    -      0       1         -       $0    -
     opener   text/compose  2   0    -      2       -         -       $0    ?
-    out      csv/deliver   2   0    -      2       -         -       $0    $0.0000
-    total: $0 spent, $0.0000+? avoided via cache (4 records skipped)
+    out      csv/deliver   2   0    -      0       -         -       $0    -
+    out: 2 already delivered
+    total: $0 spent, $0.0000+? avoided via cache (2 records skipped)
     ```
 
-    The `out` row shows `cached 2` and `out 0`: [idempotency](/concepts/runs-and-receipts) found both emails already delivered to this file, and `out.csv` still has two rows. `leaders` judged all three again, because a SQL step recomputes on every run.
+    The `out` row shows `out 0`, and `out: 2 already delivered` says [idempotency](/concepts/runs-and-receipts) found both emails already written to this file. `out.csv` still has two rows. `leaders` judged all three again, because a SQL step recomputes on every run.
 
 ## What you have now
 

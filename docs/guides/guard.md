@@ -271,7 +271,7 @@ links:
     ```sh
     curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/apollo-to-instantly.yaml
     gtme adapters add apollo/search apollo/enrich \
-      harvest/profile harvest/recent-posts
+      harvest/profile harvest/recent-posts instantly/add-to-campaign
     gtme plan apollo-to-instantly.yaml
     ```
 
@@ -306,7 +306,7 @@ links:
     ...
          est/record: ?
 
-    7. send [deliver] — instantly/add-to-campaign@1
+    7. send [deliver] — instantly/add-to-campaign@2
     ...
          est/record: $0.0000
     ...

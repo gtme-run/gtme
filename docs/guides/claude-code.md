@@ -271,11 +271,12 @@ jane.doe@acme.com,jane.doe@acme.com,Jane,"Jane, thanks for trying us. Most teams
 ...
 ```
 
-To check it, ask Claude Code to run it again. The [receipt](/concepts/runs-and-receipts) shows `out` with `3` cached and `0` out, because `idempotency: email` means nobody gets written twice:
+To check it, ask Claude Code to run it again. The [receipt](/concepts/runs-and-receipts) shows `out` with `0` out and `out: 3 already delivered`, because `idempotency: email` means nobody gets written twice:
 
 ```text
 ...
-out     csv/deliver   3   0    -      3       -         -       $0    $0.0000
+out     csv/deliver   3   0    -      0       -         -       $0    -
+out: 3 already delivered
 ...
 ```
 

@@ -84,8 +84,12 @@ type StepStat struct {
 	Out        int // records that advanced with something contributed
 	Empty      int // records that advanced with nothing written (SPEC §8, ADR-053)
 	CacheSkips int
-	Filtered   int // failed a filter verdict
-	Failed     int
+	// AlreadyDelivered counts records a deliver step withheld because the
+	// destination already has them (reasons already_delivered, unchanged;
+	// SPEC §8, ADR-062). Never counted as cached or as cost avoided.
+	AlreadyDelivered int
+	Filtered         int // failed a filter verdict
+	Failed           int
 	// FailReasons tallies why records failed this step, verbatim from the
 	// failed event's reason, so the receipt can name the fix (SPEC §8:
 	// every error names its fix) instead of printing a bare count.
@@ -156,6 +160,9 @@ type StepStat struct {
 	Preflight       string
 	PreflightReason string
 	PreflightChecks []protocol.Check
+	// PreflightDestination is the adapter's display label for the target
+	// (SPEC §5, ADR-062), printed on the preflight line; "" when not given.
+	PreflightDestination string
 }
 
 // Attestation is one inconclusive (or otherwise noteworthy) attestation.

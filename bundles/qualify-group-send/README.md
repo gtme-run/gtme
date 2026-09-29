@@ -43,6 +43,7 @@ What the receipts show, in `1-qualify/receipt.txt` and `2-send/receipt.txt`:
 
 ```sh
 gtme secret set ANTHROPIC_API_KEY
+gtme adapters add instantly/add-to-campaign
 gtme secret set INSTANTLY_API_KEY
 cd 2-send
 gtme plan .                   # $0: contracts and credentials

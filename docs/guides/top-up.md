@@ -171,7 +171,8 @@ EOF
     source     csv/source   0   5    -      0       -         -       $0       -
     score      demo/enrich  5   2    -      3       -         -       $0.0200  $0.0300
     keep       sql/filter   5   4    -      0       1         -       $0       -
-    follow_up  csv/deliver  4   0    -      2       -         -       $0       $0.0000
+    follow_up  csv/deliver  4   0    -      0       -         -       $0       -
+    follow_up: 2 already delivered
     follow_up: resolved variables for 2 record(s) — review, then run again without --dry-run to arm:
       gus@hooli.com
         full_name: "Gus Lee"
@@ -179,10 +180,10 @@ EOF
       hana@stark.io
         full_name: "Hana Sato"
         score: "81"
-    total: $0.0200 (estimated) spent, $0.0300 avoided via cache (5 records skipped)
+    total: $0.0200 (estimated) spent, $0.0300 avoided via cache (3 records skipped)
     ```
 
-    **The `score` row says the top-up pays for two people: `cached 3`, `$0.0200`.** Jane, Bob, and Dana have fresh scores, so it pays for Gus and Hana only. The `follow_up` row shows `cached 2`, because Jane and Dana are already in `follow-up.csv`, and the resolved variables list the two people it will write. The total's `5 records skipped` is those three scores plus those two deliveries. The hint names `--dry-run` because simulate borrows dry-run's wording; the armed run is next only because this file is keyless.
+    **The `score` row says the top-up pays for two people: `cached 3`, `$0.0200`.** Jane, Bob, and Dana have fresh scores, so it pays for Gus and Hana only. The line under the table, `follow_up: 2 already delivered`, counts Jane and Dana, who are already in `follow-up.csv`, and the resolved variables list the two people it will write. A withheld delivery saves nothing, so it isn't in `cached` or `avoided`, and the total's `3 records skipped` is the three scores. The hint names `--dry-run` because simulate borrows dry-run's wording; the armed run is next only because this file is keyless.
 
     Simulate works on a copy of the ledger, so its cache skips are exactly the armed run's (the decision record, [ADR-039](/decisions#adr-039)). Its results are not: a vendor search returns recorded responses, and a model step returns canned text for $0. With either kind of step, or a live delivery target such as a campaign, run a dry-run next and read the same counts there before you arm.
 
@@ -201,8 +202,9 @@ EOF
     source     csv/source   0   5    -      0       -         -       $0       -
     score      demo/enrich  5   2    -      3       -         -       $0.0200  $0.0300
     keep       sql/filter   5   4    -      0       1         -       $0       -
-    follow_up  csv/deliver  4   2    -      2       -         -       $0       $0.0000
-    total: $0.0200 (estimated) spent, $0.0300 avoided via cache (5 records skipped)
+    follow_up  csv/deliver  4   2    -      0       -         -       $0       -
+    follow_up: 2 already delivered
+    total: $0.0200 (estimated) spent, $0.0300 avoided via cache (3 records skipped)
     ```
 
     The receipt matches the preview. `avoided $0.0300` is the "costs less" half of the promise.
@@ -232,7 +234,7 @@ EOF
     5 rows
     ```
 
-    Every overlapping person has a `skipped_cache` event on `score`, in the ledger's `step_events` table. `fresh_in_ledger` means every field the step provides already had a value inside its window, so the runner called no [adapter](/concepts/adapter-tiers) and wrote no cost ([SPEC §7](/spec#7-contract-validation--the-planner--decided)). `already_delivered` is the delivery check ([SPEC §8](/spec#deliver-idempotency)).
+    Every overlapping person has a `skipped_cache` event on `score`, in the ledger's `step_events` table. `fresh_in_ledger` means every field the step provides already had a value inside its window, so the runner called no [adapter](/concepts/adapter-tiers) and wrote no cost ([SPEC §7](/spec#7-contract-validation--the-planner--decided)). `already_delivered` is the delivery check ([SPEC §8](/spec#deliver-idempotency)). It shares the event name, but the receipt counts it as `already delivered`, not `cached`.
 
 1. Check the `deliveries` table, where each delivery row names its target file or campaign as its `scope`, to see that nobody was delivered twice to this file:
 

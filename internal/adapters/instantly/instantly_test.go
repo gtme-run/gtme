@@ -20,7 +20,6 @@ const leadID = "99999999-8888-7777-6666-555555555555"
 func routes(t *testing.T) map[string]adaptertest.Response {
 	t.Helper()
 	return map[string]adaptertest.Response{
-		"GET /api/v2/campaigns":               {Body: adaptertest.Fixture(t, "campaigns.json")},
 		"POST /api/v2/leads":                  {Body: adaptertest.Fixture(t, "lead.json")},
 		"GET /api/v2/leads/" + leadID:         {Body: adaptertest.Fixture(t, "lead-read.json")},
 		"GET /api/v2/campaigns/" + campaignID: {Body: adaptertest.Fixture(t, "campaign.json")},
@@ -54,11 +53,10 @@ func lead(key string, fields map[string]any) []protocol.Message {
 }
 
 func TestAddsLeadWithComposedLines(t *testing.T) {
-	ResetCampaignCache()
 	stub := &adaptertest.Stub{Routes: routes(t)}
 	msgs, err := adaptertest.Run(t, &Adapter{HTTP: stub}, adaptertest.Input{
 		Config: map[string]any{
-			"campaign": "Q3 VP Marketing", "base_url": "https://instantly.test",
+			"campaign": campaignID, "base_url": "https://instantly.test",
 			// The egress mapping (ADR-018): first-class targets map into the
 			// lead body, everything else becomes a custom variable. Injected
 			// by the runner from the step-level variables: key.
@@ -86,20 +84,17 @@ func TestAddsLeadWithComposedLines(t *testing.T) {
 		t.Fatalf("Run: %v", err)
 	}
 
-	// Bearer auth, and the campaign name was resolved to an id before any lead.
+	// Bearer auth, and the first call is the lead: the campaign is its id,
+	// never looked up (ADR-062).
 	if got := stub.Calls[0].Header.Get("Authorization"); got != "Bearer secret" {
 		t.Errorf("Authorization = %q", got)
 	}
-	if !strings.Contains(stub.Calls[0].URL, "/api/v2/campaigns") {
-		t.Errorf("first call should resolve the campaign, got %s", stub.Calls[0].URL)
-	}
-
 	var body leadRequest
-	if err := json.Unmarshal([]byte(stub.Calls[1].Body), &body); err != nil {
-		t.Fatalf("lead body: %v\n%s", err, stub.Calls[1].Body)
+	if err := json.Unmarshal([]byte(stub.Calls[0].Body), &body); err != nil {
+		t.Fatalf("lead body: %v\n%s", err, stub.Calls[0].Body)
 	}
 	if body.Campaign != campaignID {
-		t.Errorf("campaign = %q, want the resolved id %q", body.Campaign, campaignID)
+		t.Errorf("campaign = %q, want the configured id %q", body.Campaign, campaignID)
 	}
 	if body.Email != "jane.doe@acme.com" {
 		t.Errorf("email = %q, want it lowercased", body.Email)
@@ -128,11 +123,12 @@ func TestAddsLeadWithComposedLines(t *testing.T) {
 	}
 }
 
-func TestResolvesCampaignOncePerInvocation(t *testing.T) {
-	ResetCampaignCache()
+// TestCampaignIsTheIdNeverLookedUp: the campaign is configured by its id,
+// which is the dedupe scope (ADR-062), so no request resolves it.
+func TestCampaignIsTheIdNeverLookedUp(t *testing.T) {
 	stub := &adaptertest.Stub{Routes: routes(t)}
 	_, err := adaptertest.Run(t, &Adapter{HTTP: stub}, adaptertest.Input{
-		Config: map[string]any{"campaign": "Q3 VP Marketing", "base_url": "https://instantly.test"},
+		Config: map[string]any{"campaign": campaignID, "base_url": "https://instantly.test"},
 		Env:    map[string]string{"INSTANTLY_API_KEY": "secret"},
 		Records: []protocol.Message{
 			adaptertest.Record("a@x.com", map[string]any{"email": "a@x.com", "first_name": "A"}),
@@ -143,81 +139,30 @@ func TestResolvesCampaignOncePerInvocation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if n := stub.CallsTo("/api/v2/campaigns"); n != 1 {
-		t.Errorf("campaign lookups = %d, want 1 for the whole batch", n)
+	if n := stub.CallsTo("/api/v2/campaigns"); n != 0 {
+		t.Errorf("campaign requests = %d in a send session, want 0", n)
 	}
 	if n := stub.CallsTo("POST https://instantly.test/api/v2/leads"); n != 3 {
 		t.Errorf("lead creates = %d, want 3", n)
 	}
 }
 
-// TestResolvesCampaignOncePerProcess: the worker pool opens several adapter
-// sessions per run, but the name resolves once (SPEC §10.6) — found by
-// campaign zero's first armed run, which resolved once per session.
-func TestResolvesCampaignOncePerProcess(t *testing.T) {
-	ResetCampaignCache()
-	stub := &adaptertest.Stub{Routes: routes(t)}
-	for i := 0; i < 3; i++ { // three sessions, as three worker chunks would be
+// TestCampaignNameIsRefused is the safety case ADR-062 adds: a display name
+// is not a destination, so the adapter refuses it before anything is sent.
+func TestCampaignNameIsRefused(t *testing.T) {
+	for _, name := range []string{"Q3 VP Marketing", strings.ToUpper(campaignID)} {
+		stub := &adaptertest.Stub{Routes: routes(t)}
 		_, err := adaptertest.Run(t, &Adapter{HTTP: stub}, adaptertest.Input{
-			Config:  map[string]any{"campaign": "Q3 VP Marketing", "base_url": "https://instantly.test"},
+			Config:  map[string]any{"campaign": name, "base_url": "https://instantly.test"},
 			Env:     map[string]string{"INSTANTLY_API_KEY": "secret"},
-			Records: lead("a@x.com", map[string]any{"email": "a@x.com"}),
+			Records: lead("a@x.com", map[string]any{"email": "a@x.com", "first_name": "A"}),
 		})
-		if err != nil {
-			t.Fatalf("Run %d: %v", i, err)
+		if err == nil || !strings.Contains(err.Error(), "campaign's id") {
+			t.Errorf("campaign %q: error = %v, want one naming the campaign's id", name, err)
 		}
-	}
-	if n := stub.CallsTo("/api/v2/campaigns"); n != 1 {
-		t.Errorf("campaign lookups = %d across 3 sessions, want 1", n)
-	}
-}
-
-func TestCampaignIDPassesThroughWithoutALookup(t *testing.T) {
-	stub := &adaptertest.Stub{Routes: routes(t)}
-	_, err := adaptertest.Run(t, &Adapter{HTTP: stub}, adaptertest.Input{
-		Config:  map[string]any{"campaign": campaignID, "base_url": "https://instantly.test"},
-		Env:     map[string]string{"INSTANTLY_API_KEY": "secret"},
-		Records: lead("a@x.com", map[string]any{"email": "a@x.com", "first_name": "A"}),
-	})
-	if err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-	if n := stub.CallsTo("/api/v2/campaigns"); n != 0 {
-		t.Errorf("campaign lookups = %d, want 0 when an id was given", n)
-	}
-}
-
-// TestUnknownCampaignStopsBeforeDelivering is the important safety case: never
-// invent a campaign, never deliver into the wrong one.
-func TestUnknownCampaignStopsBeforeDelivering(t *testing.T) {
-	ResetCampaignCache()
-	stub := &adaptertest.Stub{Routes: routes(t)}
-	_, err := adaptertest.Run(t, &Adapter{HTTP: stub}, adaptertest.Input{
-		Config:  map[string]any{"campaign": "Campaign That Does Not Exist", "base_url": "https://instantly.test"},
-		Env:     map[string]string{"INSTANTLY_API_KEY": "secret"},
-		Records: lead("a@x.com", map[string]any{"email": "a@x.com", "first_name": "A"}),
-	})
-	if err == nil {
-		t.Fatal("want an error for an unknown campaign")
-	}
-	if !strings.Contains(err.Error(), "no campaign named") {
-		t.Errorf("error = %v", err)
-	}
-	if n := stub.CallsTo("/api/v2/leads"); n != 0 {
-		t.Errorf("lead calls = %d, want 0 — nothing may be delivered before the campaign resolves", n)
-	}
-}
-
-func TestCampaignMatchIsCaseInsensitive(t *testing.T) {
-	ResetCampaignCache()
-	stub := &adaptertest.Stub{Routes: routes(t)}
-	_, err := adaptertest.Run(t, &Adapter{HTTP: stub}, adaptertest.Input{
-		Config:  map[string]any{"campaign": "q3 vp marketing", "base_url": "https://instantly.test"},
-		Env:     map[string]string{"INSTANTLY_API_KEY": "secret"},
-		Records: lead("a@x.com", map[string]any{"email": "a@x.com", "first_name": "A"}),
-	})
-	if err != nil {
-		t.Fatalf("Run: %v", err)
+		if len(stub.Calls) != 0 {
+			t.Errorf("campaign %q: %d requests, want 0", name, len(stub.Calls))
+		}
 	}
 }
 
@@ -241,7 +186,7 @@ func TestErrorsAreClassified(t *testing.T) {
 	}
 
 	_, err = adaptertest.Run(t, &Adapter{HTTP: &adaptertest.Stub{Routes: routes(t)}}, adaptertest.Input{
-		Config: map[string]any{"campaign": "x"},
+		Config: map[string]any{"campaign": campaignID},
 	})
 	if err == nil {
 		t.Fatal("want an error without INSTANTLY_API_KEY")
@@ -255,7 +200,10 @@ func TestConfigRequiresACampaign(t *testing.T) {
 	if _, err := parseConfig(map[string]any{}); err == nil {
 		t.Fatal("want an error without a campaign")
 	}
-	cfg, err := parseConfig(map[string]any{"campaign": "x",
+	if _, err := parseConfig(map[string]any{"campaign": "Q3 VP Marketing"}); err == nil {
+		t.Error("want an error for a campaign name")
+	}
+	cfg, err := parseConfig(map[string]any{"campaign": campaignID,
 		"variables": map[string]any{"ps_line": "ps_line", "personalization": "first_line"}})
 	if err != nil {
 		t.Fatalf("parseConfig: %v", err)
@@ -266,13 +214,13 @@ func TestConfigRequiresACampaign(t *testing.T) {
 	if !cfg.SkipIfInCampaign {
 		t.Error("skip_if_in_campaign should default to true")
 	}
-	if _, err := parseConfig(map[string]any{"campaign": "x",
+	if _, err := parseConfig(map[string]any{"campaign": campaignID,
 		"variables": map[string]any{"ps_line": ""}}); err == nil {
 		t.Error("want an error for a variables: entry with no field name")
 	}
 }
 
-func TestLooksLikeID(t *testing.T) {
+func TestIsCampaignID(t *testing.T) {
 	for _, tc := range []struct {
 		in   string
 		want bool
@@ -280,21 +228,26 @@ func TestLooksLikeID(t *testing.T) {
 		{campaignID, true},
 		{"Q3 VP Marketing", false},
 		{"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeez", false},
+		{"AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE", false},
 		{"", false},
 	} {
-		if got := looksLikeID(tc.in); got != tc.want {
-			t.Errorf("looksLikeID(%q) = %v, want %v", tc.in, got, tc.want)
+		if got := IsCampaignID(tc.in); got != tc.want {
+			t.Errorf("IsCampaignID(%q) = %v, want %v", tc.in, got, tc.want)
 		}
 	}
 }
 
 func TestManifestContract(t *testing.T) {
-	resolved, err := adapters.Resolve(ID)
+	m, err := adapters.ParseManifest(Manifest())
 	if err != nil {
-		t.Fatalf("Resolve: %v", err)
+		t.Fatalf("ParseManifest: %v", err)
 	}
+	resolved := struct{ Manifest *adapters.Manifest }{m}
 	if resolved.Manifest.Role != adapters.RoleDeliver {
 		t.Errorf("role = %q", resolved.Manifest.Role)
+	}
+	if resolved.Manifest.Version != 2 {
+		t.Errorf("version = %d, want 2 (a campaign name is now refused, ADR-062)", resolved.Manifest.Version)
 	}
 	// Dynamic needs with an email floor (SPEC §6, §10.6): everything else the
 	// adapter sends derives from the step's variables: mapping.
@@ -311,7 +264,6 @@ func TestManifestContract(t *testing.T) {
 // stored, contradicted when a stored value disagrees, inconclusive when the
 // re-read fails or the shape carries no readable value.
 func TestAttestsThreeWays(t *testing.T) {
-	ResetCampaignCache()
 	input := func() adaptertest.Input {
 		return adaptertest.Input{
 			Config: map[string]any{
@@ -404,11 +356,11 @@ func TestAttestsThreeWays(t *testing.T) {
 }
 
 func TestManifestDeclaresAttestation(t *testing.T) {
-	resolved, err := adapters.Resolve(ID)
+	m, err := adapters.ParseManifest(Manifest())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !resolved.Manifest.Attests {
+	if !m.Attests {
 		t.Error("instantly/add-to-campaign is the first attesting adapter (ADR-036)")
 	}
 }
@@ -419,7 +371,6 @@ func TestManifestDeclaresAttestation(t *testing.T) {
 // and every variant carrying it; blocked, naming the check, otherwise;
 // inconclusive when the campaign cannot be read or the shape is unreadable.
 func TestPreflightChecksTheLiveCampaign(t *testing.T) {
-	ResetCampaignCache()
 	run := func(r map[string]adaptertest.Response, variables map[string]any) (*adaptertest.Stub, []protocol.Message) {
 		t.Helper()
 		stub := &adaptertest.Stub{Routes: r}
@@ -463,6 +414,10 @@ func TestPreflightChecksTheLiveCampaign(t *testing.T) {
 	}
 	if len(got[0].Checks) < 6 {
 		t.Errorf("checks = %+v, want status, step count, and one per merge variable", got[0].Checks)
+	}
+	// The receipt names what the id points at (ADR-062).
+	if want := `campaign "Q3 VP Marketing" (` + campaignID + `)`; got[0].Destination != want {
+		t.Errorf("destination = %q, want %q", got[0].Destination, want)
 	}
 	for _, m := range msgs {
 		if m.Type == protocol.TypeRecord || m.Type == protocol.TypeAttest || m.Type == protocol.TypeCost {

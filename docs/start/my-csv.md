@@ -183,18 +183,19 @@ steps:
     source: sourced 3 records
     fit: 3 in, 0 out, 3 cached, 0 filtered, 0 failed
     lines: 3 in, 0 out, 3 cached, 0 filtered, 0 failed
-    out: 3 in, 0 out, 3 cached, 0 filtered, 0 failed
+    out: 3 in, 0 out, 0 cached, 0 filtered, 0 failed, 3 already delivered
 
     run 01M3D1R9N6HMB6TF7K2NNCERN3 — done
     step    adapter      in  out  empty  cached  filtered  failed  cost  avoided
     source  csv/source   0   3    -      0       -         -       $0    -
     fit     ai/filter    3   0    -      3       -         -       $0    ?
     lines   ai/compose   3   0    -      3       -         -       $0    ?
-    out     csv/deliver  3   0    -      3       -         -       $0    $0.0000
-    total: $0 spent, $0.0000+? avoided via cache (9 records skipped)
+    out     csv/deliver  3   0    -      0       -         -       $0    -
+    out: 3 already delivered
+    total: $0 spent, $0.0000+? avoided via cache (6 records skipped)
     ```
 
-    On both AI rows, `cached` matches `in` and the cost is $0, because every judgment is in [the ledger](/concepts/ledger). The `?` under `avoided` is the model's metered price, which the receipt can't restate; the first receipt already told you it was $0.0078. The `out` row writes nothing twice.
+    On both AI rows, `cached` matches `in` and the cost is $0, because every judgment is in [the ledger](/concepts/ledger). The `?` under `avoided` is the model's metered price, which the receipt can't restate; the first receipt already told you it was $0.0078. The `out` row writes nothing, and `out: 3 already delivered` counts the three rows already in `out.csv`.
 
 ## Run your file
 

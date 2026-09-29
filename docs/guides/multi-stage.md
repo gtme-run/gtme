@@ -267,11 +267,12 @@ Build both stages and run them in order:
     source    csv/source     0   8    -      0       -         -       $0    -
     score     demo/enrich    8   0    -      8       -         -       $0    $0.0800
     worth-it  sql/filter     8   5    -      0       3         -       $0    -
-    handoff   group/deliver  5   0    -      5       -         -       $0    ?
+    handoff   group/deliver  5   0    -      0       -         -       $0    -
+    handoff: 5 already delivered
     ...
     ```
 
-    All 5 handoffs count as cached, because gtme already recorded each one as a delivery and won't make it twice ([idempotency](/concepts/runs-and-receipts)), so Erin stays out. The `?` means the handoff has no price to avoid. Stage 1 has no send in it, so re-running it can't contact anyone.
+    All 5 handoffs count as already delivered, because gtme already recorded each one as a delivery and won't make it twice ([idempotency](/concepts/runs-and-receipts)), so Erin stays out. Stage 1 has no send in it, so re-running it can't contact anyone.
 
 1. See why the send lives in its own file. Copy `qualify.yaml` to `combined.yaml`, change its `name:` to `combined`, append an `out` step like the one in `send.yaml`, and plan it:
 
@@ -340,12 +341,14 @@ Build both stages and run them in order:
     The output includes:
 
     ```
-    total: $0.0100 (estimated) spent, $0.0800+? avoided via cache (13 records skipped)
+    handoff: 5 already delivered
+    handoff: 1 record(s) handed off to group "qualified"
+    total: $0.0100 (estimated) spent, $0.0800 avoided via cache (8 records skipped)
     ...
     source: sourced 1 members of group "qualified" (1 of 5 not yet worked; limit 2, oldest first)
     ```
 
-    Stage 1 paid to score Dana only and handed her off. `13 records skipped` counts every skip across both steps, and the `+?` means some of them have no price. Stage 2 served Dana and nobody else. If stage 1 runs every morning without you, stage 2's dry-run is your review: read it, remove anyone you reject from `qualified`, then arm stage 2. `gtme plan send.yaml` prints the same count before a run, as `5 member(s), 1 not yet worked, sourcing 1`.
+    Stage 1 paid to score Dana only and handed her off. `8 records skipped` is the eight scores already in the ledger, and the five people already in `qualified` count as already delivered. Stage 2 served Dana and nobody else. If stage 1 runs every morning without you, stage 2's dry-run is your review: read it, remove anyone you reject from `qualified`, then arm stage 2. `gtme plan send.yaml` prints the same count before a run, as `5 member(s), 1 not yet worked, sourcing 1`.
 
 1. Save a second campaign as `webinar.yaml`, and run it:
 

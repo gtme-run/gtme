@@ -2773,6 +2773,75 @@ difference already lives.
 **Spec impact:** None. The e2e test provokes the runner-side failure with
 an adapter that adds a SQLite trigger refusing its own field's writes.
 
+### 2026-09-29 — M35 internals: destinations and Instantly's move (ADR-062, ADR-063)
+
+**Question:** How does an already-delivered skip leave the cached count
+without changing the event vocabulary, how does migration `0015` treat
+ADR-060's in-flight events, what does a plan error say for a campaign
+name, and what exactly does `gtme adapters add` accept for a process
+entry?
+**Choice:** (1) **Already delivered is a count bucket, not an event.**
+The skip stays `skipped_cache` with reason `already_delivered` or
+`unchanged`. The runner counts those reasons in `StepStat.AlreadyDelivered`
+(one predicate, `ledger.AlreadyDeliveredReason`), outside `CacheSkips`
+and the avoided total, and `StepEventCounts` buckets them the same way
+for `gtme runs RUN_ID`. A `group/deliver` handoff to a group that already
+holds the record uses the same reason, so it counts the same. The step
+line ends `N already delivered`, and both receipts print `STEP: N already
+delivered` under their table. (2) **Migration `0015` also backfills
+ADR-060's `dispatched` events.** Their detail carries the delivery's
+scope, and a later run matches on it to hold what a dead run left in
+flight, so an event written before the upgrade with scope `''` would
+never match again. An event names its step, so the url is exact, unlike
+a `deliveries` row, which keeps ADR-062's exactly-one-step rule. (3)
+**A config value that fails its property's `pattern` is refused with the
+property's description**, the way `refusedConfig` already names a
+dropped key, so a campaign name reads `config campaign "Q3 VP Marketing"
+is not accepted: The campaign's id, a lowercase UUID (in the campaign's
+URL in Instantly), never its name…` instead of a jsonschema pattern
+dump. The rule is generic: any manifest that constrains a key's shape
+gets the same message. (4) **The campaign id is lowercase only.**
+Instantly shows and returns lowercase ids, and one spelling per
+destination keeps the scope from forking on case. (5) **The destination
+rides PREFLIGHT and the preflight event.** The runner prints it on the
+live preflight line and on the receipt's, and stores it in the
+`preflight` step event's detail. When the campaign cannot be read, the
+adapter still names `campaign <id>`. (6) **`cmd/gtme-instantly` is the
+existing package run as a process.** It exits with the httpx error
+class's code (auth 3, rate limit 4), and `--manifest` prints the
+compiled-in manifest, from which the release writes `manifest.json`, so
+the pair cannot drift. The e2e harness builds it into a directory on
+`GTME_ADAPTER_PATH` the same way. (7) **A process archive holds exactly
+`manifest.json` and `run` at its root.** Any other member is refused, as
+is an archive over 128 MiB, a checksum mismatch, a manifest whose id is
+not the entry's, a `run` that is not executable, and a `demo/` id. A
+malformed archive exits 2 like a checksum mismatch, never as a network
+error an agent would retry. The install keeps `run` executable and is
+staged beside its destination, then renamed into place, so a failed add or
+update never leaves a half-written adapter; `.source.json` gains `kind`,
+`asset` and `release`, and its `sha256` is the archive's. The release
+builds with `CGO_ENABLED=0`, which §2 already required and the native
+linux/amd64 build did not enforce. (8) **`update` of a process
+entry moves to the release the index lists**, and refuses an `@ref`,
+because a process entry has no ref of its own to fetch. `search` prints
+`gtme adapters add <id>` for a process entry, and `gtme adapters` names
+its release. (9) **The index schema requires `sha256` only of a binding**
+and forbids `assets` and `release` on one; a process entry requires both
+and `tier: verified`. (10) **The generated adapter catalog drops
+Instantly's page**, since `docs/reference/adapters/` covers built-ins
+only, as it did for the entries M33 moved.
+**Why:** each keeps one account of a fact: one predicate for "already
+delivered", one scope per destination on every row and event that keys
+on it, one manifest per adapter build.
+**Spec impact:** None beyond ADR-062/063's reconciliation (v0.56). The
+receipt's `STEP: N already delivered` line under the table restates the
+step line's count. Still to do after this merges: the `gtme-bindings`
+index gains the Instantly process entry once a gtme release carries the
+archives (until then `gtme adapters add instantly/add-to-campaign`
+finds nothing), the site's catalog relabels Instantly, and the first live
+run of the installed adapter against a shell campaign is recorded in
+VALIDATION.md by hand.
+
 ### 2026-09-29 — M34 internals: crash and resume (ADR-060, ADR-061)
 
 **Question:** How are the records a crash left in flight found and held,

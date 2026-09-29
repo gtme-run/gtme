@@ -8,13 +8,14 @@ binding gtme does not ship, and each adapter's contract lives in its
 manifest or binding —
 this page is the human-readable tour, not a second source of truth.
 
-The binary carries no vendor but Instantly. Every other vendor adapter is
-a **registry** entry: a binding in
-[gtme-bindings](https://github.com/gtme-run/gtme-bindings), installed
-before its first use, several at a time:
+The binary carries no vendor. Every vendor adapter is a **registry**
+entry, installed before its first use, several at a time: a binding in
+[gtme-bindings](https://github.com/gtme-run/gtme-bindings), or, for
+Instantly, a prebuilt process adapter the registry pins per platform
+(ADR-063):
 
 ```sh
-gtme adapters add apollo/search apollo/enrich harvest/profile harvest/recent-posts attio/assert
+gtme adapters add apollo/search apollo/enrich harvest/profile harvest/recent-posts attio/assert instantly/add-to-campaign
 ```
 
 `gtme plan` on a pipeline that names one you have not installed fails and
@@ -46,7 +47,7 @@ Three kinds appear below:
 | `ai/filter` | filter | process (built-in) | LLM judgment → pass/fail verdicts with reasons |
 | `sql/filter` | filter | runner-owned | deterministic verdicts from a SQL predicate |
 | `ai/compose` | compose | process (built-in) | LLM writing → `first_line`, `ps_line`, or whatever the step's `provides:` declares |
-| `instantly/add-to-campaign` | deliver | process (built-in) | add a lead to an Instantly campaign |
+| `instantly/add-to-campaign` | deliver | **process** (registry) | add a lead to an Instantly campaign |
 | `attio/assert` | deliver | **binding** (registry) | idempotent upsert of a person into Attio |
 | `group/deliver` | deliver | runner-owned | hand records to a group — the next stage's source (ADR-032) |
 | `http/deliver` | deliver | engine-inline | POST resolved variables to any URL |
@@ -523,9 +524,14 @@ record advances, `accepted`, and the receipt names it). The receipt and
 
 ### `instantly/add-to-campaign`
 
-Adds a lead to an Instantly campaign. Accepts a campaign *name* (resolved
-to an id once per run — a deliberate process-adapter extra) or the id
-itself. `variables:` targets matching Instantly's first-class lead fields
+Adds a lead to an Instantly campaign, named by its id (a lowercase UUID,
+in the campaign's URL in Instantly), never its name: the id is the
+delivery's dedupe scope, so a campaign renamed in Instantly stays the same
+destination (ADR-062). A name is a plan error. Preflight prints the
+campaign's current name beside the id. A Go process adapter shipped
+outside the binary: `gtme adapters add instantly/add-to-campaign` installs
+the build for your platform, pinned by checksum to a gtme release
+(ADR-063). `variables:` targets matching Instantly's first-class lead fields
 (`first_name`, `last_name`, `company_name`, `personalization`) map into
 the lead body; anything else becomes a custom variable. Preflights: reads
 the campaign (`GET /api/v2/campaigns/{id}`) and checks status, step count,

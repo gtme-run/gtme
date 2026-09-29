@@ -49,6 +49,7 @@ writes, set the campaign id, then:
 
 ```sh
 gtme secret set ANTHROPIC_API_KEY
+gtme adapters add instantly/add-to-campaign
 gtme secret set INSTANTLY_API_KEY
 gtme plan trial-welcome.yaml            # $0
 gtme run  trial-welcome.yaml --dry-run  # the first real batch, held: read it

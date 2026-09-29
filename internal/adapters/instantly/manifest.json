@@ -1,6 +1,6 @@
 {
   "id": "instantly/add-to-campaign",
-  "version": 1,
+  "version": 2,
   "role": "deliver",
   "entity_type": "person",
   "needs": {
@@ -24,7 +24,8 @@
     "properties": {
       "campaign": {
         "type": "string",
-        "description": "Campaign name (resolved to an id once per run) or the campaign id itself"
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "description": "The campaign's id, a lowercase UUID (in the campaign's URL in Instantly), never its name: the id is the dedupe scope, so a renamed campaign stays the same destination (ADR-062). Preflight prints the name."
       },
       "skip_if_in_campaign": {
         "type": "boolean",

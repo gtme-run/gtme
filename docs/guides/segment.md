@@ -253,10 +253,11 @@ The receipt ends with `total: $0.0300 (estimated) spent`.
     The receipt ends:
 
     ```
-    total: $0.0200 (estimated) spent, $0.0300 avoided via cache (4 records skipped)
+    out: 1 already delivered
+    total: $0.0200 (estimated) spent, $0.0300 avoided via cache (3 records skipped)
     ```
 
-    The run paid to score Dana and Ivan only. The 4 skipped are the three scores already in the ledger and Jane's delivery to `out.csv`. Dana cleared 70 and went to `out.csv`. Ivan didn't.
+    The run paid to score Dana and Ivan only. The 3 skipped are the scores already in the ledger, and the one already delivered is Jane, who is in `out.csv`. Dana cleared 70 and went to `out.csv`. Ivan didn't.
 
 1. Read the segment and the group again:
 
@@ -305,11 +306,12 @@ The receipt ends with `total: $0.0300 (estimated) spent`.
     ...
     step    adapter            in  out  empty  cached  filtered  failed  cost  avoided
     source  group:second-look  0   3    -      0       -         -       $0    -
-    out     csv/deliver        3   1    -      2       -         -       $0    $0.0000
-    total: $0 spent, $0.0000 avoided via cache (2 records skipped)
+    out     csv/deliver        3   1    -      0       -         -       $0    -
+    out: 2 already delivered
+    total: $0 spent
     ```
 
-    The source served all three members. At `out`, Bob and Carol were already delivered, so they count as cached, and only Ivan was written. For a group you top up every week, `once: true` on the source serves only members this pipeline hasn't finished (the decision record, [ADR-052](/decisions#adr-052)).
+    The source served all three members. At `out`, Bob and Carol were already delivered, so they count as `already delivered`, and only Ivan was written. For a group you top up every week, `once: true` on the source serves only members this pipeline hasn't finished (the decision record, [ADR-052](/decisions#adr-052)).
 
 ## What you have now
 

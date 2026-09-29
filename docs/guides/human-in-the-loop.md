@@ -345,11 +345,12 @@ Run it again and nobody is asked, and nothing is delivered twice. A record whose
 ...
 approve  human/filter   3   0    -      3       2         -       $0    ?
 opener   human/compose  1   0    -      1       -         -       $0    ?
-out      csv/deliver    1   0    -      1       -         -       $0    $0.0000
+out      csv/deliver    1   0    -      0       -         -       $0    -
+out: 1 already delivered
 ...
 ```
 
-The `?` means a person's answer has no price to count as saved. Hand `approvals.yaml` to your agent as the pattern for any step that needs a person's sign-off; [ADR-049](/decisions#adr-049) and [SPEC §8](/spec#8-cli-surface--decided) have the rules.
+`out: 1 already delivered` is Jane, already in `approved.csv`. The `?` means a person's answer has no price to count as saved. Hand `approvals.yaml` to your agent as the pattern for any step that needs a person's sign-off; [ADR-049](/decisions#adr-049) and [SPEC §8](/spec#8-cli-surface--decided) have the rules.
 
 ## Next
 

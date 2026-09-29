@@ -62,7 +62,8 @@ var httpDeliverManifest = []byte(`{
       "keep_payloads": {"type": "boolean"},
       "entity_type": {"type": "string"}
     }
-  }
+  },
+  "idempotency_scope": "url"
 }`)
 
 func init() {
