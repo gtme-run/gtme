@@ -186,15 +186,21 @@ func PrintReceipt(w io.Writer, res *Result) {
 			}
 			names = append(names, mark+" "+c.Name)
 		}
+		// The destination names what a step configured by id delivers to
+		// (SPEC §8, ADR-062).
+		dest := ""
+		if s.PreflightDestination != "" {
+			dest = s.PreflightDestination + " — "
+		}
 		switch s.Preflight {
 		case "ok":
-			fmt.Fprintf(w, "%s: preflight ok — %d check(s)", s.ID, len(s.PreflightChecks))
+			fmt.Fprintf(w, "%s: preflight ok — %s%d check(s)", s.ID, dest, len(s.PreflightChecks))
 		case "blocked":
-			fmt.Fprintf(w, "%s: preflight BLOCKED — %s", s.ID, s.PreflightReason)
+			fmt.Fprintf(w, "%s: preflight BLOCKED — %s%s", s.ID, dest, s.PreflightReason)
 		case "simulated":
 			fmt.Fprintf(w, "%s: preflight skipped — %s", s.ID, s.PreflightReason)
 		default:
-			fmt.Fprintf(w, "%s: preflight inconclusive — %s (proceeded)", s.ID, s.PreflightReason)
+			fmt.Fprintf(w, "%s: preflight inconclusive — %s%s (proceeded)", s.ID, dest, s.PreflightReason)
 		}
 		if len(names) > 0 {
 			fmt.Fprintf(w, " (%s)", strings.Join(names, ", "))

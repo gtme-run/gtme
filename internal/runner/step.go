@@ -246,6 +246,7 @@ func (r *runner) preflight(ctx context.Context, st *planner.Step) error {
 
 	status, reason := protocol.PreflightInconclusive, "the adapter reported no preflight"
 	var checks []protocol.Check
+	var destination string
 	for {
 		m, err := sess.Next()
 		if errors.Is(err, io.EOF) {
@@ -260,7 +261,7 @@ func (r *runner) preflight(ctx context.Context, st *planner.Step) error {
 		}
 		switch m.Type {
 		case protocol.TypePreflight:
-			status, reason, checks = m.Status, m.Reason, m.Checks
+			status, reason, checks, destination = m.Status, m.Reason, m.Checks, m.Destination
 		case protocol.TypeLog:
 			r.forwardLog(st, m)
 		case protocol.TypeRecord, protocol.TypeVerdict, protocol.TypeAttest:
@@ -280,8 +281,14 @@ func (r *runner) preflight(ctx context.Context, st *planner.Step) error {
 		reason = fmt.Sprintf("unrecognised preflight status %q", status)
 		status = protocol.PreflightInconclusive
 	}
-	r.bump(st, func(s *StepStat) { s.Preflight, s.PreflightReason, s.PreflightChecks = status, reason, checks })
+	r.bump(st, func(s *StepStat) {
+		s.Preflight, s.PreflightReason, s.PreflightChecks = status, reason, checks
+		s.PreflightDestination = destination
+	})
 	detail := map[string]any{"status": status, "reason": reason, "checks": checks}
+	if destination != "" {
+		detail["destination"] = destination
+	}
 	if err := r.l.LogStepEvent(ctx, r.prov(st.ID), "", "preflight", detail); err != nil {
 		return err
 	}

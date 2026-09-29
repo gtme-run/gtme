@@ -160,6 +160,9 @@ type StepStat struct {
 	Preflight       string
 	PreflightReason string
 	PreflightChecks []protocol.Check
+	// PreflightDestination is the adapter's display label for the target
+	// (SPEC §5, ADR-062), printed on the preflight line; "" when not given.
+	PreflightDestination string
 }
 
 // Attestation is one inconclusive (or otherwise noteworthy) attestation.

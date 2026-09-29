@@ -83,6 +83,10 @@ type Message struct {
 
 	// PREFLIGHT (adapter → runner): Status (shared with ATTEST) and Checks.
 	Checks []Check `json:"checks,omitempty"`
+	// Destination (PREFLIGHT, optional; SPEC §5, ADR-062) is a display label
+	// for what the step delivers to — a campaign's name and id. The receipt
+	// prints it; nothing keys on it.
+	Destination string `json:"destination,omitempty"`
 
 	// PENDING (adapter → runner): the provider-opaque handle for work the
 	// session could not answer yet (SPEC §5, ADR-038). Detail is shared
@@ -222,6 +226,14 @@ func Attest(key Key, status, reason string) Message {
 // Preflight builds a PREFLIGHT message (SPEC §5, ADR-040).
 func Preflight(status, reason string, checks []Check) Message {
 	return Message{Type: TypePreflight, Status: status, Reason: reason, Checks: checks}
+}
+
+// PreflightTo builds a PREFLIGHT message naming the destination it checked
+// (SPEC §5, ADR-062).
+func PreflightTo(destination, status, reason string, checks []Check) Message {
+	m := Preflight(status, reason, checks)
+	m.Destination = destination
+	return m
 }
 
 // Pending builds a PENDING message (SPEC §5, ADR-038).
