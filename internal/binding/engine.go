@@ -378,6 +378,9 @@ func (e *Engine) buildRequest(tctx tmplContext, p adapters.Ports, page, offset i
 	if b.Retry != nil && b.Retry.MaxAttempts > 0 {
 		req.Attempts = b.Retry.MaxAttempts
 	}
+	if len(b.Errors) > 0 {
+		req.Retryable = e.retryable
+	}
 	for k, v := range b.Request.Headers {
 		if s := tctx.renderString(v); s != "" {
 			req.Headers[k] = s
@@ -469,29 +472,68 @@ func (e *Engine) do(ctx context.Context, doer httpx.Doer, req httpx.Request, out
 	return httpx.JSON(ctx, doer, req, out)
 }
 
-// mapError applies primitive 5 (error → verdict). Statuses the map does not
-// name keep the engine default: the classified error fails the run, which the
-// runner turns into failed records and the right exit code (SPEC §8).
+// mapError applies primitive 5 (error → verdict). skip and fail_record warn
+// and move on; fail_run stops the run with the rule's reason; retry was
+// already honoured inside httpx (see retryable), so reaching here means the
+// attempts ran out, and the run stops naming the reason. Statuses the map
+// does not name keep the engine default: the classified error fails the run,
+// which the runner turns into failed records and the right exit code
+// (SPEC §8). Every stop wraps the classified error, so its exit-code class
+// survives.
 func (e *Engine) mapError(w *protocol.Writer, key *protocol.Key, err error) error {
 	var herr *httpx.Error
-	if errors.As(err, &herr) && herr.Status != 0 {
-		rule, ok := e.errorRule(herr.Status)
-		if ok {
-			switch rule.Verdict {
-			case "skip", "fail_record":
-				reason := rule.Reason
-				if reason == "" {
-					reason = err.Error()
-				}
-				who := ""
-				if key != nil {
-					who = " for " + key.IdentityKey
-				}
-				return w.Write(protocol.Log("warn", e.B.ID+": "+rule.Verdict+who+": "+reason))
-			}
+	if !errors.As(err, &herr) || herr.Status == 0 {
+		return err
+	}
+	rule, ok := e.errorRule(herr.Status)
+	if !ok {
+		return err
+	}
+	reason := rule.Reason
+	switch rule.Verdict {
+	case "skip", "fail_record":
+		if reason == "" {
+			reason = err.Error()
 		}
+		who := ""
+		if key != nil {
+			who = " for " + key.IdentityKey
+		}
+		return w.Write(protocol.Log("warn", e.B.ID+": "+rule.Verdict+who+": "+reason))
+	case "fail_run":
+		if reason == "" {
+			return err
+		}
+		return fmt.Errorf("%s: %s: %w", e.B.ID, reason, err)
+	case "retry":
+		if reason == "" {
+			reason = "still failing"
+		}
+		return fmt.Errorf("%s: %s: gave up after %d attempt(s): %w", e.B.ID, reason, e.attempts(), err)
 	}
 	return err
+}
+
+// retryable is httpx's retry decision for this binding: a status the errors:
+// map sends to retry is retried under the binding's retry policy even when
+// the engine would not retry it by default; every other status keeps the
+// default classification (429, network failures and 5xx retry).
+func (e *Engine) retryable(herr *httpx.Error) bool {
+	if herr.Status != 0 {
+		if rule, ok := e.errorRule(herr.Status); ok && rule.Verdict == "retry" {
+			return true
+		}
+	}
+	return herr.Retryable()
+}
+
+// attempts is how many tries a request gets: the binding's max_attempts, or
+// httpx's default.
+func (e *Engine) attempts() int {
+	if e.B.Retry != nil && e.B.Retry.MaxAttempts > 0 {
+		return e.B.Retry.MaxAttempts
+	}
+	return httpx.DefaultAttempts
 }
 
 func (e *Engine) errorRule(status int) (ErrorRule, bool) {

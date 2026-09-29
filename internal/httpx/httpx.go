@@ -26,6 +26,9 @@ type Doer interface {
 // to zero so classified-error cases do not sleep.
 var RetryBase = time.Second
 
+// DefaultAttempts bounds tries, the first included, when a Request sets none.
+const DefaultAttempts = 3
+
 // DefaultClient is a sensible client for provider APIs.
 func DefaultClient() *http.Client {
 	return &http.Client{Timeout: 45 * time.Second}
@@ -117,6 +120,10 @@ type Request struct {
 	Provider string
 	// Attempts bounds tries including the first (default 3).
 	Attempts int
+	// Retryable, when set, decides whether a classified failure is worth
+	// another attempt, in place of Error.Retryable. A binding's errors: map
+	// uses it to make a status retryable (verdict retry, SPEC §10a).
+	Retryable func(*Error) bool
 }
 
 // JSON performs the request and decodes the response body into out. It retries
@@ -127,7 +134,7 @@ func JSON(ctx context.Context, client Doer, r Request, out any) error {
 	}
 	attempts := r.Attempts
 	if attempts <= 0 {
-		attempts = 3
+		attempts = DefaultAttempts
 	}
 
 	var last error
@@ -147,7 +154,14 @@ func JSON(ctx context.Context, client Doer, r Request, out any) error {
 		}
 		last = err
 		var perr *Error
-		if !errors.As(err, &perr) || !perr.Retryable() {
+		if !errors.As(err, &perr) {
+			return err
+		}
+		retry := perr.Retryable()
+		if r.Retryable != nil {
+			retry = r.Retryable(perr)
+		}
+		if !retry {
 			return err
 		}
 	}

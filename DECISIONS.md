@@ -2780,6 +2780,33 @@ Reading an unambiguous answer as the array it denotes is decoding, the
 same kind of choice as stripping a markdown fence, and the system
 prompt's wording is not a contract.
 
+### 2026-09-29 — Binding error verdicts: what fail_run and retry do (#162)
+
+**Question:** `spec/binding-schema.json` accepts four `errors:` verdicts,
+but the engine acted only on `skip` and `fail_record`; a `fail_run` or
+`retry` rule fell through to the default, and its `reason` never
+printed. SPEC §10a names "error→verdict mapping" without spelling out
+what each verdict does. What should the two ignored ones do?
+**Choice:** `fail_run` stops the run as an unnamed status already does,
+but the error now leads with the binding id and the rule's `reason`,
+wrapping the classified error so its exit-code class (§8: 3 auth,
+4 rate limit, 5 network) is unchanged. `retry` makes the status
+retryable inside the HTTP layer under the binding's `retry.max_attempts`
+(default 3) and backoff, even a status the engine would not retry by
+default (a 409, a 404); when the attempts run out, the run stops with
+the `reason` and the attempt count, again wrapping the classified error.
+Statuses mapped to `skip`, `fail_record` or `fail_run` keep the default
+retry classification (429, network failures and 5xx are still retried
+before the verdict applies). `httpx.Request` grows a `Retryable` hook
+for this; nothing else in httpx changes.
+**Why:** the issue offered "honour all four or refuse the two at load";
+both verdicts have one obvious meaning, and honouring them keeps every
+binding already written with them valid. Keeping the exit-code class
+means `fail_run` adds a reason without inventing a new outcome, so no
+§8 text moves.
+**Spec impact:** None. The schema already lists the verdicts; this is
+the engine conforming to it.
+
 ### 2026-09-29 — M36 internals: the receipt from the ledger, crashed sends, settling (ADR-064)
 
 **Question:** How does `gtme runs RUN_ID` stay equal to the live receipt,
