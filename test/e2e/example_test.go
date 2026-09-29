@@ -48,7 +48,7 @@ func TestSpecExamplePipelinePlans(t *testing.T) {
 		"4. linkedin [enrich] — harvest/profile@2",
 		"5. posts [enrich] — harvest/recent-posts@1",
 		"6. personalize [compose] — ai/compose@1",
-		"7. send [deliver] — instantly/add-to-campaign@1",
+		"7. send [deliver] — instantly/add-to-campaign@2",
 		"send surface: 1 deliver step(s)",
 		"send → instantly/add-to-campaign (touch scope: apollo-to-instantly)",
 		"requires:  any of linkedin_url | linkedin_internal_url | linkedin_sales_nav_url",

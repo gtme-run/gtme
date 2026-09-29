@@ -8,7 +8,7 @@
 #   gtme adapters add apollo/search apollo/enrich
 #
 # With real keys set (gtme secret set APOLLO_API_KEY / ANTHROPIC_API_KEY /
-# INSTANTLY_API_KEY) and the Instantly campaign named below existing, the
+# INSTANTLY_API_KEY) and the Instantly campaign below existing (its id), the
 # same file climbs the rest of the ladder:
 #   gtme plan examples/demo.yaml          # contracts + cost, still $0
 #   gtme run  examples/demo.yaml --dry-run  # everything but delivery
@@ -45,7 +45,7 @@ steps:
 
   - id: send                # a deliver adapter is an ordinary step (ADR-031)
     use: instantly/add-to-campaign
-    with: { campaign: "Q3 VP Marketing" }   # resolved to its id once per run; must exist
+    with: { campaign: 0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b }   # the campaign id, from its URL in Instantly; must exist
     variables:
       first_name: first_name
       first_line: first_line

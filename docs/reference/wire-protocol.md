@@ -193,6 +193,7 @@ Schema: `spec/schemas/msg-preflight.schema.json`.
 | `checks[].ok` | boolean | yes | — |
 | `checks[].detail` | string | no | — |
 | `reason` | string | no | Why blocked or inconclusive. Omitted when empty. |
+| `destination` | string | no | ADR-062, optional: a display label for what the step delivers to (a campaign's name and id), printed on the receipt's preflight line. Nothing keys on it; the dedupe scope is the config's stable identifier. |
 
 ## COST (adapter → runner)
 

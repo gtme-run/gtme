@@ -523,9 +523,11 @@ record advances, `accepted`, and the receipt names it). The receipt and
 
 ### `instantly/add-to-campaign`
 
-Adds a lead to an Instantly campaign. Accepts a campaign *name* (resolved
-to an id once per run — a deliberate process-adapter extra) or the id
-itself. `variables:` targets matching Instantly's first-class lead fields
+Adds a lead to an Instantly campaign, named by its id (a lowercase UUID,
+in the campaign's URL in Instantly), never its name: the id is the
+delivery's dedupe scope, so a campaign renamed in Instantly stays the same
+destination (ADR-062). A name is a plan error. Preflight prints the
+campaign's current name beside the id. `variables:` targets matching Instantly's first-class lead fields
 (`first_name`, `last_name`, `company_name`, `personalization`) map into
 the lead body; anything else becomes a custom variable. Preflights: reads
 the campaign (`GET /api/v2/campaigns/{id}`) and checks status, step count,

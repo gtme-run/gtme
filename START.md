@@ -163,8 +163,9 @@ the filter judges, Apollo reveals only past the filter, the compose
 writes, and an Instantly campaign receives. Every rung of the ladder
 before the last spends nothing on delivery; the last is armed by a human.
 
-The Instantly campaign named in `demo.yaml` (`with: { campaign: ... }`)
-must exist; edit the name to one of yours. The dry run reads it and
+The Instantly campaign in `demo.yaml` (`with: { campaign: ... }`) must
+exist; replace the id with one of yours, copied from the campaign's URL in
+Instantly. The dry run reads it and
 reports whether it is fit to send to — active, with a sequence that
 references every variable the step sends — before a single record moves.
 

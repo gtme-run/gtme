@@ -283,7 +283,7 @@ steps:
   - id: send
     use: instantly/add-to-campaign
     with:
-      campaign: "Q3 VP Marketing"
+      campaign: 0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b
     variables:
       first_name: first_name
       personalization: first_line
@@ -332,7 +332,7 @@ steps:
   - id: send
     use: instantly/add-to-campaign
     with:
-      campaign: "Q3 reviewed"
+      campaign: 0198a0b1-5f4e-4d3c-8b2a-7c6d5e4f3a21
     variables:
       first_name: full_name
       personalization: review.first_line
@@ -365,7 +365,7 @@ steps:
   - id: send
     use: instantly/add-to-campaign
     with:
-      campaign: "CSV import"
+      campaign: 0198a0b1-9a8b-4c7d-8e6f-5a4b3c2d1e0f
     variables:
       first_name: first_name
       personalization: first_line

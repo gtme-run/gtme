@@ -42,7 +42,7 @@ A built-in deliver adapter for person records: it needs the step's `uses:` field
 | Key | Value |
 |---|---|
 | id | `instantly/add-to-campaign` |
-| version | 1 |
+| version | 2 |
 | role | deliver |
 | entity type | person |
 | credentials | `INSTANTLY_API_KEY` |
@@ -77,7 +77,7 @@ The keys `with:` accepts. Plan rejects any other key.
 | Key | Type | Required | What it sets |
 |---|---|---|---|
 | `base_url` | string |  | Override the API host (testing) |
-| `campaign` | string | yes | Campaign name (resolved to an id once per run) or the campaign id itself |
+| `campaign` | string | yes | The campaign's id, a lowercase UUID (in the campaign's URL in Instantly), never its name: the id is the dedupe scope, so a renamed campaign stays the same destination (ADR-062). Preflight prints the name. |
 | `preflight` | boolean |  | ADR-040: check the live campaign before sending (default true); false skips |
 | `skip_if_in_campaign` | boolean |  | Ask Instantly to ignore leads already in the campaign (default true) |
 | `variables` | object |  | Egress mapping, target merge-field name → ledger field (ADR-018). Injected by the runner from the step-level variables: key — never authored inside with:. |
@@ -89,7 +89,7 @@ From [See it run](/start/show-me):
 ```yaml
   - id: send
     use: instantly/add-to-campaign
-    with: { campaign: "Q3 VP Marketing" }
+    with: { campaign: 0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b }   # the campaign id
     variables:
       first_name: first_name
       first_line: first_line

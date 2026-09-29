@@ -24,7 +24,7 @@ steps:
     with: { template: Write first_line and ps_line for a short, honest intro. }
   - id: send                      # delivery is a step like any other — put it anywhere, use several
     use: instantly/add-to-campaign
-    with: { campaign: "Q3 VP Marketing" }
+    with: { campaign: 0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b }   # the campaign id, not its name
     variables: { first_line: first_line, ps_line: ps_line }
     idempotency: email            # re-runs deliver nothing twice, ever
 ```
@@ -339,7 +339,7 @@ is where it turns into money.
 ```sh
 gtme secret set APOLLO_API_KEY        # prompts, no echo
 gtme secret set ANTHROPIC_API_KEY
-gtme secret set INSTANTLY_API_KEY     # the campaign named in the file must exist
+gtme secret set INSTANTLY_API_KEY     # the campaign whose id is in the file must exist
 gtme plan examples/demo.yaml          # contracts + cost, still $0
 gtme run  examples/demo.yaml --dry-run  # everything but delivery
 gtme run  examples/demo.yaml          # armed
