@@ -97,6 +97,14 @@ func TestRunsMirrorsTheReceipt(t *testing.T) {
 	if got := receiptBlock(t, h.mustRun("runs", id2).stderr); got != live {
 		t.Errorf("second run: gtme runs differs from the live receipt\ngot:\n%s\nwant:\n%s", got, live)
 	}
+	// Byte-stable (#127): the records: line lists states in step order.
+	stable := h.mustRun("runs", id2).stderr
+	for i := 0; i < 5; i++ {
+		if again := h.mustRun("runs", id2).stderr; again != stable {
+			t.Fatalf("gtme runs RUN_ID is not byte-stable:\n%s\n---\n%s", stable, again)
+		}
+	}
+	contains(t, stable, "records: 7 (score=2 keep=1 out=4)", "records line in step order")
 	if n := h.queryInt(`SELECT count(*) FROM step_events WHERE run_id = ? AND event = 'gated'`, id2); n != 1 {
 		t.Errorf("gated events = %d, want 1 (Jane, excluded)", n)
 	}
