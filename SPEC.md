@@ -214,7 +214,7 @@ CREATE TABLE step_events (
   run_id      TEXT NOT NULL,
   step_id     TEXT NOT NULL,
   identity_id TEXT,                       -- null for step-level events
-  event       TEXT NOT NULL,              -- claimed|dispatched (ADR-060: a deliver's send is about to leave)|done|failed|skipped_cache|pending|collected (ADR-038)|answered (ADR-049: a participant's answer awaiting collection)
+  event       TEXT NOT NULL,              -- claimed|dispatched (ADR-060: a deliver's send is about to leave)|done|failed|skipped_cache|gated (ADR-064: held back by when: or a membership gate)|settled (ADR-064: a held delivery the operator found at the target)|pending|collected (ADR-038)|answered (ADR-049: a participant's answer awaiting collection)
   detail      TEXT,                       -- JSON
   created_at  TEXT NOT NULL
 );
@@ -239,7 +239,7 @@ CREATE TABLE deliveries (
   idempotency    TEXT NOT NULL,           -- computed key, see §8 deliver
   run_id         TEXT NOT NULL,
   created_at     TEXT NOT NULL,
-  status         TEXT NOT NULL DEFAULT 'accepted',  -- accepted|confirmed|contradicted|sent (ADR-036)|unconfirmed (ADR-060: in flight at a crash; held)
+  status         TEXT NOT NULL DEFAULT 'accepted',  -- accepted|confirmed|contradicted|sent (ADR-036)|unconfirmed (ADR-060: in flight at a crash; held)|settled (ADR-064: held, then found at the target by the operator)
   sent_at        TEXT,                    -- set only by attestation (ADR-036)
   variables_hash TEXT NOT NULL DEFAULT '', -- resolved variables at delivery (ADR-045); drives redeliver: on_change
   UNIQUE(target, scope, idempotency)
@@ -1132,7 +1132,7 @@ At execution time, per step, per record:
 gtme init                          # create ledger + ~/.gtme
 gtme secret set KEY [VALUE]        # VALUE omitted → prompt, no echo
 gtme plan pipeline.yaml [--viz|--viz-only]   # validate + print plan, no execution; --viz appends the diagram, --viz-only prints it alone
-gtme run  pipeline.yaml [--resume RUN_ID [--resend-unconfirmed]] [--dry-run] [--simulate]
+gtme run  pipeline.yaml [--resume RUN_ID [--resend-unconfirmed[=KEYS]] [--settle-unconfirmed[=KEYS]]] [--dry-run] [--simulate]
 gtme query "SQL"                   # read-only SQL against the ledger
 gtme query --save NAME "SQL"       # saved segment
 gtme show <identity-key>           # read-only projection inspector
@@ -1199,7 +1199,14 @@ the step, not only those handed to the adapter; a record still in flight,
 held by a dry run, passed through a simulation gap, or held unconfirmed
 after a crash (ADR-060) is the non-terminal remainder and the line names
 it (`N in flight`, `N held (dry run)`, `N simulated`, `N unconfirmed`),
-so the identity holds for a step that has not settled.
+so the identity holds for a step that has not settled. Every per-record
+`done`, `failed`, `skipped_cache`, `simulated` and `dry_run` event MUST
+carry `detail.outcome`, naming the one column it counts in (`out`,
+`empty`, `filtered`, `skipped`, `failed`, `cached`, `already_delivered`,
+`simulated`, `held_dry`), and a record a `when:` or membership gate holds
+back MUST write a `gated` event, so the line can be rebuilt from the
+ledger alone (ADR-064). A cache skip's detail carries `avoided_usd`, null
+when the estimate is unknown.
 
 A source MUST reconcile what it read against what it sourced, classifying
 the difference — records that coalesced into identities the ledger already
@@ -1239,8 +1246,18 @@ already-delivered skip is neither a cache skip nor cost avoided; a
 deliver step's line reports it as `N already delivered` (ADR-062). Totals carry
 their basis (ADR-046): a purely measured total prints bare; a purely
 estimated one prints `total: $X (estimated)`; a mixed run splits —
-`total: $X ($Y measured + $Z estimated)`. `gtme runs <id>` mirrors the
-live receipt.
+`total: $X ($Y measured + $Z estimated)`.
+
+**`gtme runs RUN_ID` is the receipt (ADR-064).** It prints the live
+receipt's table — the same columns and words, `already delivered`
+included — rebuilt from `step_events`, `costs` and `runs.config_json`
+(for `adapter`), and then the run-level lines: status, started,
+finished, records by state, config, and `held:` and `resume:` when they
+apply. It reports the run's net outcome: each record counts once per
+step, by its latest outcome there across every session of the run, so a
+resumed run reads as one run. A run recorded before these fields existed
+prints `?` for what the ledger never recorded (gated records, cost
+avoided) and infers the rest from each event and its reason.
 
 ### `gtme show` (ADR-006)
 
@@ -1412,14 +1429,22 @@ A `running` run recorded on another host shows `running (on HOST)`.
 that process and resume` — and touches nothing. `--resume` of a `done`
 run refuses with exit 2 — `run 01J… is done; nothing to resume` — unless
 the run holds unconfirmed deliveries (§8 deliver idempotency): their
-release, `--resume RUN_ID --resend-unconfirmed`, is the one thing a
-`done` run can still do, and without the flag the refusal says so. A
+release or settlement, `--resume RUN_ID` with `--resend-unconfirmed` or
+`--settle-unconfirmed` (ADR-064), is the one thing a `done` run can still
+do, and without either flag the refusal says so. A
 `failed`, `pending` or interrupted run resumes. A plain `gtme run` whose
 pipeline's latest run is interrupted says so on stderr with the resume
 command and sources anew; it never resumes an interrupted run by itself,
 because a crashed deliver step may hold unconfirmed records (§8 deliver
 idempotency) that a person should check first. Collect-first for a
-`pending` run (above) is unchanged.
+`pending` run (above) is unchanged. Before any run holds them, an
+interrupted run's unanswered sends — `dispatched` events with no later
+`done` or `failed` — are counted read-only (ADR-064): in `gtme runs`'
+`in flight` column, and in `gtme runs RUN_ID` as one line per target:
+
+```
+send: 4 sent to http/deliver with no answer before the run stopped; the resume, or the next run to that target, holds them
+```
 
 ### People and agents answer — `human/*`, `agent/*`, `gtme answer` (ADR-048, ADR-049)
 
@@ -1513,13 +1538,22 @@ reason `unconfirmed`, in this run and in every later one. The exception
 is a target whose manifest declares `idempotency: native` (§6): the
 record is sent again, because the target upserts. Only
 `--resend-unconfirmed` on `--resume` sends a held record, and the
-adapter's answer then replaces the row's status. The receipt names every
-held record and prints that command:
+adapter's answer then replaces the row's status. `--settle-unconfirmed`
+on `--resume` sends nothing: the operator found the record at the
+target, the row's status becomes `settled`, a `settled` step event
+records it, and the pre-send check treats it as delivered (ADR-064).
+Each flag takes an optional comma-separated list of identity keys, as
+the receipt names them, and applies to those only; without one it
+applies to every record the run holds. A key the run does not hold, or
+a key given to both flags, is a validation error (exit 2), and a record
+named by neither stays held. The receipt names every held record and
+prints the commands:
 
 ```
 send: 40 in, 36 out, 4 unconfirmed
 4 records may have reached http/deliver before run 01J… stopped and were not sent again.
 Check the target, then: gtme run send.yaml --resume 01J… --resend-unconfirmed
+(or --settle-unconfirmed for the ones it already has; either takes =KEY,… to name some)
 ```
 
 The dedupe key is `(target, scope, idempotency)` (ADR-044). `target` is
@@ -2824,7 +2858,7 @@ decided contract, not shipped behavior.
   `done` run exits 2 (`TestResumeLastAndUnknownRun`'s no-op assertion
   becomes this refusal); `make check` passes.
 - **M35 — destinations and Instantly's move (ADR-062, ADR-063; §3, §5,
-  §6, §8, §9, §10, §10a, §11). Built 2026-09-29 (changelog v0.58).** Migration
+  §6, §8, §9, §10, §10a, §11). Built 2026-09-29 (changelog v0.59).** Migration
   `0015` backfills `scope` for `http/deliver` rows from the run's
   `runs.config_json` when the run had exactly one `http/deliver` step,
   mirrored in `spec/ledger.sql`'s comments. `http/deliver` declares
@@ -2863,6 +2897,33 @@ decided contract, not shipped behavior.
   `make check` passes. The first live run of the installed adapter,
   against a shell campaign with no sending accounts, is recorded in
   VALIDATION.md by hand.
+- **M36 — the receipt from the ledger; crashed sends; settling held
+  deliveries (ADR-064; §3, §8, §11). Queued 2026-09-29, after M35.**
+  Per-record step events carry `detail.outcome`; gates write `gated`;
+  cache skips carry `avoided_usd`; `spec/ledger.sql`'s comments mirror
+  §3. `gtme runs RUN_ID` prints the live receipt's table, net across
+  sessions, then its run-level lines. An interrupted run's unanswered
+  sends are counted in `gtme runs` and named per target in `gtme runs
+  RUN_ID`. `--resume` takes `--settle-unconfirmed[=KEYS]` and
+  `--resend-unconfirmed[=KEYS]`; `deliveries.status` gains `settled`.
+  The docs that print `gtme runs RUN_ID` (the report and recover guides,
+  runs and receipts) are re-run against the build. Acceptance, offline:
+  for a pipeline with an enrich, a filter, a `when:`-gated step, an
+  `on_missing` hold, a cache skip and a deliver, `gtme runs RUN_ID`'s
+  table equals the live receipt's row for row; the same pipeline killed
+  once and resumed prints one table whose columns reconcile to `in` and
+  count each record once; a run recorded by M35's binary prints `?` for
+  gated and avoided and no error; after `kill -9` during a 40-record
+  deliver at concurrency 4, `gtme runs` shows the unanswered count in
+  `in flight` and `gtme runs RUN_ID` prints the per-target line, with the
+  ledger's rows unchanged; after the resume holds 4,
+  `--settle-unconfirmed=K1,K2` settles those two, sends nothing, and the
+  other two stay held; `--resend-unconfirmed=K3` sends only K3;
+  `--settle-unconfirmed` naming a key the run does not hold, or a key
+  also given to `--resend-unconfirmed`, exits 2 and changes nothing; a
+  later run to the target counts settled records as `already
+  delivered`; the `held:` line is gone once nothing is `unconfirmed`;
+  `make check` passes.
 - **M28 — types and traverse (ADR-054; §3, §4, §4a, §5, §6, §7, §8, §9,
   §10a, §13). Built 2026-09-05 (changelog v0.43).** A type is a file: `spec/fields/*.json` gain
   `kind`, `identity` and per-field `reference`, §4 derivation reads the
@@ -3199,12 +3260,16 @@ deliver step whose target does not declare `idempotency: native`,
 **when** it is resumed, **then** no record whose `dispatched` event has
 no `done` or `failed` after it is sent again: each has a `deliveries`
 row with `status='unconfirmed'`, the receipt names it with the
-`--resend-unconfirmed` command, and only that flag sends it (ADR-060).
+`--resend-unconfirmed` command, and only that flag sends it (ADR-060);
+**and** `--settle-unconfirmed=KEY` settles exactly that record, sending
+nothing, while the rest stay held (ADR-064).
 **Given** a run whose process died without finishing, **when** the
 operator runs `gtme runs`, **then** the run shows `interrupted` with no
 ledger write and `gtme runs RUN_ID` prints the `--resume` command;
 **and** a `--resume` of a run whose process is still alive, or of a run
-that is `done`, exits 2 without touching the run (ADR-061).
+that is `done`, exits 2 without touching the run (ADR-061). Before the
+resume, `gtme runs RUN_ID` of the interrupted run counts its unanswered
+sends (ADR-064).
 
 ### Report
 **Invariant:** what happened in a run, and what it cost, is always
@@ -3213,7 +3278,9 @@ reconstructable after the fact.
 runs` (to list) or `gtme runs RUN_ID` (for one run's receipt), **then** the
 output reports, per step: records in/out, cache skips, and cost — matching
 the sums in `step_events` and `costs` for that `run_id` exactly, with
-no reconstruction required from raw table scans.
+no reconstruction required from raw table scans — and `gtme runs RUN_ID`
+prints the live receipt's columns and words, so a run that finished in
+one session reads the same both ways (ADR-064).
 
 ---
 
@@ -3223,7 +3290,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
 
-### v0.58 — 2026-09-29 (M35 build: destinations and Instantly's move, built)
+### v0.59 — 2026-09-29 (M35 build: destinations and Instantly's move, built)
 **Changed:** §11 M35 marked built. Behavioural notes from the build: a
 `group/deliver` handoff to a group that already holds the record counts
 `already delivered` as well, since it is the same skip; both receipts
@@ -3238,6 +3305,18 @@ archive holds exactly `manifest.json` and `run`, and `gtme adapters
 update` moves a process entry to the release the index lists and refuses
 an `@ref`. The `gtme-bindings` index entry for Instantly follows the
 first release that carries its archives.
+### v0.58 — 2026-09-29 (ADR-064 reconciliation: gtme runs RUN_ID is the receipt; crashed sends and held deliveries; build queued as M36)
+**Changed:** §3 `step_events.event` gains `gated` and `settled`, and
+`deliveries.status` gains `settled` (TEXT; no migration); §8's `run`
+line gains `--settle-unconfirmed[=KEYS]` and a key list on
+`--resend-unconfirmed`; record accounting requires `detail.outcome` on
+per-record events, a `gated` event, and `avoided_usd` on cache skips;
+the terminal receipt's "`gtme runs <id>` mirrors the live receipt"
+becomes a paragraph defining the mirror; deliver idempotency gains
+settling and selective release; the run-lock subsection gains the
+read-only count of an interrupted run's unanswered sends and settling
+on a `done` run; §11 M36 queued; the Recover and Report stories gain the
+clauses. Exit codes unchanged: the new refusals use exit 2.
 
 ### v0.57 — 2026-09-29 (M34 build: crash and resume, built)
 **Changed:** §11 M34 marked built. §8's run-lock subsection gains one
