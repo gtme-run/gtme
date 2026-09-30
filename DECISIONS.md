@@ -5263,6 +5263,79 @@ Recover story, Changelog (v0.61). `spec/schemas/` gains `error.json` and
 OPEN's `accepts`; `spec/binding-schema.json`'s `errors` gains the list
 form and `match` — both at build, machine-compared as always.
 
+### ADR-066: Instantly's lead body takes every documented lead field, in either spelling, and preflight checks the tags the sequence uses
+**Status:** Accepted (2026-09-30 — from issues #204 and #205, reported
+from the first live run of `instantly/add-to-campaign` as a process
+entry; human-approved by merging this packet; build queued as M38)
+**Context:** §10 item 6 sends a `variables:` target into Instantly's
+lead body only when it is spelled exactly `first_name`, `last_name`,
+`company_name` or `personalization`; any other name becomes a custom
+variable. Instantly's sequence editor writes those fields as
+`{{firstName}}`, `{{lastName}}`, `{{companyName}}`. An operator who copies
+the tag names from the sequence into `variables:` (`firstName:
+first_name`) gets a custom variable called `firstName` and a lead whose
+first name is blank, and the setup instructions given for the first live
+run made the same mistake (`company: company_name`). Preflight cannot
+see it: it checks that every custom-variable target appears in the
+sequence, skips the lead-body targets, and never checks the other
+direction — that a lead-field tag the sequence uses has anything filling
+it. Separately, the four fields are fewer than Instantly documents.
+Instantly's OpenAPI description
+(`https://api.instantly.ai/openapi/api_v2.json`, `POST /api/v2/leads`,
+read 2026-09-30) lists the lead body as `email`, `first_name`,
+`last_name`, `company_name`, `job_title`, `personalization`, `website`
+and `phone`, plus `custom_variables` and settings; so a person's title,
+website and phone, all in the ledger, could only reach Instantly as
+custom variables and never its lead columns.
+**Decision:** (1) **The lead body takes every documented lead field.**
+The targets that map into the lead body are `first_name`, `last_name`,
+`company_name`, `job_title`, `personalization`, `website` and `phone`,
+the set the create-lead API documents; any other target stays a custom
+variable of that name. (2) **Either spelling.** Each may also be written
+in the camelCase Instantly's sequence tags use: `firstName`,
+`lastName`, `companyName`, `jobTitle` (`personalization`, `website` and
+`phone` are one word either way). Both spellings fill the same lead
+field, so copying a tag name from the sequence does the right thing.
+(3) **One field, one target.** Two targets naming the same lead field
+(`first_name` and `firstName`) is a contract error: the adapter refuses
+the session with exit 2 before any request, since which value would win
+is not something to guess. (4) **Preflight checks the other direction.**
+For each lead field whose tag the sequence uses in any step's subject or
+body — `{{firstName}}`, `{{lastName}}`, `{{companyName}}`,
+`{{personalization}}`, `{{website}}`, `{{phone}}` — some target must fill
+that field, or preflight is `blocked` naming the tag and the fix ("the
+sequence uses {{firstName}} but no variables: target fills first_name:
+add `first_name: <field>`"). The existing check, that every
+custom-variable target appears in the sequence, is unchanged. `{{jobTitle}}`
+is not checked: the API documents `job_title` as a lead field, but no
+source seen confirms `{{jobTitle}}` as the tag the sequence editor
+inserts (the live campaigns' `core_variables` list the other six), and
+preflight blocks only on a readable fact. (5) **Attest** compares the
+new fields exactly as it compares the old: sent, stored, or unreadable.
+**Consequences:** The mistake the first live run hit becomes impossible
+to make silently: the camelCase name now does the right thing, and a
+sequence tag left unfilled blocks before the send. Title, website and
+phone reach Instantly's lead columns. A pipeline that today maps
+`website:` or `phone:` sends a custom variable of that name; it will now
+fill the lead field instead, which is the field the `{{website}}` and
+`{{phone}}` tags name (the live campaigns list both as core variables). A pipeline that maps `firstName:` today
+gets a lead-body first name and loses the custom variable of that name,
+which no sequence tag could reach separately. A sequence that writes a
+lead field in snake_case (`{{first_name}}`) is untouched by the new
+check: whether Instantly renders that spelling from the lead body is not
+documented, and it is left for a live check rather than guessed.
+**Rejected:** *Sending each lead field as a custom variable as well* —
+two copies of one value, and a tag could render either. *Blocking on
+`{{jobTitle}}`* — the tag is not confirmed; a block on a guess is what
+ADR-040 forbids. *Making a duplicate a warning* — one of the two values
+would be dropped silently. *A plan-time check* — `variables:` is
+injected into config and the manifest schema cannot express "two keys
+name one field"; the session refusal happens before any request, and
+the preflight session hits it first.
+**Spec impact:** AMEND §10 item 6 (the lead-field set, spellings, the
+duplicate refusal, the new preflight check), §11 (M38 queued),
+Changelog (v0.63). No wire, schema, ledger or exit-code change.
+
 ### ADR-054: `traverse` — a run is a sequence of typed segments, and a type is a file
 **Status:** Accepted (2026-09-05 — design session; answers ADR-008's parked
 question and ROADMAP.md's "Entity types" (until this packet, "Object
