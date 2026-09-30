@@ -2211,16 +2211,28 @@ adapter, prebuilt per platform, installed the same way.
    lead; Instantly documents it as skipping a lead already in the
    campaign. Declares dynamic needs (§6, ADR-019) with a
    static floor of `email`; everything else it sends derives from the
-   step's `variables:` mapping (ADR-018) — a target name matching one of
-   Instantly's first-class lead fields (`first_name`, `last_name`,
-   `company_name`, `personalization`) maps into the lead body, and any
-   other target name becomes a custom variable of that name. No merge
-   field is hard-coded in the adapter.
+   step's `variables:` mapping (ADR-018) — a target name naming one of
+   Instantly's standard lead fields maps into the lead body, and any
+   other target name becomes a custom variable of that name (ADR-066).
+   The standard lead fields are the ones Instantly's create-lead API
+   documents: `first_name`, `last_name`, `company_name`, `job_title`,
+   `personalization`, `website`, `phone`. A target may name one in
+   snake_case or in the camelCase Instantly's sequence tags use
+   (`firstName`, `lastName`, `companyName`, `jobTitle`; the other three
+   are one word either way), and both spellings fill the same lead
+   field. Two targets naming the same lead field is a contract error:
+   the adapter refuses the session (exit 2) before sending anything. No
+   merge field is hard-coded in the adapter.
    Declares `preflights` (ADR-040): before sending, it checks that the
    campaign exists and is Active, that the sequence has at least as many
    steps as the copy assumes (the highest `_step_N` suffix among the
-   `variables:` targets), that every `variables:` target appears as
-   `{{name}}` in some step body, and that no A/B variant lacks one. Its
+   `variables:` targets), that every custom-variable target appears as
+   `{{name}}` in some step, that no A/B variant lacks one, and, the other
+   way round, that every lead-field tag the sequence uses (`{{firstName}}`,
+   `{{lastName}}`, `{{companyName}}`, `{{personalization}}`,
+   `{{website}}`, `{{phone}}`) has a `variables:` target filling that
+   field — a tag nothing fills is blocked, since every lead would send
+   with a hole where it stands (ADR-066). Its
    PREFLIGHT answer carries `destination` as the campaign's name and id
    (§5, ADR-062). When Instantly refuses a lead because the workspace's
    plan lead limit is reached (a 403 whose body says `Lead limit
@@ -3060,6 +3072,24 @@ decided contract, not shipped behavior.
   fixture process adapter that sends ERROR `fail_record` for one record
   of a multi-record enrich session fails that record while the others
   advance; `make check` passes.
+- **M38 — Instantly's lead fields (ADR-066; §10, §11). Queued.**
+  `instantly/add-to-campaign` maps all seven documented lead fields into
+  the lead body, accepts the camelCase spelling of each, refuses a
+  session whose `variables:` names one lead field twice (exit 2, nothing
+  sent), attests the new fields like the old, and its preflight blocks a
+  lead-field tag the sequence uses and no target fills. The manifest's
+  `variables` description and the docs that show an Instantly step say
+  which names reach the lead body. Acceptance, offline, against the
+  Instantly fake: `firstName: first_name` puts the value in the lead
+  body's `first_name` and sends no `firstName` custom variable;
+  `website`, `phone` and `job_title` (and `jobTitle`) reach the lead
+  body; `first_name` and `firstName` both mapped fails the session with
+  exit 2 and no request to the leads endpoint; a sequence using
+  `{{firstName}}` with no target filling it is `blocked` naming the tag,
+  and the same sequence with `first_name` mapped is `ok`; a sequence
+  using `{{jobTitle}}` is not checked (ADR-066); a custom-variable
+  target missing from the sequence is still blocked as before; `make
+  check` passes.
 - **M28 — types and traverse (ADR-054; §3, §4, §4a, §5, §6, §7, §8, §9,
   §10a, §13). Built 2026-09-05 (changelog v0.43).** A type is a file: `spec/fields/*.json` gain
   `kind`, `identity` and per-field `reference`, §4 derivation reads the
@@ -3432,6 +3462,14 @@ one session reads the same both ways (ADR-064).
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.63 — 2026-09-30 (ADR-066 reconciliation: Instantly's lead fields; build queued as M38)
+**Changed:** §10 item 6: the lead body takes all seven lead fields
+Instantly's create-lead API documents (`job_title`, `website` and
+`phone` join the four), in snake_case or camelCase; two targets naming
+one field refuse the session with exit 2; preflight also blocks a
+lead-field tag the sequence uses that no target fills. **Added:** §11
+M38 queued. No wire, ledger or exit-code change.
 
 ### v0.62 — 2026-09-30 (M37 build: a step that stops, built)
 **Changed:** §11 M37 marked built. Its acceptance clause for a
