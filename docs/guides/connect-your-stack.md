@@ -281,7 +281,7 @@ steps:
    send: preflight ok — campaign "Q4 CRM follow-up" (0198a0b1-7e6d-4c5b-9a8f-1e2d3c4b5a69) — 3 check(s) (✓ campaign active, ✓ variable first_line referenced, ✓ variable ps_line referenced)
    ```
 
-   A failed check names the fix: activate the campaign, or add the missing variable to every email. Then read every `first_line` and `ps_line` in the resolved variables, the exact text the armed run sends.
+   A failed check names the fix: activate the campaign, or add the missing variable to every email. An email that uses one of Instantly's lead tags, such as `{{firstName}}`, needs a field mapped to it too, as `firstName: first_name`, or preflight blocks. Then read every `first_line` and `ps_line` in the resolved variables, the exact text the armed run sends.
 
 1. Arm it. With `limit: 5` still set, this adds up to five people, and Instantly emails them on the campaign's schedule. A blocked preflight stops the step here, before anyone is added:
 

@@ -37,7 +37,7 @@
           "type": "string",
           "minLength": 1
         },
-        "description": "Egress mapping, target merge-field name \u2192 ledger field (ADR-018). Injected by the runner from the step-level variables: key \u2014 never authored inside with:."
+        "description": "Egress mapping, target merge-field name \u2192 ledger field (ADR-018). A target naming a lead field (first_name, last_name, company_name, job_title, personalization, website, phone, or firstName, lastName, companyName, jobTitle) fills the lead itself; any other target is a custom variable (ADR-066). Injected by the runner from the step-level variables: key \u2014 never authored inside with:."
       },
       "base_url": {
         "type": "string",

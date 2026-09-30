@@ -26,14 +26,43 @@ import (
 // ID is the adapter id.
 const ID = "instantly/add-to-campaign"
 
-// firstClassTargets are variables: target names that map into Instantly's
-// first-class lead-body fields rather than custom variables (SPEC §10.6).
-var firstClassTargets = map[string]bool{
-	"first_name":      true,
-	"last_name":       true,
-	"company_name":    true,
-	"personalization": true,
+// leadFields maps every variables: target name that fills a lead-body
+// field to that field (SPEC §10 item 6, ADR-066): the seven fields
+// Instantly's create-lead API documents, in snake_case or in the camelCase
+// its sequence tags use. Any other target is a custom variable.
+var leadFields = map[string]string{
+	"first_name": "first_name", "firstName": "first_name",
+	"last_name": "last_name", "lastName": "last_name",
+	"company_name": "company_name", "companyName": "company_name",
+	"job_title": "job_title", "jobTitle": "job_title",
+	"personalization": "personalization",
+	"website":         "website",
+	"phone":           "phone",
 }
+
+// leadFieldTags are the sequence tags preflight checks are filled (ADR-066
+// (4)): the tag Instantly's editor inserts for a lead field. {{jobTitle}}
+// is left out — the tag is not confirmed, and preflight blocks only on a
+// readable fact.
+var leadFieldTags = []struct{ tag, field string }{
+	{"{{firstName}}", "first_name"},
+	{"{{lastName}}", "last_name"},
+	{"{{companyName}}", "company_name"},
+	{"{{personalization}}", "personalization"},
+	{"{{website}}", "website"},
+	{"{{phone}}", "phone"},
+}
+
+// leadField returns the lead-body field a target fills, or "" for a custom
+// variable.
+func leadField(target string) string { return leadFields[target] }
+
+// contractError is a variables: mapping the adapter cannot honour: exit 2,
+// the contract class (SPEC §8), before any request.
+type contractError struct{ msg string }
+
+func (e *contractError) Error() string { return e.msg }
+func (e *contractError) ExitCode() int { return 2 }
 
 //go:embed manifest.json
 var manifestJSON []byte
@@ -80,6 +109,20 @@ func parseConfig(raw map[string]any) (config, error) {
 				return c, fmt.Errorf("instantly/add-to-campaign: variables: %q must map to a field name", target)
 			}
 			c.Variables[target] = f
+		}
+		// One lead field, one target (ADR-066 (3)).
+		byField := map[string][]string{}
+		for target := range c.Variables {
+			if f := leadField(target); f != "" {
+				byField[f] = append(byField[f], target)
+			}
+		}
+		for f, targets := range byField {
+			if len(targets) > 1 {
+				sort.Strings(targets)
+				return c, &contractError{fmt.Sprintf("instantly/add-to-campaign: variables: %s all fill the lead's %s; "+
+					"keep one", strings.Join(targets, " and "), f)}
+			}
 		}
 	}
 	if v, ok := raw["base_url"].(string); ok && v != "" {
@@ -222,7 +265,10 @@ func compareLead(sent leadRequest, stored storedLead) (string, string) {
 		{"first_name", sent.FirstName},
 		{"last_name", sent.LastName},
 		{"company_name", sent.CompanyName},
+		{"job_title", sent.JobTitle},
 		{"personalization", sent.Personalization},
+		{"website", sent.Website},
+		{"phone", sent.Phone},
 	}
 	var unreadable []string
 	for _, c := range checks {
@@ -265,7 +311,9 @@ func compareLead(sent leadRequest, stored storedLead) (string, string) {
 // preflight runs the four checks ADR-040 names against the live campaign:
 // it exists and is Active; its sequence has at least the step count the
 // copy assumes (the highest _step_N suffix among the variables: targets);
-// every target appears as {{name}} in some step; no variant lacks one.
+// every custom-variable target appears as {{name}} in some step; no variant
+// lacks one; and every lead-field tag the sequence uses has a target filling
+// its field (ADR-066).
 // A readable failure is blocked; a target that cannot be read is
 // inconclusive — never a block on a guess.
 func (a *Adapter) preflight(ctx context.Context, cfg config, apiKey, campaignID string) (string, string, string, []protocol.Check) {
@@ -311,7 +359,7 @@ func (a *Adapter) preflight(ctx context.Context, cfg config, apiKey, campaignID 
 			}
 		}
 		for _, t := range targets {
-			if firstClass(t) {
+			if leadField(t) != "" {
 				continue // lead-body fields, not template merge fields
 			}
 			placeholder := "{{" + t + "}}"
@@ -339,6 +387,33 @@ func (a *Adapter) preflight(ctx context.Context, cfg config, apiKey, campaignID 
 						break
 					}
 				}
+			}
+		}
+		// The other direction (ADR-066 (4)): a lead-field tag the sequence
+		// uses must have a target filling that field, or every lead sends
+		// with a hole where the tag stands.
+		filled := map[string]bool{}
+		for t := range cfg.Variables {
+			if f := leadField(t); f != "" {
+				filled[f] = true
+			}
+		}
+		for _, lt := range leadFieldTags {
+			used := false
+			for _, variants := range steps {
+				for _, body := range variants {
+					if strings.Contains(body, lt.tag) {
+						used = true
+					}
+				}
+			}
+			if !used {
+				continue
+			}
+			checks = append(checks, protocol.Check{Name: "sequence tag " + lt.tag + " filled", OK: filled[lt.field]})
+			if !filled[lt.field] {
+				blocked = append(blocked, fmt.Sprintf("the sequence uses %s but no variables: target fills %s: add `%s: <field>`",
+					lt.tag, lt.field, lt.field))
 			}
 		}
 	}
@@ -376,14 +451,4 @@ func assumedSteps(targets []string) int {
 		}
 	}
 	return max
-}
-
-// firstClass reports a variables: target Instantly maps into the lead body
-// rather than a template merge field (SPEC §10.6).
-func firstClass(target string) bool {
-	switch target {
-	case "first_name", "last_name", "company_name", "personalization":
-		return true
-	}
-	return false
 }
