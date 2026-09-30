@@ -2749,6 +2749,46 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-30 — A full Instantly plan is not an auth failure; a process adapter's last stderr line reaches the ledger (#202)
+
+**Question:** Instantly answers an add-lead call on a workspace at its
+plan's lead limit with `403 {"message":"Lead limit reached. Remaining
+uploads: 0"}`. `httpx` classes every 401/403 as auth, so the adapter
+exited 3 and printed "credentials were rejected" for a key that was
+fine. Separately, the failed step event for a process adapter's crashed
+session recorded only `adapters: …/run: exit status 3`: the adapter's
+own explanation went to the operator's terminal and nowhere else, so
+`gtme runs` could not tell a revoked key from a full plan.
+**Choice:** (1) The Instantly adapter reclassifies an add-lead 403 whose
+body mentions "lead limit" as a provider error (exit 1) whose message
+says the workspace's lead limit is reached and to upgrade the plan or
+delete leads, then re-run. The vendor body stays in the message. Any
+other 403 is still auth (exit 3). The check is in the adapter, not in
+`httpx`: the wording is Instantly's, and another vendor's 403 body means
+nothing to it. (2) An external adapter session keeps the last non-empty
+line its process wrote to stderr (bounded to 500 bytes), and the exit
+error appends it: `adapters: …/run: exit status 1: instantly: the
+workspace's lead limit is reached …`. That error is what `chunkFailed`
+already writes as the failed event's `reason`. The operator's stderr
+stream is unchanged.
+**Why:** A quota is an ordinary operating condition, and naming it as
+bad credentials sends the operator to fix the wrong thing. The last
+line is where a process adapter prints its fatal error (the shipped
+`cmd/gtme-instantly` prints exactly that and exits), so it is the line
+that answers "why"; carrying all of stderr would put progress noise in
+the ledger. A built-in adapter's error already carried its message.
+**Spec impact:** None. §8 names exit 3 for auth and 1 for other; a
+full plan is other, so this corrects a misclassification rather than
+changing a code's meaning. The failed event's `reason` text is not
+specified beyond being present. What this does not do is stop the
+step: with one record per deliver session (ADR-060), each remaining
+record still opens a session and fails the same way. Holding them once
+the destination says it is full needs a signal from the adapter to the
+runner, which is spec-visible and is proposed separately on #202.
+`internal/adapters/session_test.go` and
+`internal/adapters/instantly/instantly_test.go`
+(`TestLeadLimitIsNotAnAuthFailure`) cover both halves.
+
 ### 2026-09-29 — An AI step takes an unambiguous object answer as its array (#186)
 
 **Question:** About 8% of one operator's `ai/review` calls at

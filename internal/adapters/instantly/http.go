@@ -13,6 +13,8 @@ package instantly
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"strings"
 
 	"github.com/gtme-run/gtme/internal/httpx"
@@ -137,7 +139,22 @@ func (a *Adapter) addLead(ctx context.Context, cfg config, apiKey, campaignID st
 		Headers:  map[string]string{"Authorization": "Bearer " + apiKey},
 		Body:     body,
 	}, &out)
-	return body, out, err
+	return body, out, leadLimit(err)
+}
+
+// leadLimit reclassifies Instantly's answer to a full plan. Instantly says
+// "Lead limit reached. Remaining uploads: N" with a 403, which httpx classes
+// as auth; the key is fine and the fix is the plan, so it is a provider
+// error (exit 1) that says what to do (#202). Any other error passes through.
+func leadLimit(err error) error {
+	var e *httpx.Error
+	if !errors.As(err, &e) || e.Status != http.StatusForbidden ||
+		!strings.Contains(strings.ToLower(e.Body), "lead limit") {
+		return err
+	}
+	return &httpx.Error{Kind: httpx.KindProvider, Status: e.Status, Provider: e.Provider, Body: e.Body,
+		Msg: "the workspace's lead limit is reached, so no lead can be added: " +
+			"upgrade the Instantly plan or delete leads from the workspace, then re-run"}
 }
 
 // IsCampaignID reports whether s is an Instantly campaign id: a UUID in

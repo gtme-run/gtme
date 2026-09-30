@@ -196,6 +196,47 @@ func TestErrorsAreClassified(t *testing.T) {
 	}
 }
 
+// Instantly answers an exhausted plan with 403 and a message. That is a
+// full plan, not a bad key: it must not exit 3 ("credentials were rejected"),
+// and the error must say what to do (#202). A 403 without the message is
+// still auth.
+func TestLeadLimitIsNotAnAuthFailure(t *testing.T) {
+	r := routes(t)
+	r["POST /api/v2/leads"] = adaptertest.Response{Status: 403,
+		Body: `{"statusCode":403,"error":"Forbidden","message":"Lead limit reached. Remaining uploads: 0"}`}
+	_, err := adaptertest.Run(t, &Adapter{HTTP: &adaptertest.Stub{Routes: r}}, adaptertest.Input{
+		Config:  map[string]any{"campaign": campaignID, "base_url": "https://instantly.test"},
+		Env:     map[string]string{"INSTANTLY_API_KEY": "secret"},
+		Records: lead("a@x.com", map[string]any{"email": "a@x.com"}),
+	})
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	if code := httpx.ExitCodeFor(err); code == 3 {
+		t.Errorf("exit code = 3 (auth), want the plan limit classed as a provider error")
+	}
+	msg := err.Error()
+	for _, want := range []string{"lead limit", "Remaining uploads: 0", "upgrade"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("error %q does not mention %q", msg, want)
+		}
+	}
+	if strings.Contains(msg, "credentials were rejected") {
+		t.Errorf("error %q still blames the credentials", msg)
+	}
+
+	r = routes(t)
+	r["POST /api/v2/leads"] = adaptertest.Response{Status: 403, Body: `{"message":"Forbidden"}`}
+	_, err = adaptertest.Run(t, &Adapter{HTTP: &adaptertest.Stub{Routes: r}}, adaptertest.Input{
+		Config:  map[string]any{"campaign": campaignID, "base_url": "https://instantly.test"},
+		Env:     map[string]string{"INSTANTLY_API_KEY": "secret"},
+		Records: lead("a@x.com", map[string]any{"email": "a@x.com"}),
+	})
+	if code := httpx.ExitCodeFor(err); code != 3 {
+		t.Errorf("plain 403: exit code = %d, want 3 (auth)", code)
+	}
+}
+
 func TestConfigRequiresACampaign(t *testing.T) {
 	if _, err := parseConfig(map[string]any{}); err == nil {
 		t.Fatal("want an error without a campaign")
