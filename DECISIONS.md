@@ -5094,6 +5094,121 @@ paragraph gains settling and selective release; the run-lock subsection
 gains the unanswered count and settling on a `done` run), §11 (M36
 queued), the Recover and Report stories, Changelog (v0.58).
 
+### ADR-065: One stop signal for both adapter tiers — `fail_run` stops dispatch, and an error rule can read the body
+**Status:** Accepted (2026-09-30 — from issue #202 and the first live run
+of `instantly/add-to-campaign` as a process entry; human-approved by
+merging this packet; build queued as M37)
+**Context:** A deliver step ran 314 records into an Instantly workspace
+that filled up after 151. Every remaining record still opened a session,
+sent its request, got `403 "Lead limit reached. Remaining uploads: 0"`,
+and failed: 163 requests after the destination had said no request could
+succeed. #206 fixed the two spec-invisible parts (the 403 is no longer
+reported as bad credentials, and the adapter's last stderr line reaches
+the failed event's `reason`). What remains is that nothing can stop the
+step. A process adapter has one way to fail, exiting, and the runner
+treats every exit as a crash of that session and keeps dispatching (the
+#82 decision drains the pool on `sessionCrash`). The binding tier looks
+as if it can: `errors:` accepts `fail_run`, and the engine comment and
+the #162 implementation decision say it "stops the run". An offline
+probe (a deliver binding mapping 403 to `fail_run`, a target that always
+answers 403, 40 records at concurrency 1) shows it does not: 40
+requests, 40 failed records, exit 3. The engine returns the error from
+`Run` (`internal/binding/engine.go:508`), the runner turns it into
+`chunkFailed` (`internal/runner/step.go:1074`), which returns a
+`sessionCrash` (`step.go:1646`), and the worker loop keeps draining on a
+`sessionCrash` (`step.go:760`). So `fail_run` behaves exactly as an
+unmapped status. The same probe with `fail_record` or `skip` is worse:
+the engine only logs a warning, the session ends without answering the
+record, and the runner advances an unanswered deliver record as a send,
+so all 40 refused records got a `deliveries` row, the receipt said `40
+out`, and the run ended `done`. A later run would never retry them. SPEC
+does not define what the four verdicts do: §10a names "error→verdict
+mapping" and `spec/binding-schema.json` lists the enum. Finally, a
+binding cannot write the Instantly rule at all, because `errors:` keys
+on status alone, and the quota and a revoked key are both 403.
+**Decision:** (1) **One signal, the binding vocabulary on the wire.**
+§5 gains an adapter→runner message `{"type":"ERROR","key":{...}|null,
+"verdict":"fail_record|fail_run|skip|retry","reason":"..."}`. The binding
+engine emits it for every `errors:` verdict it applies, so both tiers
+reach the runner the same way. `fail_record`: the keyed record fails
+(`failed`, outcome `failed`, the reason) and the session continues.
+`skip`: the keyed record is counted `skipped` with the reason and
+continues past the step without output, as `on_missing: skip` does; a
+deliver writes no `deliveries` row. `retry`: the adapter's own attempts
+ran out (retrying is always the adapter's job; the runner never
+re-dispatches), so the record fails as for `fail_record` and the reason
+says the attempts were exhausted. `fail_run`: the key is optional; see
+(2). A record named by ERROR is never advanced as a send. (2) **What
+`fail_run` does.** On a `fail_run` from either tier the runner fails
+the keyed record (and any record of that session left unanswered) with
+the reason, dispatches no further session for the step, lets sessions
+already open finish and records what they say, starts no later step,
+and ends the run `failed`. Records never dispatched get no event: they
+stay where they were, so `--resume` and `once:` pick them up. The step's
+line counts them as `N not sent`, a non-terminal remainder like `in
+flight`, and names the reason; the step-level `failed` event carries
+`detail.stopped = {"verdict":"fail_run","reason":…,"not_sent":N}`, so
+`gtme runs RUN_ID` rebuilds the line. The exit code is the stopping
+error's class (§8): the process adapter's exit code, or the binding's
+classified error. (3) **An auth failure stops the step too.** A session
+that ends with exit 3, or a binding error that classifies as auth with
+no `errors:` rule for it, is treated as `fail_run` with the error as the
+reason: every later session presents the same credential. Exit 4
+(rate-limited, after the adapter's retries), 5 (network) and 1 (other)
+keep today's behavior: that session's records fail and dispatch
+continues. (4) **Compatibility.** A runner that implements ERROR lists
+it in OPEN: `"accepts":["ERROR"]`. An adapter whose OPEN does not list
+it MUST NOT rely on `fail_record`, `skip` or `retry` being honoured and
+fails the session by exiting non-zero, as today. For `fail_run` it
+SHOULD send ERROR and then exit with its error class either way, so a
+runner that predates the message still fails the session. A runner
+that predates ERROR ignores it (§5's forward-compatibility rule). (5)
+**`errors:` can read the body.** An `errors:` entry's value may be a
+list of rules as well as one rule. Each rule may carry `match`, a
+literal substring; rules are tried in order, and the first whose `match`
+occurs in the raw response body, or that has no `match`, applies. A rule
+after one with no `match` is unreachable and fails validation. No
+regular expressions, JSONPath or operators: `match` is text the vendor
+prints, frozen at authoring time, as §10a requires. A rule that applied
+because of its `match` reclassifies the error as provider (exit 1),
+since the binding has said this status does not carry its generic
+meaning here. The object form stays valid, so every binding already
+written is unchanged. (6) **Instantly** sends `ERROR fail_run` on the
+lead-limit 403, then exits 1.
+**Consequences:** At concurrency 1 the reported run would send 152
+requests, not 314 (at concurrency N, up to N−1 more sessions already
+open finish), and say `send: 314 in, 151 out, 1 failed, 162 not sent —
+stopped: the workspace's lead limit is reached …`, with the resume
+command; a resume
+once the plan has room sends the 162 and nothing twice. `fail_record`
+and `skip` on a deliver binding stop writing refused records as sent,
+which fixes a silent loss the probe found. A bad key costs one request
+per step instead of one per record. Enrich bindings mapping a status to
+`skip` move those records from `empty` to `skipped`, which is what the
+operator wrote. A binding's `retry` that runs out now fails the record
+instead of "stopping the run", which it never did in practice; this
+reverses the wording of the #162 implementation decision. One more
+message type in §5, one OPEN field, one schema shape.
+**Rejected:** *A new exit code for "stop"* (the #206 proposal's first
+option) — exit codes describe the process, a runner that predates it
+would read it as "other" and keep going, and it carries no key, so
+`fail_record` and `skip` would still have no way onto the wire. *Stopping
+on every adapter exit* — a 500 or a timeout on one record says nothing
+about the next, and #82 kept the pool draining for that reason. *A
+regular expression or a JSONPath predicate in `match`* — the binding
+tier stays declarative; anything that needs parsing graduates to a
+process adapter. *Keeping `fail_run` as "fail the session"* — the name
+promises a stop, and the only binding written with it wanted one.
+**Spec impact:** AMEND §5 (ERROR; OPEN `accepts`), §8 (record accounting
+gains `not sent`; the terminal receipt and `gtme runs RUN_ID` print a
+stopped step; a new "A step that stops" paragraph under deliver
+idempotency's neighbour, covering the four verdicts, exit 3 and the
+exit code), §10 item 6 (Instantly's lead-limit stop), §10a (the verdicts
+defined; `errors:` rule lists and `match`), §11 (M37 queued), the
+Recover story, Changelog (v0.61). `spec/schemas/` gains `error.json` and
+OPEN's `accepts`; `spec/binding-schema.json`'s `errors` gains the list
+form and `match` — both at build, machine-compared as always.
+
 ### ADR-054: `traverse` — a run is a sequence of typed segments, and a type is a file
 **Status:** Accepted (2026-09-05 — design session; answers ADR-008's parked
 question and ROADMAP.md's "Entity types" (until this packet, "Object
