@@ -621,6 +621,7 @@ Runner → adapter:
 {"type":"OPEN","step_id":"...","run_id":"...","config":{...}}
 {"type":"OPEN","step_id":"...","run_id":"...","config":{...},"pending":{"token":"..."}}  // collecting (ADR-038)
 {"type":"OPEN","step_id":"...","run_id":"...","config":{...},"preflight":true}           // preflight session (ADR-040): no records follow
+{"type":"OPEN","step_id":"...","run_id":"...","config":{...},"accepts":["ERROR"]}        // the optional messages this runner acts on (ADR-065)
 {"type":"RECORD","key":{"entity_type":"person","identity_key":"..."},"fields":{...}}
 {"type":"END"}
 ```
@@ -641,6 +642,7 @@ Adapter → runner:
 {"type":"COST","key":{...}|null,"provider":"harvest","amount_usd":0.012,"basis":"estimated","detail":{...}}
 {"type":"STATE","cursor":{...}}                            // resumable sources
 {"type":"LOG","level":"info|warn|error","msg":"..."}
+{"type":"ERROR","key":{...}|null,"verdict":"fail_record|fail_run|skip|retry","reason":"..."}  // an error's verdict (ADR-065, §8 "A step that stops")
 {"type":"END"}
 ```
 
@@ -704,6 +706,22 @@ Rules:
   and id; the receipt prints it, and nothing keys on it. An adapter that
   does not declare `preflights` is never asked; one that is asked MUST
   NOT send anything in that session.
+- **Errors (ADR-065):** an adapter MAY report what an error means for a
+  record, or for the whole step, with ERROR. `verdict` is the binding
+  tier's error vocabulary (§10a), and the runner acts on it as §8 "A
+  step that stops" says: `fail_record` and `retry` fail the keyed record
+  (`retry` says the adapter's own attempts ran out; the runner never
+  re-dispatches), `skip` counts it `skipped`, and `fail_run` stops the
+  step. `key` is REQUIRED for `fail_record`, `skip` and `retry` and
+  OPTIONAL for `fail_run`; `reason` is REQUIRED and is what the receipt
+  and the ledger print. A record named by ERROR MUST NOT be treated as
+  answered by a later RECORD or ATTEST in the session, and for a
+  deliver step it is never a send. A runner that acts on ERROR MUST list
+  it in OPEN's `accepts`. An adapter whose OPEN does not list it MUST
+  NOT rely on `fail_record`, `skip` or `retry` and fails the session by
+  exiting non-zero instead, as before. After an ERROR with `fail_run`
+  the adapter SHOULD emit END and exit with its error's class (§8), so a
+  runner that predates the message still fails the session.
 - `confidence` is per-field, OPTIONAL, default 1.0.
 - COST is best-effort but every v0 built-in adapter that spends money or
   tokens MUST emit it (estimate token cost from the API usage response).
@@ -722,7 +740,9 @@ Rules:
   never read this way; their verdict or attestation decides.
 - Adapters MUST exit 0 on success, non-zero on fatal error; partial output
   before a crash MUST be kept (ledger is append-only), and the run MUST be
-  resumable from that point.
+  resumable from that point. An exit of 3 (auth) stops the step as
+  `fail_run` does (§8 "A step that stops", ADR-065); any other non-zero
+  exit fails that session's unanswered records and dispatch continues.
 
 ---
 
@@ -1196,10 +1216,11 @@ record it withheld because the destination already has it (reason
 delivered`, never as `cached`: not re-sending is the contract, not a
 saving (ADR-062). `in` therefore counts every record eligible at
 the step, not only those handed to the adapter; a record still in flight,
-held by a dry run, passed through a simulation gap, or held unconfirmed
-after a crash (ADR-060) is the non-terminal remainder and the line names
-it (`N in flight`, `N held (dry run)`, `N simulated`, `N unconfirmed`),
-so the identity holds for a step that has not settled. Every per-record
+held by a dry run, passed through a simulation gap, held unconfirmed
+after a crash (ADR-060), or never dispatched because the step stopped
+(ADR-065) is the non-terminal remainder and the line names it (`N in
+flight`, `N held (dry run)`, `N simulated`, `N unconfirmed`, `N not
+sent`), so the identity holds for a step that has not settled. Every per-record
 `done`, `failed`, `skipped_cache`, `simulated` and `dry_run` event MUST
 carry `detail.outcome`, naming the one column it counts in (`out`,
 `empty`, `filtered`, `skipped`, `failed`, `cached`, `already_delivered`,
@@ -1257,7 +1278,9 @@ apply. It reports the run's net outcome: each record counts once per
 step, by its latest outcome there across every session of the run, so a
 resumed run reads as one run. A run recorded before these fields existed
 prints `?` for what the ledger never recorded (gated records, cost
-avoided) and infers the rest from each event and its reason.
+avoided) and infers the rest from each event and its reason. A step that
+stopped (§8 "A step that stops", ADR-065) prints its `not sent` count
+and reason from the step-level event's `detail.stopped`.
 
 ### `gtme show` (ADR-006)
 
@@ -1507,6 +1530,46 @@ person runs and ends in a `group:`; the cron pipeline sources from that
 group. Under `--simulate` a `human/*`/`agent/*` step is a simulation gap
 (below): records pass through untouched and the receipt counts them —
 there is no prompt to script and no person to rehearse.
+
+### A step that stops (ADR-065)
+
+An adapter reports what an error means with ERROR (§5); the binding
+engine reports every `errors:` verdict it applies the same way (§10a),
+so the runner treats both tiers alike:
+
+- `fail_record`: the keyed record fails (`failed`, outcome `failed`,
+  the reason); the session and the step continue.
+- `retry`: the adapter's attempts for the keyed record ran out; the
+  record fails as for `fail_record`, with a reason that says so. The
+  runner never re-dispatches a record.
+- `skip`: the keyed record is counted `skipped` with the reason and
+  continues past the step without output, as `on_missing: skip` does
+  (below); a deliver step writes no `deliveries` row for it.
+- `fail_run`: the step stops. The runner fails the keyed record, and
+  every record of that session left unanswered, with the reason; opens
+  no further session for the step; lets the sessions already open finish
+  and records what they answer; starts no later step; and ends the run
+  `failed`. A record never dispatched gets no event, so it stays where
+  it was: `--resume` sends it, and `once:` (§9) does not count it
+  finished. The step's line counts such records `N not sent` and names
+  the reason, and the step-level `failed` event (`identity_id` null)
+  carries `detail.stopped = {"verdict": "fail_run", "reason": "...",
+  "not_sent": N}`:
+
+```
+send: 314 in, 151 out, 1 failed, 162 not sent — stopped: instantly: the workspace's lead limit is reached …
+162 records were not sent. Fix the cause, then: gtme run send.yaml --resume 01J…
+```
+
+A session whose adapter exits 3 (auth), or a binding error that
+classifies as auth with no `errors:` rule for its status, stops the step
+exactly as `fail_run` does, with the error as the reason: every later
+session would present the same credential. Any other non-zero exit, or
+an unmapped binding error of another class, fails that session's
+unanswered records and the step continues, as before. The run's exit
+code is the stopping error's class (§8 exit codes): the process
+adapter's exit code, or the binding's classified error (§10a, including
+a rule's `class`, or its reclassification by `match`).
 
 ### deliver idempotency
 
@@ -2159,7 +2222,11 @@ adapter, prebuilt per platform, installed the same way.
    `variables:` targets), that every `variables:` target appears as
    `{{name}}` in some step body, and that no A/B variant lacks one. Its
    PREFLIGHT answer carries `destination` as the campaign's name and id
-   (§5, ADR-062).
+   (§5, ADR-062). When Instantly refuses a lead because the workspace's
+   plan lead limit is reached (a 403 whose body says `Lead limit
+   reached`), the adapter emits ERROR with `fail_run` and a reason that
+   says to upgrade the plan or delete leads, then exits 1 (§5, §8 "A
+   step that stops", ADR-065); any other 403 is auth (exit 3).
 7. **`mock-enrich-py`** (external, Python 3 stdlib only) — reads protocol
    from stdin, adds fields `mock.score` (derived deterministically from the
    identity key) and `mock.note`, emits COST 0. Proves the external adapter
@@ -2231,7 +2298,7 @@ dialect over item.*>, limit: <n | config reference>}` renders the
 template once per element, drops a render that is empty after trimming,
 stops at `limit`, and provides an array of strings; unlike a request
 leaf it may use the dialect's tags, because it renders text, not a typed
-value); error→verdict mapping; an
+value); error→verdict mapping (`errors:`, defined below, ADR-065); an
 idempotency declaration `native | ledger` (which party guarantees dedupe:
 Attio assert = native; Instantly = ledger via the deliveries table); a
 cost declaration (per record / per request / unit — `amount_usd` a
@@ -2263,6 +2330,42 @@ entries, verified before they install. `spec/bindings/` keeps one binding
 as the worked example `gtme help --bindings` prints, registered as no
 adapter. `gtme help --bindings` (§8,
 ADR-041) is the contract an author works from.
+
+**Error verdicts (ADR-065).** `errors:` maps an HTTP status, or a class
+such as `4xx`, to one rule or to a list of rules. A rule is `{verdict,
+reason?, match?, class?}`, with `verdict` one of `fail_record`, `fail_run`,
+`retry` or `skip`. `match` is a literal substring of the raw response
+body: no pattern syntax, no path, no operator. The rules for a status
+are tried in order, and the first whose `match` occurs in the body, or
+that has no `match`, applies; a rule after one with no `match` can never
+apply and fails validation. A status with no applicable rule keeps the
+engine's default classification (§8 exit codes). The engine reports the
+verdict it applied as ERROR (§5), and the runner acts on it as §8 "A
+step that stops" says, so `fail_run` stops the step in both tiers.
+`retry` first retries the status under the binding's retry policy, even
+a status the engine would not retry by default, and reports `retry`
+only when the attempts run out. `skip` and `fail_record` do not retry
+beyond the engine's default (429, network failures and 5xx). A rule
+MAY name the error's `class`: `auth`, `rate_limit`, `network` or
+`provider` (§8 exit codes 3, 4, 5, 1). A rule that applied because of
+its `match` and names no `class` reclassifies the error as provider
+(exit 1): the binding has said that this status, with this body, does
+not carry its generic meaning. A rule without `match` or `class` keeps
+the classified error's class. `class: auth` is how a binding says a
+body means a bad credential when the vendor answers with a status that
+does not (a 400 or 422 reading "invalid API key"): the run exits 3 and
+the step stops as an auth failure does. For example, a destination that answers both
+a revoked key and a full plan with 403:
+
+```yaml
+errors:
+  "403":
+    - match: "Lead limit reached"
+      verdict: fail_run
+      reason: "the workspace's lead limit is reached: upgrade the plan or delete leads, then resume"
+    - verdict: fail_run
+      reason: "the API key was rejected"
+```
 
 **Tier 2 — process adapters:** the §5/§6 NDJSON contract, unchanged.
 **Graduation rule (hard):** the moment a binding needs logic —
@@ -2924,6 +3027,39 @@ decided contract, not shipped behavior.
   later run to the target counts settled records as `already
   delivered`; the `held:` line is gone once nothing is `unconfirmed`;
   `make check` passes.
+- **M37 — a step that stops (ADR-065; §5, §8, §10, §10a, §11). Queued.**
+  §5's ERROR message and OPEN's `accepts` land in `spec/schemas/` and
+  the Go protocol package; the runner lists `ERROR` in every OPEN.
+  The runner acts on the four verdicts as §8 "A step that stops" says:
+  on `fail_run`, and on a session that exits 3 or a binding auth error
+  with no rule, the dispatcher sends no further chunk (the #82 stop
+  path), sessions already open finish, no later step starts, the run
+  ends `failed`, the step line prints `N not sent` and the reason, and
+  the step-level `failed` event carries `detail.stopped`; `gtme runs
+  RUN_ID` rebuilds the line. The binding engine emits ERROR for every
+  `errors:` verdict instead of a warning or a returned error, and a
+  `retry` that runs out is `retry`, not a stop. `spec/binding-schema.json`'s
+  `errors` accepts a rule or a list of rules with `match` and `class`, rejects a rule
+  after a matchless one, and `gtme adapters verify` and `gtme help
+  --bindings` follow. `instantly/add-to-campaign` emits `fail_run` on the
+  lead-limit 403 and exits 1. The docs that describe `errors:` and the
+  recover guide are updated. Acceptance, offline: a deliver binding
+  mapping 403 to `fail_run`, against a target that always answers 403,
+  sends one request for 40 records at concurrency 1 (at most 4 at
+  concurrency 4), prints `39 not sent` (fewer at concurrency 4, and the
+  line reconciles), exits with the error's class, and `--resume` after
+  the target answers 200 sends the rest once each; the same binding
+  with `fail_record` sends 40, fails 40, writes no `deliveries` row and
+  ends `failed`; with `skip` it sends 40, counts 40 `skipped`, writes no
+  `deliveries` row and ends `done`; a `match` rule applies only when its
+  text is in the body, the next rule applies otherwise, and a matched
+  rule's run exits 1, or 3 when the rule says `class: auth`; a binding whose target answers 401 with no rule
+  sends one request and exits 3; the Instantly fake that fills after N
+  leads adds N, fails one, and reports the rest `not sent`, and a
+  resume after it has room adds them without adding any lead twice; a
+  fixture process adapter that sends ERROR `fail_record` for one record
+  of a multi-record enrich session fails that record while the others
+  advance; `make check` passes.
 - **M28 — types and traverse (ADR-054; §3, §4, §4a, §5, §6, §7, §8, §9,
   §10a, §13). Built 2026-09-05 (changelog v0.43).** A type is a file: `spec/fields/*.json` gain
   `kind`, `identity` and per-field `reference`, §4 derivation reads the
@@ -3270,6 +3406,13 @@ ledger write and `gtme runs RUN_ID` prints the `--resume` command;
 that is `done`, exits 2 without touching the run (ADR-061). Before the
 resume, `gtme runs RUN_ID` of the interrupted run counts its unanswered
 sends (ADR-064).
+**Given** a deliver step whose destination refuses a record with a
+`fail_run` verdict, or whose adapter reports an auth failure, partway
+through, **when** the run ends, **then** no further record was sent
+after the refusal except by sessions already open, the receipt names
+the reason and counts the rest `not sent`, and `gtme run pipeline.yaml
+--resume RUN_ID` after the cause is fixed sends each of them once
+(ADR-065).
 
 ### Report
 **Invariant:** what happened in a run, and what it cost, is always
@@ -3289,6 +3432,18 @@ one session reads the same both ways (ADR-064).
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.61 — 2026-09-30 (ADR-065 reconciliation: a step that stops; build queued as M37)
+**Added:** §5 ERROR (`key`, `verdict`, `reason`) and OPEN's optional
+`accepts`; §8 "A step that stops", defining the four error verdicts in
+the runner, the stop on `fail_run` and on exit 3, the `not sent`
+remainder, `detail.stopped` on the step-level `failed` event, and the
+exit code of a stopped run; §10a "Error verdicts", with rule lists,
+`match` and `class`; §11 M37 queued; the Recover story's clause.
+**Changed:** §5's exit rule says exit 3 stops the step; §8 record
+accounting names `not sent`, and `gtme runs RUN_ID` prints it; §10
+item 6: Instantly's lead-limit 403 is `fail_run` and exit 1. No ledger
+DDL change and no new exit code.
 
 ### v0.60 — 2026-09-29 (M36 build: the receipt from the ledger; crashed sends; settling held deliveries, built)
 **Changed:** §11 M36 marked built; no normative text changed. Behavioural

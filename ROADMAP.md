@@ -642,3 +642,30 @@ design would need at least reproducible builds from the named commit,
 or a sandbox the runner enforces, before a community executable could
 install under "nothing installs unverified". This waits for a community
 adapter that cannot be a binding.
+
+## Deliver preflight: the destination's remaining capacity
+
+Named 2026-09-30 by ADR-065, from #202. ADR-065 stops a deliver step at
+the first refusal that says the destination is full, which bounds the
+waste at one request (plus the sessions already open). A preflight that
+read the destination's remaining capacity could refuse the run before
+the first request instead: for Instantly, a check that the workspace can
+take at least as many leads as the step has records, reported like
+"campaign is not Active" (ADR-040's `blocked`, or `inconclusive` when the
+number cannot be read). This is a new check in `instantly/add-to-campaign`'s
+preflight (§10 item 6), so it is spec-visible, and it needs a look at
+Instantly's real API first: whether any endpoint the adapter's key can
+read reports the plan's lead limit and current usage, and in what shape.
+Nothing is specified until that is known. A partial send is still
+possible when capacity is short, so the check would say how many fit
+rather than only refusing.
+
+## Stop a step after repeated exhausted retries
+
+Named 2026-09-30 in review of ADR-065. ADR-065 makes a `retry` that runs
+out fail its record, not the run, so one flaky record cannot end a long
+run. The cost is a sustained outage: every remaining record retries to
+exhaustion and fails in turn. A runner policy that stops the step after
+some number of consecutive exhausted retries, reported like any
+ADR-065 stop and resumable the same way, would bound that. It needs no
+protocol change. Nothing is specified until a real run shows the cost.
