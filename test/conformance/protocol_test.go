@@ -61,6 +61,8 @@ func schemaFor(dir, msgType string) (string, error) {
 			return "msg-state.schema.json", nil
 		case protocol.TypeLog:
 			return "msg-log.schema.json", nil
+		case protocol.TypeError:
+			return "msg-error.schema.json", nil
 		case protocol.TypeEnd:
 			return "msg-end.schema.json", nil
 		}
@@ -253,5 +255,50 @@ func TestCostSchemaAcceptsBasis(t *testing.T) {
 	bad := []byte(`{"type":"COST","provider":"vendor","amount_usd":0.01,"basis":"guessed"}`)
 	if err := s.Validate(asJSONValue(t, bad)); err == nil {
 		t.Error("COST with basis guessed passed the schema; basis is measured|estimated")
+	}
+}
+
+// TestErrorSchema: ADR-065's ERROR carries the binding verdict vocabulary.
+// A keyed fail_record and a keyless fail_run validate; a verdict outside the
+// four, a missing reason, or a fail_record without a key does not (SPEC §5).
+func TestErrorSchema(t *testing.T) {
+	s := compileSchema(t, "msg-error.schema.json")
+	good := []string{
+		`{"type":"ERROR","key":{"entity_type":"person","identity_key":"a@x.com"},"verdict":"fail_record","reason":"409 conflict"}`,
+		`{"type":"ERROR","key":{"entity_type":"person","identity_key":"a@x.com"},"verdict":"skip","reason":"not found"}`,
+		`{"type":"ERROR","key":{"entity_type":"person","identity_key":"a@x.com"},"verdict":"retry","reason":"gave up after 3 attempts"}`,
+		`{"type":"ERROR","key":{"entity_type":"person","identity_key":"a@x.com"},"verdict":"fail_run","reason":"plan full"}`,
+		`{"type":"ERROR","verdict":"fail_run","reason":"plan full"}`,
+		`{"type":"ERROR","key":null,"verdict":"fail_run","reason":"plan full"}`,
+	}
+	for _, g := range good {
+		if err := s.Validate(asJSONValue(t, []byte(g))); err != nil {
+			t.Errorf("valid ERROR fails the schema: %v\n  %s", err, g)
+		}
+	}
+	bad := []string{
+		`{"type":"ERROR","key":{"entity_type":"person","identity_key":"a@x.com"},"verdict":"explode","reason":"x"}`,
+		`{"type":"ERROR","key":{"entity_type":"person","identity_key":"a@x.com"},"verdict":"fail_record"}`,
+		`{"type":"ERROR","verdict":"fail_record","reason":"x"}`,
+		`{"type":"ERROR","verdict":"skip","reason":"x"}`,
+		`{"type":"ERROR","verdict":"retry","reason":"x"}`,
+	}
+	for _, b := range bad {
+		if err := s.Validate(asJSONValue(t, []byte(b))); err == nil {
+			t.Errorf("invalid ERROR passed the schema: %s", b)
+		}
+	}
+	if f, err := schemaFor(dirOut, protocol.TypeError); err != nil || f != "msg-error.schema.json" {
+		t.Errorf("schemaFor(adapter->runner, ERROR) = %q, %v", f, err)
+	}
+}
+
+// TestOpenSchemaAcceptsAccepts: OPEN's optional accepts lists the optional
+// messages a runner acts on (ADR-065).
+func TestOpenSchemaAcceptsAccepts(t *testing.T) {
+	s := compileSchema(t, "msg-open.schema.json")
+	msg := []byte(`{"type":"OPEN","step_id":"send","run_id":"r","accepts":["ERROR"]}`)
+	if err := s.Validate(asJSONValue(t, msg)); err != nil {
+		t.Errorf("OPEN with accepts fails the schema: %v", err)
 	}
 }

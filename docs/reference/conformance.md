@@ -50,7 +50,7 @@ links:
 
 # Conformance kit and fixtures
 
-The files under `spec/` and `test/fixtures/` that a test holds the code to, and the 23 tests in [test/conformance](https://github.com/gtme-run/gtme/tree/main/test/conformance) that load them. `go test ./test/conformance/` runs them alone, and `make check` runs them with the rest of the suite.
+The files under `spec/` and `test/fixtures/` that a test holds the code to, and the 25 tests in [test/conformance](https://github.com/gtme-run/gtme/tree/main/test/conformance) that load them. `go test ./test/conformance/` runs them alone, and `make check` runs them with the rest of the suite.
 
 ## File sets
 
@@ -58,7 +58,7 @@ What each set holds comes from `spec/README.md`, or from the schema's title. A s
 
 | Files | Holds | Loaded by |
 |---|---|---|
-| `spec/schemas/msg-*.schema.json` (12: msg-attest.schema.json, msg-cost.schema.json, msg-end.schema.json, msg-log.schema.json, msg-open.schema.json, msg-pending.schema.json, msg-preflight.schema.json, msg-record-in.schema.json, msg-record-out.schema.json, msg-schema.schema.json, msg-state.schema.json, msg-verdict.schema.json) | Every wire-protocol message type, per direction | `TestWireTranscriptValidatesAgainstSchemas`, `TestTranscriptRoundTripsThroughProtocol`, `TestEveryProtocolSchemaIsCompilable`, `TestCostSchemaAcceptsBasis` |
+| `spec/schemas/msg-*.schema.json` (13: msg-attest.schema.json, msg-cost.schema.json, msg-end.schema.json, msg-error.schema.json, msg-log.schema.json, msg-open.schema.json, msg-pending.schema.json, msg-preflight.schema.json, msg-record-in.schema.json, msg-record-out.schema.json, msg-schema.schema.json, msg-state.schema.json, msg-verdict.schema.json) | Every wire-protocol message type, per direction | `TestWireTranscriptValidatesAgainstSchemas`, `TestTranscriptRoundTripsThroughProtocol`, `TestEveryProtocolSchemaIsCompilable`, `TestCostSchemaAcceptsBasis`, `TestErrorSchema`, `TestOpenSchemaAcceptsAccepts` |
 | `spec/wire/*.ndjson` (1: basic-run.ndjson) | Golden transcripts recorded from the real adapters | `TestWireTranscriptValidatesAgainstSchemas`, `TestTranscriptRoundTripsThroughProtocol` |
 | `spec/schemas/pipeline.schema.json` | `pipeline.yaml`, including `uses:`/`variables:`/`on_missing:` | `TestSpecExamplePipelineValidates`, `TestExamplePipelinesValidate`, `TestEveryProtocolSchemaIsCompilable` |
 | `spec/schemas/manifest.schema.json` | An adapter's `manifest.json` | `TestAdapterManifestsValidate`, `TestEveryProtocolSchemaIsCompilable` |
@@ -97,6 +97,8 @@ What each test checks is its doc comment.
 | `TestTranscriptRoundTripsThroughProtocol` | `protocol_test.go` | `spec/schemas/msg-*.schema.json`, `spec/wire/*.ndjson` | TestTranscriptRoundTripsThroughProtocol checks the other half of the contract: the golden lines are not just schema-valid, they are what internal/protocol actually reads and writes. A message that changes shape on the way through is a serialization divergence. |
 | `TestEveryProtocolSchemaIsCompilable` | `protocol_test.go` | `spec/schemas/msg-*.schema.json`, `spec/schemas/pipeline.schema.json`, `spec/schemas/manifest.schema.json`, `spec/schemas/field-registry.schema.json` | TestEveryProtocolSchemaIsCompilable guards the corpus itself: a schema nobody happens to exercise still has to be loadable draft-07. |
 | `TestCostSchemaAcceptsBasis` | `protocol_test.go` | `spec/schemas/msg-*.schema.json` | The COST schema admits ADR-046's basis and nothing else in that slot — a labeled emission from a built-in must validate, and a made-up basis must not. |
+| `TestErrorSchema` | `protocol_test.go` | `spec/schemas/msg-*.schema.json` | ADR-065's ERROR carries the binding verdict vocabulary. A keyed fail_record and a keyless fail_run validate; a verdict outside the four, a missing reason, or a fail_record without a key does not (SPEC §5). |
+| `TestOpenSchemaAcceptsAccepts` | `protocol_test.go` | `spec/schemas/msg-*.schema.json` | OPEN's optional accepts lists the optional messages a runner acts on (ADR-065). |
 | `TestRegistryFilesValidateAgainstSchema` | `registry_test.go` | `spec/schemas/field-registry.schema.json`, `spec/fields/*.json` | — |
 | `TestEmbeddedRegistryMatchesSpecDir` | `registry_test.go` | `spec/fields/*.json` | The embedded registry is the same files — the binary can never disagree with the spec/ directory it was built from. |
 | `TestShippedManifestsPassRegistryValidation` | `registry_test.go` | — | Enforcement layer 1 over everything this repo ships: every property named in a manifest's static needs/provides schemas is canonical for its entity type or vendor-namespaced (SPEC §4a). |

@@ -50,7 +50,7 @@ links:
 
 # Wire protocol
 
-The 12 messages a process adapter and the runner exchange, one JSON object per line, from `spec/schemas/msg-*.schema.json`. Every message carries `type`, its name, so the required fields listed leave it out. A dotted key sits inside the key before the dot, and an upper-case part such as `FIELD` stands for a name you choose.
+The 13 messages a process adapter and the runner exchange, one JSON object per line, from `spec/schemas/msg-*.schema.json`. Every message carries `type`, its name, so the required fields listed leave it out. A dotted key sits inside the key before the dot, and an upper-case part such as `FIELD` stands for a name you choose.
 
 | Message | Direction | When it's sent | Required fields |
 |---|---|---|---|
@@ -66,6 +66,7 @@ The 12 messages a process adapter and the runner exchange, one JSON object per l
 | `COST` | adapter → runner | What a record (or, with key null/absent, a whole step) cost (SPEC.md §5). | `provider` |
 | `STATE` | adapter → runner | A resumable source's cursor (SPEC.md §5), so a re-run can pick up where the last one stopped. | `cursor` |
 | `LOG` | adapter → runner | Human-facing noise from an adapter (SPEC.md §5). | `level`, `msg` |
+| `ERROR` | adapter → runner | What an error means for one record, or for the whole step (SPEC.md §5, §8 "A step that stops", ADR-065). | `verdict`, `reason` |
 
 ## OPEN (runner → adapter)
 
@@ -81,6 +82,7 @@ Schema: `spec/schemas/msg-open.schema.json`.
 | `config` | object | no | The step's resolved `with:` block, validated against the manifest's config_schema before it is sent. |
 | `pending` | object | no | ADR-038. Present only when the runner is collecting: the token the adapter emitted in a PENDING message. The adapter MUST NOT dispatch new work; it collects results for the records that follow, or emits PENDING again if they are not ready. |
 | `pending.token` | string | yes | — |
+| `accepts` | array of string | no | ADR-065. The optional adapter → runner messages this runner acts on, such as ERROR. An adapter relies on one only when it is listed; a runner that predates the field sends none. |
 | `preflight` | boolean | no | ADR-040. Present (true) only in a preflight session: no records follow, and the adapter answers PREFLIGHT then END after checking the live target against this step's config (its variables: targets ride in config as ever). |
 
 ## RECORD (runner → adapter)
@@ -234,6 +236,21 @@ Schema: `spec/schemas/msg-log.schema.json`.
 | `type` | always `LOG` | yes | — |
 | `level` | one of `info`, `warn`, `error` | yes | — |
 | `msg` | string | yes | — |
+
+## ERROR (adapter → runner)
+
+What an error means for one record, or for the whole step (SPEC.md §5, §8 "A step that stops", ADR-065). `verdict` is the binding tier's error vocabulary (§10a): fail_record and retry fail the keyed record (retry: the adapter's own attempts ran out), skip counts it skipped, fail_run stops the step. `key` is required for fail_record, skip and retry and optional (or null) for fail_run. A runner acts on ERROR only when it listed it in OPEN's `accepts`; an adapter not told so fails the session by exiting non-zero instead.
+
+Schema: `spec/schemas/msg-error.schema.json`.
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `type` | always `ERROR` | yes | — |
+| `key` | object or null | no | — |
+| `key.entity_type` | string | yes | — |
+| `key.identity_key` | string | yes | — |
+| `verdict` | one of `fail_record`, `fail_run`, `skip`, `retry` | yes | — |
+| `reason` | string | yes | What the receipt and the ledger print. |
 
 ## Example
 

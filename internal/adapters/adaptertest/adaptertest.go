@@ -121,6 +121,10 @@ type Input struct {
 	Config  map[string]any
 	Records []protocol.Message
 	Env     map[string]string
+	// NoAccepts sends an OPEN without `accepts`, as a runner that predates
+	// ERROR does (SPEC §5, ADR-065). By default the OPEN lists ERROR, as
+	// this runner's does.
+	NoAccepts bool
 }
 
 // Record builds a RECORD message for an input.
@@ -137,7 +141,11 @@ func Run(t *testing.T, a adapters.Adapter, in Input) ([]protocol.Message, error)
 
 	go func() {
 		w := protocol.NewWriter(inW)
-		w.Write(protocol.Message{Type: protocol.TypeOpen, StepID: "step", RunID: "run1", Config: in.Config})
+		open := protocol.Message{Type: protocol.TypeOpen, StepID: "step", RunID: "run1", Config: in.Config}
+		if !in.NoAccepts {
+			open.Accepts = []string{protocol.TypeError}
+		}
+		w.Write(open)
 		for _, rec := range in.Records {
 			w.Write(rec)
 		}
@@ -180,6 +188,17 @@ func Costs(msgs []protocol.Message) []protocol.Message {
 	var out []protocol.Message
 	for _, m := range msgs {
 		if m.Type == protocol.TypeCost {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// Errors returns just the ERROR messages (SPEC §5, ADR-065).
+func Errors(msgs []protocol.Message) []protocol.Message {
+	var out []protocol.Message
+	for _, m := range msgs {
+		if m.Type == protocol.TypeError {
 			out = append(out, m)
 		}
 	}

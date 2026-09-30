@@ -13,6 +13,9 @@ links:
   - to: /concepts/adapter-tiers
     type: relates-to
     description: "Defines adapter, binding, fixture, floor, manifest, process adapter, and wire protocol"
+  - to: /concepts/agent-operable
+    type: relates-to
+    description: "Defines exit code"
   - to: /concepts/canonical-fields
     type: relates-to
     description: "Defines canonical field and normalization"
@@ -147,13 +150,19 @@ The `extract` block, optional.
 
 ## Errors
 
-The `errors` block, optional. HTTP status (or status class like '4xx') -\> verdict mapping; statuses the map does not name follow the engine's default classification (SPEC.md §8 exit-code classes).
+The `errors` block, optional. HTTP status (or status class like '4xx') -\> one rule, or an ordered list of rules (SPEC.md §10a Error verdicts, ADR-065). The first rule whose `match` occurs in the response body, or that has no `match`, applies; a rule after one with no `match` can never apply and is refused. A status with no applicable rule follows the engine's default classification (SPEC.md §8 exit-code classes). fail_run stops the step; fail_record and retry fail the record; skip counts it skipped.
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `errors.STATUS` | object | no | — |
+| `errors.STATUS` | object or array of object | no | — |
 | `errors.STATUS.verdict` | one of `fail_record`, `fail_run`, `retry`, `skip` | yes | — |
 | `errors.STATUS.reason` | string | no | — |
+| `errors.STATUS.match` | string | no | A literal substring of the raw response body: no pattern syntax, no path, no operator. The rule applies only when the body contains it. A rule that applied because of its match and names no class reclassifies the error as provider (exit 1). |
+| `errors.STATUS.class` | one of `auth`, `rate_limit`, `network`, `provider` | no | The error's class (SPEC.md §8 exit codes 3, 4, 5, 1). class: auth says the body means a bad credential: the run exits 3 and the step stops as an auth failure does. |
+| `errors.STATUS[].verdict` | one of `fail_record`, `fail_run`, `retry`, `skip` | yes | — |
+| `errors.STATUS[].reason` | string | no | — |
+| `errors.STATUS[].match` | string | no | A literal substring of the raw response body: no pattern syntax, no path, no operator. The rule applies only when the body contains it. A rule that applied because of its match and names no class reclassifies the error as provider (exit 1). |
+| `errors.STATUS[].class` | one of `auth`, `rate_limit`, `network`, `provider` | no | The error's class (SPEC.md §8 exit codes 3, 4, 5, 1). class: auth says the body means a bad credential: the run exits 3 and the step stops as an auth failure does. |
 
 ## Cost
 

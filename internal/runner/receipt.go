@@ -72,6 +72,25 @@ func PrintReceipt(w io.Writer, res *Result) {
 			fmt.Fprintf(w, "%s: %d failed — %s\n", s.ID, s.FailReasons[reason], reason)
 		}
 	}
+	// Records an ERROR skip passed over, with their reasons (ADR-065).
+	for _, s := range res.Steps {
+		reasons := make([]string, 0, len(s.SkipReasons))
+		for reason := range s.SkipReasons {
+			reasons = append(reasons, reason)
+		}
+		sort.Strings(reasons)
+		for _, reason := range reasons {
+			fmt.Fprintf(w, "%s: %d skipped — %s\n", s.ID, s.SkipReasons[reason], reason)
+		}
+	}
+	// A step that stopped (SPEC §8 "A step that stops", ADR-065): the rest
+	// wait where they were, and the resume sends them.
+	for _, s := range res.Steps {
+		if s.StopReason != "" && s.NotSent > 0 && !res.DryRun && !res.Simulated {
+			fmt.Fprintf(w, "%d records were not sent. Fix the cause, then: gtme run %s --resume %s\n",
+				s.NotSent, pipelineArg(res), res.RunID)
+		}
+	}
 	// Declared fields absent at dispatch (SPEC §7, ADR-053): the gap is
 	// visible whether or not the operator chose a policy.
 	for i := range res.Steps {
@@ -369,6 +388,13 @@ func PrintTable(w io.Writer, steps []StepStat, inUnknown map[string]bool) {
 	for _, s := range steps {
 		if s.AlreadyDelivered > 0 {
 			fmt.Fprintf(w, "%s: %d already delivered\n", s.ID, s.AlreadyDelivered)
+		}
+	}
+	// A step that stopped (SPEC §8, ADR-065): the rest were never sent, and
+	// why.
+	for _, s := range steps {
+		if s.StopReason != "" {
+			fmt.Fprintf(w, "%s: %d not sent — stopped: %s\n", s.ID, s.NotSent, s.StopReason)
 		}
 	}
 }

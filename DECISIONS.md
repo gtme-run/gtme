@@ -2749,6 +2749,55 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-30 — M37 internals: a step that stops (ADR-065)
+
+**Question:** What does the build decide where §5, §8 "A step that stops"
+and §10a leave room?
+**Choice:** (1) **Schema name.** ERROR's schema is
+`spec/schemas/msg-error.schema.json`, beside the other `msg-*` files the
+conformance test maps by type. (2) **Rule lookup.** The engine tries the
+exact status, then its class (`4xx`), then `default`; within an entry the
+first rule that applies wins, and an entry none of whose rules applies
+falls through to the next. (3) **Where a verdict has no record.** A
+source's request belongs to no record, so `skip` and `fail_record` there
+warn and end the source as before, and an exhausted `retry` ends the
+session; a traverse's request is its parent's, so its ERROR names the
+parent. (4) **`class: auth` on a record verdict** (`fail_record`, `skip`,
+`retry`): the engine reports the verdict for the record, then ends the
+session as an auth failure, so the step stops (§10a says the step stops
+as an auth failure does). (5) **No `accepts`.** When OPEN does not list
+ERROR the engine and the Instantly adapter end the session on every
+verdict, as before M37 (§5's fallback). (6) **Retry wording.** The engine
+reports the rule's reason with its attempt count; the runner prefixes
+`gave up retrying:`, so any adapter's `retry` says the attempts ran out.
+(7) **The stop in the pool.** A `stepStop` from a session closes the same
+channel #82's runner-side errors close; the dispatcher checks it before
+every send and a worker drops a chunk taken after it without opening a
+session, so no chunk slips through `select`'s random choice. A stop wins
+over another session's crash as the step's error. (8) **An ERROR skip.**
+It writes a `done` event with `skipped: true` and outcome `skipped`, moves
+the record past the step, and counts it `skipped`; on a deliver step it
+also records a fail verdict, the withheld send ADR-031 describes, so later
+steps and the terminus still see it. On any other step no verdict is
+recorded, since a fail verdict there would freeze the record. The receipt
+prints `STEP: N skipped — reason` the way it prints failures. (9)
+**`gtme runs RUN_ID`.** The latest `detail.stopped` for a step counts,
+less the records a later session of the run reached for the first time,
+so a resumed run's line does not keep reporting records the resume sent.
+(10) **A `fail_run` whose adapter then exits 0** stops the step with exit
+1. (11) **Fixtures.** `mock-enrich-py`'s induced failure exits 1 instead of
+3: it stands for a crash, and exit 3 now stops the step. The
+email-waterfall bundle is refrozen: its finders' 404 `skip` now counts
+`skipped` instead of `empty`, and the refreeze also picked up the current
+`registry/person.json`.
+**Why:** Each is the smallest reading that keeps the pre-M37 behavior
+where ADR-065 did not ask for a change, and where it did, makes the
+receipt and the ledger say the same thing.
+**Spec impact:** None beyond ADR-065. Covered by
+`test/e2e/step_stop_test.go`, `internal/binding/verdicts_test.go`,
+`internal/adapters/instantly/instantly_test.go`, and the conformance and
+protocol tests for ERROR and `accepts`.
+
 ### 2026-09-30 — A full Instantly plan is not an auth failure; a process adapter's last stderr line reaches the ledger (#202)
 
 **Question:** Instantly answers an add-lead call on a workspace at its

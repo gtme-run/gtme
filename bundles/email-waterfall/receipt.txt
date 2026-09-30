@@ -1,32 +1,31 @@
 $ gtme run . --simulate
-bundle email-waterfall (frozen from run 01M2EPQSC6EBJBW6FSCMB5HQ2W) — hashes verified
+bundle email-waterfall (frozen from run 01M3SPD0BGEXHM8S35PYE2MP2P) — hashes verified
 simulate: ignoring missing credentials (3 plan problems:
   - step "finder-a": missing credential FINDER_A_API_KEY (set it in the environment or run `gtme secret set FINDER_A_API_KEY`)
   - step "finder-b": missing credential FINDER_B_API_KEY (set it in the environment or run `gtme secret set FINDER_B_API_KEY`)
   - step "verify": missing credential VERIFIER_API_KEY (set it in the environment or run `gtme secret set VERIFIER_API_KEY`))
 simulate: recorded responses only — no network, no spend, nothing sends, nothing persists
-run 01M2EPQSYKBXS3T6HPVXX6FWNW (email-waterfall)
+run 01M3SPD0YY2MN6FX3N0TC6M5BP (email-waterfall)
 source [info]: read 3 rows from people.csv
 source: sourced 3 records
-finder-a [warn]: finder-a/email: skip for nh:a89d7594395ba6361775cdbd95e86e406f436a7cde2a4a0a9e71a5ef6d3f5aef: no address on file
-finder-a [warn]: finder-a/email: skip for in/bob-stone: no address on file
-finder-a: 3 in, 1 out, 2 empty, 0 cached, 0 filtered, 0 failed
-finder-b [warn]: finder-b/email: skip for nh:a89d7594395ba6361775cdbd95e86e406f436a7cde2a4a0a9e71a5ef6d3f5aef: no address on file
-finder-b: 3 in, 1 out, 1 empty, 1 cached, 0 filtered, 0 failed
+finder-a: 3 in, 1 out, 0 cached, 0 filtered, 0 failed, 2 skipped
+finder-b: 3 in, 1 out, 1 cached, 0 filtered, 0 failed, 1 skipped
 found: 3 in, 2 out, 0 cached, 1 filtered, 0 failed
 verify: 2 in, 2 out, 0 cached, 0 filtered, 0 failed
 deliverable: 2 in, 1 out, 0 cached, 1 filtered, 0 failed
 out: 1 in, 0 out, 0 cached, 0 filtered, 0 failed, 1 held (dry run)
 
-run 01M2EPQSYKBXS3T6HPVXX6FWNW — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
+run 01M3SPD0YY2MN6FX3N0TC6M5BP — done (SIMULATED — recorded responses only; nothing sent, nothing persisted)
 step         adapter                in  out  empty  cached  filtered  failed  cost     avoided
 source       csv/source             0   3    -      0       -         -       $0       -
-finder-a     finder-a/email         3   1    2      0       -         -       $0.0050  -
-finder-b     finder-b/email         3   1    1      1       -         -       $0.0100  $0.0100
+finder-a     finder-a/email         3   1    -      0       -         -       $0.0050  -
+finder-b     finder-b/email         3   1    -      1       -         -       $0.0100  $0.0100
 found        sql/filter             3   2    -      0       1         -       $0       -
 verify       verifier/email-status  2   2    -      0       -         -       $0.0060  -
 deliverable  sql/filter             2   1    -      0       1         -       $0       -
 out          csv/deliver            1   0    -      0       -         -       $0       -
+finder-a: 2 skipped — no address on file
+finder-b: 1 skipped — no address on file
 out: resolved variables for 1 record(s) — review, then run again without --dry-run to arm:
   in/jane-doe
     email: "jane.doe@acme.com"

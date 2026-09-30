@@ -136,28 +136,6 @@ retry:
 	}
 }
 
-// TestRetryVerdictExhaustedFailsWithTheReason (#162): retries stop at
-// max_attempts, and the run then fails naming the rule's reason.
-func TestRetryVerdictExhaustedFailsWithTheReason(t *testing.T) {
-	noSleep(t)
-	doer := &seqDoer{statuses: []int{409}}
-	_, err := runErrors(t, `
-errors:
-  "4xx": { verdict: retry, reason: index still building }
-retry:
-  max_attempts: 2
-`, doer)
-	if err == nil {
-		t.Fatal("run succeeded; want it to fail once retries are exhausted")
-	}
-	if doer.calls != 2 {
-		t.Errorf("calls = %d, want max_attempts = 2", doer.calls)
-	}
-	if !strings.Contains(err.Error(), "index still building") {
-		t.Errorf("error %q does not carry the rule's reason", err)
-	}
-}
-
 // recordSleeps swaps httpx's sleep for one that records each wait and
 // returns at once.
 func recordSleeps(t *testing.T) *[]time.Duration {

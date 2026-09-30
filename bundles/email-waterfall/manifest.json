@@ -1,9 +1,9 @@
 {
   "bundle_format_version": 1,
   "name": "email-waterfall",
-  "source_run_id": "01M2EPQSC6EBJBW6FSCMB5HQ2W",
-  "created_at": "2026-09-14T00:58:09.694Z",
-  "gtm_version": "v0.5.2-0.20260914003239-614243ceabdb+dirty",
+  "source_run_id": "01M3SPD0BGEXHM8S35PYE2MP2P",
+  "created_at": "2026-09-30T17:39:36.986Z",
+  "gtm_version": "v0.7.1+dirty",
   "contents": {
     "adapters/finder-a-email/binding.yaml": "38e53e4aa8ca2953a92ffff1e373102b252e0f20b5d81648d1c77b17b255cf88",
     "adapters/finder-a-email/fixtures/conformance.json": "5897674f288808489a66be7bed9dc9f74ffd88a79f4a56a27cb812d09119c92c",
@@ -13,7 +13,7 @@
     "adapters/verifier-email-status/fixtures/conformance.json": "dfe6762a1784fb6c58b536ee7495e686dde0ad195675f241676a866fd4eecd9c",
     "pipeline.yaml": "5fc1102450cbfcdfdafbeb8d84c907f816b2e79e04addae84591a77033d45e98",
     "registry/company.json": "56a4a6434fbb77bd24e2fc7f013abb28129a23f2d88d367ae591b9f7230814b5",
-    "registry/person.json": "2666a0850834b1542364a8c5deb7ce27e6033f931fb0fbe74397cb858f3457bc",
+    "registry/person.json": "2b4dcaf662c082e1a765c18c8d570a4e54439b36a13383b64a19518b57cb5c41",
     "registry/post.json": "53962867ce1614f937a16b50dddf736045271d7d6f44d4253d989ac571d63508"
   }
 }

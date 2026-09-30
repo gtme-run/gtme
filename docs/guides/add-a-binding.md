@@ -234,7 +234,7 @@ export STACKLENS_API_KEY=sk_test_standin
     | `pagination` | gtme adds `page` and `per_page`, and stops at `meta.total_pages` or at the step's `limit`, whichever comes first. |
     | `extract` | `records: data` is the list inside the response. `absent: [0]` reads a headcount of 0 as unknown. |
     | `each:` | Renders the template once per item in `technologies`, keeps at most `tech_limit`, and provides a list of strings (the decision record, [ADR-059](/decisions#adr-059)). |
-    | `errors`, `retry` | A 404 ends the source with zero records and a warning. Statuses you don't list keep gtme's defaults: a 401 fails the run, and a 429 or 5xx is retried up to `retry.max_attempts` times. |
+    | `errors`, `retry` | A 404 ends the source with zero records and a warning. Statuses you don't list keep gtme's defaults: a 401 stops the run, and a 429 or 5xx is retried up to `retry.max_attempts` times. |
     | `cost` | Charges $0.02 per record emitted. Use `per: request` when the vendor bills per page. |
 
     The `each:` template is written in the same template language as a request ([ADR-057](/decisions#adr-057)). `{{ }}` inserts a value, `item` is one entry of the list, and `| strip` trims spaces. A render that comes out empty as a whole is dropped, but an empty piece inside it is kept, so an item with a blank category renders as `Segment ()`. To leave the parentheses out, test for the empty string, in single quotes because the test uses double ones:
@@ -242,6 +242,21 @@ export STACKLENS_API_KEY=sk_test_standin
     ```yaml
     template: '{{ item.name | strip }}{% if item.category != "" %} ({{ item.category }}){% endif %}'
     ```
+
+    A vendor that answers two different problems with one status needs a list of rules. Each rule may carry `match`, a piece of text the response body must contain, and the first rule that applies wins ([ADR-065](/decisions#adr-065)). On an enrich or deliver step, `fail_run` stops the step, so the rest of the records wait for a resume instead of each paying for the same refusal:
+
+    ```yaml
+    errors:
+      "403":
+        - match: "Plan limit reached"
+          verdict: fail_run
+          reason: the plan is full; upgrade it, then resume
+        - verdict: fail_run
+          class: auth
+          reason: the API key was rejected
+    ```
+
+    A rule that applies because of its `match` exits 1 unless it names a `class`, and `class: auth` exits 3.
 
     Each block is one of the binding primitives in [SPEC §10a](/spec#10a-the-binding-tier--universal-steps--decided-adr-022027). Run `gtme help --bindings` for every key each block accepts, such as the other pagination strategies and auth types ([ADR-041](/decisions#adr-041)).
 

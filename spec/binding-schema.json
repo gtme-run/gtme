@@ -3,6 +3,42 @@
   "$id": "https://gtme.spec/binding-schema.json",
   "title": "Declarative binding",
   "description": "A tier-1 adapter: a YAML document the runner's generic HTTP engine interprets deterministically (SPEC.md §10a, ADR-022). Validate after decoding the YAML to JSON. Deliberately ~8 primitives; the moment a binding needs logic it graduates to a process adapter — no expression language may ever grow in here. Templating (ADR-057, M31): a leaf is a Liquid object in gtme's one bounded dialect over 'record.<field>', 'config.<key>', 'variables.<name>' and 'session' — objects only, no block tags, the fixed filter allowlist (SPEC.md §10 item 10; 'default' is the fallback: '{{ record.linkedin_url | default: record.linkedin_internal_url }}'). A leaf that is exactly one placeholder substitutes the typed value; leaves resolving to empty/null are omitted from the request (omitempty). The retired '{{a|b}}' alternatives fail verify naming the rewrite. In a deliver body, an object may carry the key '$variables': true — the resolved variables: mapping (minus any variable referenced individually elsewhere in the body) is spliced into that object. The engine pre-fills config defaults declared in config_schema.",
+  "definitions": {
+    "errorRule": {
+      "type": "object",
+      "required": [
+        "verdict"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "verdict": {
+          "enum": [
+            "fail_record",
+            "fail_run",
+            "retry",
+            "skip"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "match": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A literal substring of the raw response body: no pattern syntax, no path, no operator. The rule applies only when the body contains it. A rule that applied because of its match and names no class reclassifies the error as provider (exit 1)."
+        },
+        "class": {
+          "enum": [
+            "auth",
+            "rate_limit",
+            "network",
+            "provider"
+          ],
+          "description": "The error's class (SPEC.md §8 exit codes 3, 4, 5, 1). class: auth says the body means a bad credential: the run exits 3 and the step stops as an auth failure does."
+        }
+      }
+    }
+  },
   "type": "object",
   "required": [
     "id",
@@ -325,26 +361,20 @@
     },
     "errors": {
       "type": "object",
-      "description": "HTTP status (or status class like '4xx') -> verdict mapping; statuses the map does not name follow the engine's default classification (SPEC.md §8 exit-code classes).",
+      "description": "HTTP status (or status class like '4xx') -> one rule, or an ordered list of rules (SPEC.md §10a Error verdicts, ADR-065). The first rule whose `match` occurs in the response body, or that has no `match`, applies; a rule after one with no `match` can never apply and is refused. A status with no applicable rule follows the engine's default classification (SPEC.md §8 exit-code classes). fail_run stops the step; fail_record and retry fail the record; skip counts it skipped.",
       "additionalProperties": {
-        "type": "object",
-        "required": [
-          "verdict"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "verdict": {
-            "enum": [
-              "fail_record",
-              "fail_run",
-              "retry",
-              "skip"
-            ]
+        "oneOf": [
+          {
+            "$ref": "#/definitions/errorRule"
           },
-          "reason": {
-            "type": "string"
+          {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/definitions/errorRule"
+            }
           }
-        }
+        ]
       }
     },
     "idempotency": {
