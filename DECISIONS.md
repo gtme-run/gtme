@@ -2749,6 +2749,33 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-30 — A run that ends failed still adds its completers to the terminus group (#203)
+
+**Question:** SPEC §8 says every record that completes the run's final
+step is `added` to the terminus group. The runner asserted the terminus
+only when every step returned without error, so a run that ended
+`failed` (a step that stopped, ADR-065, or any step error) or was
+interrupted added nobody, even the records that had completed. `once:`
+(ADR-052) counts those same records finished, so a downstream pipeline
+sourcing the group missed people that were demonstrably sent, and a
+`once:` consumer would never source them again.
+**Choice:** The terminus asserts however the run ends: `execute` runs the
+steps, then adds the records at the final step's state (the same
+completers rule as before: no filter fail verdict, the last segment's
+records only) on a context an interrupt did not cancel. The steps' error
+still decides the run's status and exit code; a terminus error surfaces
+only when the steps succeeded. Records a stop left unsent never reached
+the final step, so they do not join; a `--resume` that sends them adds
+them, and nobody is added twice (existing members are skipped). The
+receipt's `group "NAME": N record(s) added` line now prints for a failed
+run too.
+**Why:** The spec's rule is per record, not per run, and it is the rule
+`once:` already keeps; asserting at the end of whatever the run did is
+the smallest change that makes the two agree without moving the terminus
+into the step loop.
+**Spec impact:** None: this brings the runner to §8's terminus rule.
+Covered by `test/e2e/terminus_stopped_test.go`.
+
 ### 2026-09-30 — M37 internals: a step that stops (ADR-065)
 
 **Question:** What does the build decide where §5, §8 "A step that stops"

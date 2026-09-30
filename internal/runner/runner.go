@@ -542,6 +542,21 @@ func ProcessLabel(run ledger.Run) string {
 var errInterrupted = errors.New("runner: interrupted")
 
 func (r *runner) execute(ctx context.Context) error {
+	err := r.runSteps(ctx)
+	// The terminus adds every record that completed the final step, however
+	// the run ends (SPEC §8, #203): a step that stopped, a failed step or an
+	// interrupt leaves the completers complete, and once: already counts them
+	// finished, so the group must hold them too. Asserted on a context the
+	// interrupt did not cancel; the steps' error still decides the run.
+	if terr := r.assertTerminus(context.WithoutCancel(ctx)); terr != nil && err == nil {
+		err = terr
+	}
+	return err
+}
+
+// runSteps runs the source and then every step in order, stopping at the first
+// error.
+func (r *runner) runSteps(ctx context.Context) error {
 	if err := r.runSource(ctx); err != nil {
 		return err
 	}
@@ -550,7 +565,7 @@ func (r *runner) execute(ctx context.Context) error {
 			return err
 		}
 	}
-	return r.assertTerminus(ctx)
+	return nil
 }
 
 // assertTerminus adds every record that completed the run's final step to the
