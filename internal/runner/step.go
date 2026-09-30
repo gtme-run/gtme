@@ -16,6 +16,7 @@ import (
 
 	"github.com/gtme-run/gtme/internal/adapters"
 	"github.com/gtme-run/gtme/internal/binding"
+	"github.com/gtme-run/gtme/internal/httpx"
 	"github.com/gtme-run/gtme/internal/identity"
 	"github.com/gtme-run/gtme/internal/ledger"
 	"github.com/gtme-run/gtme/internal/pipeline"
@@ -39,6 +40,11 @@ type item struct {
 	output   bool // a RECORD arrived
 	failed   bool // this step failed the record; nothing advances it now
 	attested bool // an ATTEST arrived (attesting deliver steps)
+	// dispatched marks a record handed to a session; a step that stops
+	// (ADR-065) counts the rest not sent. errored marks a record an ERROR
+	// named: nothing the session says about it later answers it (SPEC §5).
+	dispatched bool
+	errored    bool
 	// token is the in-flight handle this record is being collected under
 	// (ADR-038); pending marks a PENDING that covered it this session.
 	token   string
@@ -739,13 +745,25 @@ func (r *runner) dispatch(ctx context.Context, st *planner.Step, work []*item) e
 
 	queue := make(chan []*item)
 	var wg sync.WaitGroup
-	var once, halt sync.Once
+	var once, halt, stopOnce sync.Once
 	var fatal error
+	var stopped *stepStop
 	// stop closes on a runner-side failure (#82): the ledger or the runner,
 	// not the adapter, failed, so every further chunk would be dispatched —
-	// and for a paid step billed — with nothing recordable. Chunks already in
-	// a session finish; the rest stay at the previous state for a resume.
+	// and for a paid step billed — with nothing recordable. It closes too
+	// when the step stops (SPEC §8 "A step that stops", ADR-065): a fail_run
+	// or an auth failure says every later session fails the same way.
+	// Chunks already in a session finish; the rest stay at the previous state
+	// for a resume.
 	stop := make(chan struct{})
+	halted := func() bool {
+		select {
+		case <-stop:
+			return true
+		default:
+			return false
+		}
+	}
 
 	for w := 0; w < workers; w++ {
 		wg.Add(1)
@@ -753,9 +771,19 @@ func (r *runner) dispatch(ctx context.Context, st *planner.Step, work []*item) e
 			defer wg.Done()
 			// A crashed chunk fails the step but not the pool: the worker
 			// keeps draining, or with every worker gone the unbuffered send
-			// below would block forever (#77).
+			// below would block forever (#77). A chunk taken after the stop
+			// never opens a session.
 			for c := range queue {
+				if halted() {
+					continue
+				}
 				if err := r.processChunk(ctx, st, c); err != nil {
+					var ss *stepStop
+					if errors.As(err, &ss) {
+						stopOnce.Do(func() { stopped = ss })
+						halt.Do(func() { close(stop) })
+						continue
+					}
 					once.Do(func() { fatal = err })
 					var crash *sessionCrash
 					if !errors.As(err, &crash) {
@@ -765,31 +793,62 @@ func (r *runner) dispatch(ctx context.Context, st *planner.Step, work []*item) e
 			}
 		}()
 	}
+	finish := func() error {
+		if stopped != nil {
+			return r.stepStopped(ctx, st, work, stopped)
+		}
+		r.printStepLine(st)
+		return fatal
+	}
 	for _, c := range chunks {
+		if halted() {
+			break
+		}
 		select {
 		case queue <- c:
 		case <-stop:
-			close(queue)
-			wg.Wait()
-			r.printStepLine(st)
-			return fatal
 		case <-ctx.Done():
 			close(queue)
 			wg.Wait()
 			// The records already dispatched are settled above — answered,
 			// failed, or held (ADR-060); the rest never left.
-			r.printStepLine(st)
-			if fatal != nil {
-				return fatal
+			if stopped != nil || fatal != nil {
+				return finish()
 			}
+			r.printStepLine(st)
 			return fmt.Errorf("runner: %s: interrupted", st.ID)
 		}
 	}
 	close(queue)
 	wg.Wait()
+	return finish()
+}
 
+// stepStopped settles a step that stopped (SPEC §8 "A step that stops",
+// ADR-065): the records never dispatched get no event and stay where they
+// were, counted not sent; the step-level failed event carries
+// detail.stopped, so `gtme runs RUN_ID` rebuilds the line.
+func (r *runner) stepStopped(ctx context.Context, st *planner.Step, work []*item, stop *stepStop) error {
+	notSent := 0
+	for _, it := range work {
+		if !it.dispatched {
+			notSent++
+		}
+	}
+	r.bump(st, func(s *StepStat) {
+		s.NotSent = notSent
+		s.StopReason = stop.reason
+	})
+	_ = r.l.LogStepEvent(context.WithoutCancel(ctx), r.prov(st.ID), "", "failed", map[string]any{
+		"error": stop.Error(),
+		"stopped": map[string]any{
+			"verdict":  protocol.VerdictFailRun,
+			"reason":   stop.reason,
+			"not_sent": notSent,
+		},
+	})
 	r.printStepLine(st)
-	return fatal
+	return stop
 }
 
 // printStepLine reports a step's tally on stderr as it finishes.
@@ -829,6 +888,10 @@ func (r *runner) printStepLine(st *planner.Step) {
 	}
 	if stat.Missing > 0 {
 		line += " (" + missingNote(stat) + ")"
+	}
+	if stat.StopReason != "" {
+		// A step that stopped (SPEC §8, ADR-065): the rest were never sent.
+		line += fmt.Sprintf(", %d not sent — stopped: %s", stat.NotSent, stat.StopReason)
 	}
 	if st.IsTraverse {
 		// Two populations (SPEC §8, ADR-054): in counts parents and
@@ -1034,6 +1097,7 @@ func (r *runner) processChunk(ctx context.Context, st *planner.Step, items []*it
 	byKey := make(map[string]*item, len(items))
 	for _, it := range items {
 		byKey[it.key.String()] = it
+		it.dispatched = true
 	}
 
 	msgs := make([]protocol.Message, 0, len(items)+2)
@@ -1067,9 +1131,20 @@ func (r *runner) processChunk(ctx context.Context, st *planner.Step, items []*it
 	ctx = context.WithoutCancel(ctx)
 	// A deliver session the interrupt killed may have sent: its records are
 	// held, not failed (ADR-060), so no run sends them again by habit.
+	// stopReason is set by an ERROR fail_run (SPEC §8 "A step that stops",
+	// ADR-065): the session ends, and the step with it.
+	var stopReason string
 	crashed := func(cause error) error {
 		if heldOnCrash(st) && signal.Err() != nil {
 			return r.holdInterrupted(ctx, st, items, cause)
+		}
+		if stopReason != "" {
+			return r.chunkStopped(ctx, st, items, stopReason, cause)
+		}
+		// An auth failure stops the step as fail_run does: every later
+		// session would present the same credential (SPEC §5, §8).
+		if httpx.ExitCodeFor(cause) == exitAuth {
+			return r.chunkStopped(ctx, st, items, cause.Error(), cause)
 		}
 		return r.chunkFailed(ctx, st, items, cause)
 	}
@@ -1091,7 +1166,11 @@ func (r *runner) processChunk(ctx context.Context, st *planner.Step, items []*it
 		switch m.Type {
 		case protocol.TypeRecord:
 			if st.IsTraverse {
-				// One parent per session: the child RECORD belongs to it.
+				// One parent per session: the child RECORD belongs to it,
+				// unless an ERROR already settled the parent (SPEC §5).
+				if items[0].errored {
+					continue
+				}
 				if err := r.applyTraverseRecord(ctx, st, items[0], m); err != nil {
 					return err
 				}
@@ -1110,6 +1189,10 @@ func (r *runner) processChunk(ctx context.Context, st *planner.Step, items []*it
 			}
 		case protocol.TypePending:
 			if err := r.applyPending(ctx, st, items, m); err != nil {
+				return err
+			}
+		case protocol.TypeError:
+			if err := r.applyError(ctx, st, byKey, m, &stopReason); err != nil {
 				return err
 			}
 		case protocol.TypeCost:
@@ -1136,6 +1219,11 @@ func (r *runner) processChunk(ctx context.Context, st *planner.Step, items []*it
 	// stops reading early is not a failure.
 	if err := <-sendErr; err != nil && !isBrokenPipe(err) {
 		return crashed(err)
+	}
+	// A fail_run from an adapter that then exited 0: the step stops all the
+	// same, and the run's exit code is 1 (SPEC §8).
+	if stopReason != "" {
+		return r.chunkStopped(ctx, st, items, stopReason, nil)
 	}
 
 	// A collected record is settled either way (ADR-038): note which token
@@ -1267,7 +1355,7 @@ func (r *runner) applyAttest(ctx context.Context, st *planner.Step, byKey map[st
 		fmt.Fprintf(r.stderr, "%s: ignoring an ATTEST for an unknown key %s\n", st.ID, m.Key)
 		return nil
 	}
-	if it.attested || it.failed || it.advanced {
+	if it.attested || it.failed || it.advanced || it.errored {
 		return nil
 	}
 	it.attested = true
@@ -1329,6 +1417,11 @@ func (r *runner) applyRecord(ctx context.Context, st *planner.Step, byKey map[st
 	it, ok := byKey[m.Key.String()]
 	if !ok {
 		fmt.Fprintf(r.stderr, "%s: ignoring a RECORD for an unknown key %s\n", st.ID, m.Key)
+		return nil
+	}
+	if it.errored {
+		// An ERROR already settled it (SPEC §5, ADR-065): a later RECORD
+		// does not answer it, and a deliver's is never a send.
 		return nil
 	}
 	it.output = true
@@ -1400,6 +1493,9 @@ func (r *runner) applyVerdict(ctx context.Context, st *planner.Step, byKey map[s
 	if !ok {
 		fmt.Fprintf(r.stderr, "%s: ignoring a VERDICT for an unknown key %s\n", st.ID, m.Key)
 		return nil
+	}
+	if it.errored {
+		return nil // settled by an ERROR (SPEC §5, ADR-065)
 	}
 	it.verdict = true
 	if it.failed {
@@ -1629,6 +1725,117 @@ func (r *runner) recordFields(st *planner.Step, it *item) map[string]any {
 func DeliveryKey(target, scope, idem string) string {
 	sum := sha256.Sum256([]byte(target + "\x00" + scope + "\x00" + idem))
 	return hex.EncodeToString(sum[:])
+}
+
+// exitAuth is §8's exit code for an auth failure: a session ending with it
+// stops the step (SPEC §5, §8 "A step that stops").
+const exitAuth = 3
+
+// applyError acts on an ERROR (SPEC §5, §8 "A step that stops", ADR-065).
+// fail_record and retry fail the keyed record, skip counts it skipped, and
+// fail_run fails it (when keyed) and sets *stop, which ends the session and
+// the step. A record an ERROR names is settled: nothing later answers it.
+func (r *runner) applyError(ctx context.Context, st *planner.Step, byKey map[string]*item, m protocol.Message, stop *string) error {
+	reason := strings.TrimSpace(m.Reason)
+	if reason == "" {
+		reason = st.Use + " reported " + m.Verdict
+	}
+	var it *item
+	if m.Key != nil {
+		it = byKey[m.Key.String()]
+		if it == nil {
+			fmt.Fprintf(r.stderr, "%s: an ERROR named an unknown key %s\n", st.ID, m.Key)
+		}
+	}
+	switch m.Verdict {
+	case protocol.VerdictFailRun:
+		if *stop == "" {
+			*stop = reason
+		}
+		if it == nil {
+			return nil
+		}
+		it.errored = true
+		return r.failItem(ctx, st, it, reason)
+	case protocol.VerdictFailRecord, protocol.VerdictRetry:
+		if it == nil {
+			return nil
+		}
+		it.errored = true
+		if m.Verdict == protocol.VerdictRetry {
+			reason = "gave up retrying: " + reason
+		}
+		return r.failItem(ctx, st, it, reason)
+	case protocol.VerdictSkip:
+		if it == nil {
+			return nil
+		}
+		it.errored = true
+		return r.errorSkip(ctx, st, it, reason)
+	}
+	fmt.Fprintf(r.stderr, "%s: ignoring an ERROR with verdict %q\n", st.ID, m.Verdict)
+	return nil
+}
+
+// errorSkip counts a record skipped for an ERROR's reason and moves it past
+// the step without output, as on_missing: skip does (SPEC §8): a deliver's
+// send is withheld and writes no deliveries row.
+func (r *runner) errorSkip(ctx context.Context, st *planner.Step, it *item, reason string) error {
+	if it.advanced || it.failed {
+		return nil
+	}
+	detail := map[string]any{"reason": reason, "skipped": true, "outcome": OutcomeSkipped}
+	if st.IsDeliver {
+		// A withheld send, not a stop (ADR-031): later steps still see it.
+		if err := r.l.SetVerdict(ctx, r.runID, it.identityID, st.ID, false); err != nil {
+			return err
+		}
+		detail["pass"] = false
+	}
+	if err := r.l.LogStepEvent(ctx, r.prov(st.ID), it.identityID, "done", detail); err != nil {
+		return err
+	}
+	if err := r.l.SetRunRecordState(ctx, r.runID, it.identityID, st.ID); err != nil {
+		return err
+	}
+	it.advanced = true
+	r.bump(st, func(s *StepStat) {
+		s.Skipped++
+		if s.SkipReasons == nil {
+			s.SkipReasons = map[string]int{}
+		}
+		s.SkipReasons[reason]++
+	})
+	return nil
+}
+
+// stepStop is a step that stopped (SPEC §8 "A step that stops"): its reason,
+// and the error whose class is the run's exit code (nil: exit 1).
+type stepStop struct {
+	step   string
+	reason string
+	cause  error
+}
+
+func (e *stepStop) Error() string {
+	return fmt.Sprintf("runner: %s: stopped: %s", e.step, e.reason)
+}
+func (e *stepStop) Unwrap() error { return e.cause }
+
+// chunkStopped fails every record of a stopping session that nothing
+// answered, with the stop's reason, and reports the stop. The step-level
+// event is dispatch's to write, once it knows how many were never sent.
+func (r *runner) chunkStopped(ctx context.Context, st *planner.Step, items []*item, reason string, cause error) error {
+	for _, it := range items {
+		if it.advanced || it.pending {
+			continue
+		}
+		it.errored = true
+		if err := r.failItem(ctx, st, it, reason); err != nil {
+			return err
+		}
+	}
+	return &stepStop{step: st.ID, reason: reason, cause: cause}
 }
 
 // chunkFailed marks every record in a crashed session as failed and returns the

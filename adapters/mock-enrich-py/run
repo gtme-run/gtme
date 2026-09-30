@@ -74,11 +74,14 @@ def main():
             # sent stays in the ledger because the ledger is append-only.
             fail_on = [k.strip() for k in str(config.get("fail_on") or "").split(",") if k.strip()]
             if identity_key in fail_on:
+                # A crash, not an auth failure: exit 1. Exit 3 would stop the
+                # step (SPEC §5, §8 "A step that stops", ADR-065), which is not
+                # the case this failure exercises.
                 print(
                     f"mock-enrich-py: induced failure on {identity_key}",
                     file=sys.stderr,
                 )
-                return 3
+                return 1
 
             fields = {"mock.score": score(identity_key)}
             if config.get("note"):

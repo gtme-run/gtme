@@ -204,7 +204,7 @@ func TestLeadLimitIsNotAnAuthFailure(t *testing.T) {
 	r := routes(t)
 	r["POST /api/v2/leads"] = adaptertest.Response{Status: 403,
 		Body: `{"statusCode":403,"error":"Forbidden","message":"Lead limit reached. Remaining uploads: 0"}`}
-	_, err := adaptertest.Run(t, &Adapter{HTTP: &adaptertest.Stub{Routes: r}}, adaptertest.Input{
+	msgs, err := adaptertest.Run(t, &Adapter{HTTP: &adaptertest.Stub{Routes: r}}, adaptertest.Input{
 		Config:  map[string]any{"campaign": campaignID, "base_url": "https://instantly.test"},
 		Env:     map[string]string{"INSTANTLY_API_KEY": "secret"},
 		Records: lead("a@x.com", map[string]any{"email": "a@x.com"}),
@@ -223,6 +223,21 @@ func TestLeadLimitIsNotAnAuthFailure(t *testing.T) {
 	}
 	if strings.Contains(msg, "credentials were rejected") {
 		t.Errorf("error %q still blames the credentials", msg)
+	}
+	// ADR-065: the adapter stops the step with ERROR fail_run for the lead,
+	// and a runner that did not list ERROR gets only the exit.
+	if errs := adaptertest.Errors(msgs); len(errs) != 1 || errs[0].Verdict != protocol.VerdictFailRun ||
+		errs[0].Key == nil || errs[0].Key.IdentityKey != "a@x.com" || !strings.Contains(errs[0].Reason, "lead limit") {
+		t.Errorf("ERROR messages = %+v, want one fail_run for a@x.com naming the lead limit", errs)
+	}
+	legacy, err := adaptertest.Run(t, &Adapter{HTTP: &adaptertest.Stub{Routes: r}}, adaptertest.Input{
+		Config:    map[string]any{"campaign": campaignID, "base_url": "https://instantly.test"},
+		Env:       map[string]string{"INSTANTLY_API_KEY": "secret"},
+		Records:   lead("a@x.com", map[string]any{"email": "a@x.com"}),
+		NoAccepts: true,
+	})
+	if err == nil || len(adaptertest.Errors(legacy)) != 0 {
+		t.Errorf("without accepts: err %v, ERROR %+v; want the exit and no ERROR", err, adaptertest.Errors(legacy))
 	}
 
 	r = routes(t)

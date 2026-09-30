@@ -37,6 +37,10 @@ type Engine struct {
 	HTTP httpx.Doer
 	// Fixtures are the binding's conformance fixtures, nil when it ships none.
 	Fixtures *FixtureSet
+
+	// accepts records that this session's OPEN listed ERROR (SPEC §5,
+	// ADR-065). An Engine serves one session.
+	accepts bool
 }
 
 // Run implements adapters.Adapter.
@@ -72,6 +76,7 @@ func (e *Engine) Run(ctx context.Context, p adapters.Ports) error {
 		switch m.Type {
 		case protocol.TypeOpen:
 			cfg = e.configWithDefaults(m.Config)
+			e.accepts = m.AcceptsType(protocol.TypeError)
 			if e.B.Auth != nil && !simulate {
 				if p.Getenv(e.B.Auth.Env) == "" {
 					return &httpx.Error{Kind: httpx.KindAuth, Provider: e.B.Provider(),
@@ -86,7 +91,7 @@ func (e *Engine) Run(ctx context.Context, p adapters.Ports) error {
 				return err
 			}
 			if e.B.Role == adapters.RoleSource {
-				if err := e.paginate(ctx, w, p, doer, cfg, session, nil); err != nil {
+				if err := e.paginate(ctx, w, p, doer, cfg, session, nil, nil); err != nil {
 					return err
 				}
 			}
@@ -103,7 +108,7 @@ func (e *Engine) Run(ctx context.Context, p adapters.Ports) error {
 				// A source-shaped crossing per parent (SPEC §10a, ADR-054):
 				// the request templates from the parent's fields, every
 				// record extracted is a child of the output type.
-				if err := e.paginate(ctx, w, p, doer, cfg, session, m.Fields); err != nil {
+				if err := e.paginate(ctx, w, p, doer, cfg, session, m.Fields, m.Key); err != nil {
 					return err
 				}
 			case adapters.RoleEnrich:
@@ -154,7 +159,7 @@ func (e *Engine) runGap(r *protocol.Reader, w *protocol.Writer) error {
 // traverse (ADR-054) runs the same loop once per parent, whose fields
 // template the request; every record it extracts carries the output type
 // in its key, as §5 requires of a step that changes the type.
-func (e *Engine) paginate(ctx context.Context, w *protocol.Writer, p adapters.Ports, doer httpx.Doer, cfg map[string]any, session string, parent map[string]any) error {
+func (e *Engine) paginate(ctx context.Context, w *protocol.Writer, p adapters.Ports, doer httpx.Doer, cfg map[string]any, session string, parent map[string]any, parentKey *protocol.Key) error {
 	// limit is the engine's (ADR-047): read it, and unless the binding
 	// declares it too, keep it out of the templates' sight.
 	limit := intConfig(cfg, "limit")
@@ -180,7 +185,8 @@ func (e *Engine) paginate(ctx context.Context, w *protocol.Writer, p adapters.Po
 		}
 		var doc any
 		if err := e.do(ctx, doer, req, &doc); err != nil {
-			return e.mapError(w, nil, err)
+			// A traverse's request is its parent's: a verdict names the parent.
+			return e.mapError(w, parentKey, err)
 		}
 		pages++
 
@@ -477,46 +483,92 @@ func (e *Engine) do(ctx context.Context, doer httpx.Doer, req httpx.Request, out
 	return httpx.JSON(ctx, doer, req, out)
 }
 
-// mapError applies primitive 5 (error → verdict). skip and fail_record warn
-// and move on; fail_run stops the run with the rule's reason; retry was
-// already honoured inside httpx (see retryable), so reaching here means the
-// attempts ran out, and the run stops naming the reason. Statuses the map
-// does not name keep the engine default: the classified error fails the run,
-// which the runner turns into failed records and the right exit code
-// (SPEC §8). Every stop wraps the classified error, so its exit-code class
-// survives.
+// mapError applies primitive 5 (error → verdict; SPEC §10a Error verdicts,
+// ADR-065) and reports the verdict as ERROR (§5), which the runner acts on
+// (§8 "A step that stops"). fail_record, skip and an exhausted retry name
+// the record and the session carries on; fail_run names it and then ends
+// the session with the classified error, whose class is the run's exit
+// code. A rule's class, or a match without one (provider), reclassifies the
+// error first; class: auth ends the session as an auth failure whatever the
+// verdict, so the runner stops the step. Statuses the map does not name keep
+// the engine default: the classified error ends the session.
+//
+// Two cases keep the pre-ERROR shape. A runner whose OPEN did not list ERROR
+// cannot be relied on to act on it (§5), so every verdict ends the session.
+// And a source's request belongs to no record, so skip and fail_record there
+// warn and end the source, as before.
 func (e *Engine) mapError(w *protocol.Writer, key *protocol.Key, err error) error {
 	var herr *httpx.Error
 	if !errors.As(err, &herr) || herr.Status == 0 {
 		return err
 	}
-	rule, ok := e.errorRule(herr.Status)
+	rule, matched, ok := e.errorRule(herr.Status, herr.Body)
 	if !ok {
 		return err
 	}
+	if class := ruleClass(rule, matched); class != "" && class != herr.Kind {
+		re := *herr
+		re.Kind = class
+		err = &re
+	}
 	reason := rule.Reason
 	switch rule.Verdict {
-	case "skip", "fail_record":
+	case protocol.VerdictFailRun:
 		if reason == "" {
 			reason = err.Error()
 		}
-		who := ""
-		if key != nil {
-			who = " for " + key.IdentityKey
+		if e.accepts {
+			if werr := w.Write(protocol.Error(key, protocol.VerdictFailRun, reason)); werr != nil {
+				return werr
+			}
 		}
-		return w.Write(protocol.Log("warn", e.B.ID+": "+rule.Verdict+who+": "+reason))
-	case "fail_run":
-		if reason == "" {
+		if rule.Reason == "" {
 			return err
 		}
 		return fmt.Errorf("%s: %s: %w", e.B.ID, reason, err)
-	case "retry":
+	case protocol.VerdictRetry:
 		if reason == "" {
 			reason = "still failing"
 		}
-		return fmt.Errorf("%s: %s: gave up after %d attempt(s): %w", e.B.ID, reason, e.attempts(), err)
+		if key == nil || !e.accepts {
+			return fmt.Errorf("%s: %s: gave up after %d attempt(s): %w", e.B.ID, reason, e.attempts(), err)
+		}
+		// The runner says the attempts ran out; the count is the engine's.
+		reason = fmt.Sprintf("%s (%d attempt(s))", reason, e.attempts())
+	case protocol.VerdictSkip, protocol.VerdictFailRecord:
+		if reason == "" {
+			reason = err.Error()
+		}
+		if key == nil {
+			return w.Write(protocol.Log("warn", e.B.ID+": "+rule.Verdict+": "+reason))
+		}
+		if !e.accepts {
+			return fmt.Errorf("%s: %s: %s: %w", e.B.ID, rule.Verdict, reason, err)
+		}
+	default:
+		return err
 	}
-	return err
+	if werr := w.Write(protocol.Error(key, rule.Verdict, reason)); werr != nil {
+		return werr
+	}
+	if rule.Class == httpx.KindAuth {
+		// The body says the credential is bad: every later record would
+		// present it too, so the session ends as an auth failure (§10a).
+		return fmt.Errorf("%s: %s: %w", e.B.ID, reason, err)
+	}
+	return nil
+}
+
+// ruleClass is the error class a rule imposes: its own class, else provider
+// when it applied because of its match, else none (SPEC §10a).
+func ruleClass(rule ErrorRule, matched bool) string {
+	switch {
+	case rule.Class != "":
+		return rule.Class
+	case matched:
+		return httpx.KindProvider
+	}
+	return ""
 }
 
 // retryable is httpx's retry decision for this binding: a status the errors:
@@ -525,7 +577,7 @@ func (e *Engine) mapError(w *protocol.Writer, key *protocol.Key, err error) erro
 // default classification (429, network failures and 5xx retry).
 func (e *Engine) retryable(herr *httpx.Error) bool {
 	if herr.Status != 0 {
-		if rule, ok := e.errorRule(herr.Status); ok && rule.Verdict == "retry" {
+		if rule, _, ok := e.errorRule(herr.Status, herr.Body); ok && rule.Verdict == protocol.VerdictRetry {
 			return true
 		}
 	}
@@ -541,16 +593,20 @@ func (e *Engine) attempts() int {
 	return httpx.DefaultAttempts
 }
 
-func (e *Engine) errorRule(status int) (ErrorRule, bool) {
-	if rule, ok := e.B.Errors[fmt.Sprint(status)]; ok {
-		return rule, true
+// errorRule finds the rule for a status and response body: the exact status
+// first, then its class (4xx), then default. Within one entry the first rule
+// whose match the body contains, or that has none, applies; an entry none of
+// whose rules applies falls through to the next. matched reports a rule that
+// applied because of its match.
+func (e *Engine) errorRule(status int, body string) (rule ErrorRule, matched, ok bool) {
+	for _, name := range []string{fmt.Sprint(status), fmt.Sprintf("%dxx", status/100), "default"} {
+		if rules, found := e.B.Errors[name]; found {
+			if rule, matched, ok := rules.pick(body); ok {
+				return rule, matched, true
+			}
+		}
 	}
-	class := fmt.Sprintf("%dxx", status/100)
-	if rule, ok := e.B.Errors[class]; ok {
-		return rule, true
-	}
-	rule, ok := e.B.Errors["default"]
-	return rule, ok
+	return ErrorRule{}, false, false
 }
 
 // extractRecords applies the records path.

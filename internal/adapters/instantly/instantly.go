@@ -99,6 +99,8 @@ func (a *Adapter) Run(ctx context.Context, p adapters.Ports) error {
 		campaignID string
 		apiKey     = p.Getenv("INSTANTLY_API_KEY")
 		delivered  int
+		// accepts: this runner acts on ERROR (SPEC §5, ADR-065).
+		accepts bool
 	)
 
 	for {
@@ -122,6 +124,7 @@ func (a *Adapter) Run(ctx context.Context, p adapters.Ports) error {
 			// The campaign is named by its id (ADR-062): no lookup.
 			campaignID = cfg.Campaign
 			opened = true
+			accepts = m.AcceptsType(protocol.TypeError)
 			if m.Preflight {
 				// A preflight session (SPEC §5, ADR-040): check the live
 				// campaign against what this step sends; send nothing.
@@ -147,6 +150,18 @@ func (a *Adapter) Run(ctx context.Context, p adapters.Ports) error {
 			}
 			sent, created, err := a.addLead(ctx, cfg, apiKey, campaignID, m.Fields)
 			if err != nil {
+				// A full workspace refuses every later lead too: stop the
+				// step (SPEC §10 item 6, §8 "A step that stops", ADR-065),
+				// then exit 1 so a runner that predates ERROR still fails
+				// the session.
+				if accepts && isLeadLimit(err) {
+					if werr := w.Write(protocol.Error(m.Key, protocol.VerdictFailRun, "instantly: "+leadLimitReason)); werr != nil {
+						return werr
+					}
+					if werr := w.Write(protocol.End()); werr != nil {
+						return werr
+					}
+				}
 				return err
 			}
 			delivered++

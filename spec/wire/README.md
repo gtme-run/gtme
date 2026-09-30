@@ -51,6 +51,7 @@ Selected by `msg.type` and `dir`:
 | `adapter->runner` | `COST`     | `spec/schemas/msg-cost.schema.json`      |
 | `adapter->runner` | `STATE`    | `spec/schemas/msg-state.schema.json`     |
 | `adapter->runner` | `LOG`      | `spec/schemas/msg-log.schema.json`       |
+| `adapter->runner` | `ERROR`    | `spec/schemas/msg-error.schema.json`     |
 | `adapter->runner` | `END`      | `spec/schemas/msg-end.schema.json`       |
 
 ### What it demonstrates

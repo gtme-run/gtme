@@ -41,16 +41,16 @@ type Binding struct {
 	KeepPayloads        *bool              `json:"keep_payloads,omitempty"`
 	PayloadTTLDays      *int               `json:"payload_ttl_days,omitempty"`
 
-	Auth             *Auth                `json:"auth,omitempty"`
-	Request          Request              `json:"request"`
-	Pagination       *Pagination          `json:"pagination,omitempty"`
-	Extract          Extract              `json:"extract"`
-	Errors           map[string]ErrorRule `json:"errors,omitempty"`
-	Idempotency      string               `json:"idempotency,omitempty"`
-	IdempotencyScope string               `json:"idempotency_scope,omitempty"`
-	Cost             *Cost                `json:"cost,omitempty"`
-	Retry            *Retry               `json:"retry,omitempty"`
-	Session          *Session             `json:"session,omitempty"`
+	Auth             *Auth                 `json:"auth,omitempty"`
+	Request          Request               `json:"request"`
+	Pagination       *Pagination           `json:"pagination,omitempty"`
+	Extract          Extract               `json:"extract"`
+	Errors           map[string]ErrorRules `json:"errors,omitempty"`
+	Idempotency      string                `json:"idempotency,omitempty"`
+	IdempotencyScope string                `json:"idempotency_scope,omitempty"`
+	Cost             *Cost                 `json:"cost,omitempty"`
+	Retry            *Retry                `json:"retry,omitempty"`
+	Session          *Session              `json:"session,omitempty"`
 }
 
 // Auth is primitive 1: where the credential goes.
@@ -197,10 +197,47 @@ func (f FieldRule) check() error {
 
 var limitRefRE = regexp.MustCompile(`^\{\{\s*config\.[A-Za-z_][A-Za-z0-9_]*\s*\}\}$`)
 
-// ErrorRule is primitive 5: one status (or class) → verdict.
+// ErrorRule is primitive 5: one status (or class) → verdict (SPEC §10a,
+// ADR-065). Match, when set, is a literal substring the response body must
+// contain for the rule to apply; Class names the error's exit-code class.
 type ErrorRule struct {
 	Verdict string `json:"verdict"` // fail_record|fail_run|retry|skip
 	Reason  string `json:"reason,omitempty"`
+	Match   string `json:"match,omitempty"`
+	Class   string `json:"class,omitempty"` // auth|rate_limit|network|provider
+}
+
+// ErrorRules is one status's rules, tried in order. The document may write
+// one rule (an object) or a list.
+type ErrorRules []ErrorRule
+
+// UnmarshalJSON accepts a rule or a list of rules.
+func (r *ErrorRules) UnmarshalJSON(raw []byte) error {
+	var one ErrorRule
+	if err := json.Unmarshal(raw, &one); err == nil {
+		*r = ErrorRules{one}
+		return nil
+	}
+	var list []ErrorRule
+	if err := json.Unmarshal(raw, &list); err != nil {
+		return err
+	}
+	*r = list
+	return nil
+}
+
+// pick returns the first rule that applies to a response body, and whether
+// it applied because of its match.
+func (r ErrorRules) pick(body string) (ErrorRule, bool, bool) {
+	for _, rule := range r {
+		if rule.Match == "" {
+			return rule, false, true
+		}
+		if strings.Contains(body, rule.Match) {
+			return rule, true, true
+		}
+	}
+	return ErrorRule{}, false, false
 }
 
 // Cost is primitive 7. AmountUSD is a number, or a template resolved from
@@ -345,6 +382,14 @@ func (b *Binding) check() error {
 	for name, rule := range b.Extract.Fields {
 		if err := rule.check(); err != nil {
 			return fmt.Errorf("binding: %s: extract field %q: %w", b.ID, name, err)
+		}
+	}
+	for status, rules := range b.Errors {
+		for i, rule := range rules {
+			if rule.Match == "" && i < len(rules)-1 {
+				return fmt.Errorf("binding: %s: errors.%s: rule %d has no match, so rule %d after it can never apply",
+					b.ID, status, i+1, i+2)
+			}
 		}
 	}
 	if b.Pagination != nil && b.Pagination.Strategy == "cursor" && b.Pagination.CursorPath == "" {

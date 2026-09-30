@@ -26,6 +26,16 @@ const (
 	TypeCost      = "COST"
 	TypeState     = "STATE"
 	TypeLog       = "LOG"
+	TypeError     = "ERROR"
+)
+
+// Error verdicts (SPEC §5, §10a, ADR-065): the binding tier's error
+// vocabulary, carried on the wire by ERROR.
+const (
+	VerdictFailRecord = "fail_record"
+	VerdictFailRun    = "fail_run"
+	VerdictSkip       = "skip"
+	VerdictRetry      = "retry"
 )
 
 // Preflight statuses (SPEC §5, ADR-040): a deliver adapter's answer on
@@ -80,6 +90,13 @@ type Message struct {
 	// Preflight marks a preflight session (SPEC §5, ADR-040): no records
 	// follow; the adapter answers PREFLIGHT then END.
 	Preflight bool `json:"preflight,omitempty"`
+	// Accepts lists the optional messages this runner acts on (SPEC §5,
+	// ADR-065). An adapter relies on ERROR only when it is listed here.
+	Accepts []string `json:"accepts,omitempty"`
+
+	// ERROR (adapter → runner): Verdict, with Key and Reason (SPEC §5,
+	// ADR-065).
+	Verdict string `json:"verdict,omitempty"`
 
 	// PREFLIGHT (adapter → runner): Status (shared with ATTEST) and Checks.
 	Checks []Check `json:"checks,omitempty"`
@@ -246,6 +263,23 @@ func Pending(token string, detail map[string]any) Message {
 // key may be nil for step-level costs.
 func Cost(key *Key, provider string, amountUSD float64, detail map[string]any) Message {
 	return Message{Type: TypeCost, Key: key, Provider: provider, AmountUSD: &amountUSD, Basis: BasisEstimated, Detail: detail}
+}
+
+// Error builds an ERROR message (SPEC §5, ADR-065). key may be nil only for
+// fail_run.
+func Error(key *Key, verdict, reason string) Message {
+	return Message{Type: TypeError, Key: key, Verdict: verdict, Reason: reason}
+}
+
+// AcceptsType reports whether an OPEN lists the optional message type t in
+// its accepts (SPEC §5, ADR-065).
+func (m Message) AcceptsType(t string) bool {
+	for _, a := range m.Accepts {
+		if a == t {
+			return true
+		}
+	}
+	return false
 }
 
 // Log builds a LOG message.

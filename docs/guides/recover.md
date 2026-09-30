@@ -61,6 +61,9 @@ links:
   - to: /decisions#adr-061
     type: decided-by
     description: A run holds a lock while it executes, and a dead running run reads as interrupted
+  - to: /decisions#adr-065
+    type: decided-by
+    description: A step stops when the destination says no further send can succeed, and the rest wait for a resume
 ---
 
 # Recover
@@ -197,7 +200,9 @@ There's no receipt. The process died while `crm` was sending.
 
     **A run whose process died shows as `interrupted`, and `in flight` counts the sends it never heard back on.** A `gtme run` holds a lock on its run for as long as the process lives, so a free lock means nothing is running it ([SPEC §8](/spec#interrupted-runs--the-run-lock-adr-061)). A run whose process is still alive says `running`, and `--resume` refuses it and changes nothing, so two processes never work one run. If a vendor went down instead, the run ends `failed` and prints the error, and the steps from step 2 on are the same. Copy the id; the next steps call it `RUN_ID`.
 
-    Resume instead of starting over. A plain `gtme run signups.yaml` prints the resume command and starts a new run, which also holds the records that were mid-send at the crash, but it scores all 12 people again, pays for it, and splits the work across two run ids.
+    A [stopped](/spec#a-step-that-stops-adr-065) step counts unsent records `not sent` and says why; fix that, then resume.
+
+    Resume instead of starting over. A plain `gtme run signups.yaml` pays to score all 12 people again, under a second run id.
 
 1. See how far each record got:
 

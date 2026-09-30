@@ -104,6 +104,14 @@ type StepStat struct {
 	FailReasons map[string]int
 	Gated       int // excluded by when:
 	Skipped     int // records held back by on_missing: a deliver's withheld send, or a participant step's skip (SPEC §7/§8)
+	// NotSent counts records the step never dispatched because it stopped
+	// (SPEC §8 "A step that stops", ADR-065), and StopReason says why. Both
+	// are zero for a step that did not stop.
+	NotSent    int
+	StopReason string
+	// SkipReasons tallies why an ERROR skip passed records over (ADR-065),
+	// as FailReasons does for failures.
+	SkipReasons map[string]int
 	// Missing counts records dispatched with a declared uses: field absent
 	// (on_missing: run, SPEC §7, ADR-053); MissingFields tallies which.
 	Missing       int
@@ -746,6 +754,9 @@ func (r *runner) openMessage(st *planner.Step, items []*item) protocol.Message {
 		RunID:   r.runID,
 		Config:  config,
 		Pending: pending,
+		// This runner acts on ERROR (SPEC §5, §8 "A step that stops",
+		// ADR-065), so an adapter may rely on it.
+		Accepts: []string{protocol.TypeError},
 	}
 }
 

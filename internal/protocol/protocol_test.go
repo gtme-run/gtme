@@ -186,3 +186,33 @@ func TestCostBasis(t *testing.T) {
 		t.Errorf("CostBasis() of an unlabeled COST = %q (wire %q), want estimated", got.CostBasis(), got.Basis)
 	}
 }
+
+// ERROR and OPEN's accepts round-trip with the wire names SPEC §5 gives
+// them (ADR-065).
+func TestErrorAndAcceptsRoundTrip(t *testing.T) {
+	key := Key{EntityType: "person", IdentityKey: "a@x.com"}
+	var buf bytes.Buffer
+	w := NewWriter(&buf)
+	w.Write(Error(&key, VerdictFailRecord, "409 conflict"))
+	w.Write(Error(nil, VerdictFailRun, "plan full"))
+	w.Write(Message{Type: TypeOpen, Accepts: []string{TypeError}})
+	wire := buf.String()
+	for _, want := range []string{`"verdict":"fail_record"`, `"reason":"409 conflict"`, `"accepts":["ERROR"]`, `"type":"ERROR"`} {
+		if !strings.Contains(wire, want) {
+			t.Errorf("wire lacks %s:\n%s", want, wire)
+		}
+	}
+	r := NewReader(&buf)
+	first, _ := r.Next()
+	if first.Verdict != VerdictFailRecord || first.Key == nil || *first.Key != key {
+		t.Errorf("ERROR = %+v", first)
+	}
+	second, _ := r.Next()
+	if second.Verdict != VerdictFailRun || second.Key != nil {
+		t.Errorf("keyless ERROR = %+v", second)
+	}
+	open, _ := r.Next()
+	if !open.AcceptsType(TypeError) || (Message{Type: TypeOpen}).AcceptsType(TypeError) {
+		t.Errorf("AcceptsType: %+v", open)
+	}
+}

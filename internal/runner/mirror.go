@@ -66,7 +66,26 @@ func LedgerSteps(ctx context.Context, l *ledger.Ledger, run ledger.Run) (Mirror,
 	seen := map[string]map[string]bool{}    // step → records with any event there
 	final := map[string]map[string]latest{} // step → record → latest outcome
 	var srcOut, srcFailed int
+	// A step that stopped records why, and how many it never sent, on its
+	// step-level failed event (SPEC §8, ADR-065). The latest stop counts,
+	// less the records a later session of the run (a resume) first reached.
+	type stopRecord struct {
+		reason  string
+		notSent int
+		resumed int
+	}
+	stops := map[string]*stopRecord{}
 	for _, e := range events {
+		if e.IdentityID == "" && e.Event == "failed" {
+			if s, ok := e.Detail["stopped"].(map[string]any); ok {
+				reason, _ := s["reason"].(string)
+				n, _ := s["not_sent"].(float64)
+				stops[e.StepID] = &stopRecord{reason: reason, notSent: int(n)}
+			}
+		}
+		if stop := stops[e.StepID]; stop != nil && e.IdentityID != "" && !seen[e.StepID][e.IdentityID] {
+			stop.resumed++
+		}
 		if e.StepID == cfg.Source.ID {
 			switch {
 			case e.IdentityID == "" && e.Event == "done":
@@ -114,6 +133,13 @@ func LedgerSteps(ctx context.Context, l *ledger.Ledger, run ledger.Run) (Mirror,
 	}
 	for _, rs := range cfg.Steps[:last+1] {
 		s := StepStat{ID: rs.ID, Use: rs.Use, In: len(seen[rs.ID]), Cost: costs[rs.ID]}
+		if stop := stops[rs.ID]; stop != nil && stop.notSent > stop.resumed {
+			// The records never sent have no event there, yet were eligible:
+			// in counts them, and the line names them (ADR-065).
+			s.NotSent = stop.notSent - stop.resumed
+			s.In += s.NotSent
+			s.StopReason = stop.reason
+		}
 		for _, f := range final[rs.ID] {
 			switch f.outcome {
 			case OutcomeOut:
@@ -124,6 +150,8 @@ func LedgerSteps(ctx context.Context, l *ledger.Ledger, run ledger.Run) (Mirror,
 				s.Filtered++
 			case OutcomeFailed:
 				s.Failed++
+			case OutcomeSkipped:
+				s.Skipped++
 			case OutcomeAlreadyDelivered:
 				s.AlreadyDelivered++
 			case OutcomeCached:

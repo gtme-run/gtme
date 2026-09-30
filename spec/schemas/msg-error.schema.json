@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://gtme.spec/schemas/msg-error.schema.json",
+  "title": "ERROR (adapter → runner)",
+  "description": "What an error means for one record, or for the whole step (SPEC.md §5, §8 \"A step that stops\", ADR-065). `verdict` is the binding tier's error vocabulary (§10a): fail_record and retry fail the keyed record (retry: the adapter's own attempts ran out), skip counts it skipped, fail_run stops the step. `key` is required for fail_record, skip and retry and optional (or null) for fail_run. A runner acts on ERROR only when it listed it in OPEN's `accepts`; an adapter not told so fails the session by exiting non-zero instead.",
+  "type": "object",
+  "required": ["type", "verdict", "reason"],
+  "additionalProperties": false,
+  "properties": {
+    "type": {"const": "ERROR"},
+    "key": {
+      "oneOf": [
+        {"$ref": "#/definitions/key"},
+        {"type": "null"}
+      ]
+    },
+    "verdict": {"enum": ["fail_record", "fail_run", "skip", "retry"]},
+    "reason": {"type": "string", "minLength": 1, "description": "What the receipt and the ledger print."}
+  },
+  "if": {
+    "properties": {"verdict": {"enum": ["fail_record", "skip", "retry"]}}
+  },
+  "then": {
+    "required": ["key"],
+    "properties": {"key": {"$ref": "#/definitions/key"}}
+  },
+  "definitions": {
+    "key": {
+      "type": "object",
+      "required": ["entity_type", "identity_key"],
+      "additionalProperties": false,
+      "properties": {
+        "entity_type": {"type": "string"},
+        "identity_key": {"type": "string"}
+      }
+    }
+  }
+}

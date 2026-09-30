@@ -147,14 +147,25 @@ func (a *Adapter) addLead(ctx context.Context, cfg config, apiKey, campaignID st
 // as auth; the key is fine and the fix is the plan, so it is a provider
 // error (exit 1) that says what to do (#202). Any other error passes through.
 func leadLimit(err error) error {
-	var e *httpx.Error
-	if !errors.As(err, &e) || e.Status != http.StatusForbidden ||
-		!strings.Contains(strings.ToLower(e.Body), "lead limit") {
+	if !isLeadLimit(err) {
 		return err
 	}
+	var e *httpx.Error
+	errors.As(err, &e)
 	return &httpx.Error{Kind: httpx.KindProvider, Status: e.Status, Provider: e.Provider, Body: e.Body,
-		Msg: "the workspace's lead limit is reached, so no lead can be added: " +
-			"upgrade the Instantly plan or delete leads from the workspace, then re-run"}
+		Msg: leadLimitReason}
+}
+
+// leadLimitReason is what the receipt says when the workspace is full.
+const leadLimitReason = "the workspace's lead limit is reached, so no lead can be added: " +
+	"upgrade the Instantly plan or delete leads from the workspace, then resume the run"
+
+// isLeadLimit reports Instantly's answer to a full plan: a 403 whose body
+// says "Lead limit reached" (#202).
+func isLeadLimit(err error) bool {
+	var e *httpx.Error
+	return errors.As(err, &e) && e.Status == http.StatusForbidden &&
+		strings.Contains(strings.ToLower(e.Body), "lead limit")
 }
 
 // IsCampaignID reports whether s is an Instantly campaign id: a UUID in
