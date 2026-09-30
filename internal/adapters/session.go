@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/gtme-run/gtme/internal/protocol"
@@ -164,7 +165,8 @@ func launchExec(ctx context.Context, dir, executable string, p Ports) (*Session,
 	if err != nil {
 		return nil, fmt.Errorf("adapters: %s: stdout: %w", executable, err)
 	}
-	cmd.Stderr = prefixWriter{w: p.Log, prefix: filepath.Base(filepath.Dir(executable)) + ": "}
+	stderr := &prefixWriter{w: p.Log, prefix: filepath.Base(filepath.Dir(executable)) + ": "}
+	cmd.Stderr = stderr
 
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("adapters: starting %s: %w", executable, err)
@@ -181,28 +183,42 @@ func launchExec(ctx context.Context, dir, executable string, p Ports) (*Session,
 				if errors.As(err, &ee) {
 					code = ee.ExitCode()
 				}
-				return &ExitError{
-					Code: code,
-					Err:  fmt.Errorf("adapters: %s: %w", executable, err),
+				wrapped := fmt.Errorf("adapters: %s: %w", executable, err)
+				// cmd.Wait has copied all of stderr by now, so the last
+				// line is the adapter's final word.
+				if line := stderr.lastLine(); line != "" {
+					wrapped = fmt.Errorf("adapters: %s: %w: %s", executable, err, line)
 				}
+				return &ExitError{Code: code, Err: wrapped}
 			}
 			return nil
 		},
 	}, nil
 }
 
-// prefixWriter tags an adapter's stderr so it is obvious which adapter spoke.
+// maxStderrTail bounds the stderr line an exit error carries into the ledger.
+const maxStderrTail = 500
+
+// prefixWriter tags an adapter's stderr so it is obvious which adapter spoke,
+// and keeps the last non-empty line: an adapter prints its fatal error last,
+// and the exit status alone does not say what it was (#202).
 type prefixWriter struct {
 	w      io.Writer
 	prefix string
+
+	mu   sync.Mutex
+	last string
 }
 
-func (p prefixWriter) Write(b []byte) (int, error) {
-	if p.w == nil {
-		return len(b), nil
-	}
+func (p *prefixWriter) Write(b []byte) (int, error) {
 	for _, line := range splitLines(b) {
 		if line == "" {
+			continue
+		}
+		p.mu.Lock()
+		p.last = line
+		p.mu.Unlock()
+		if p.w == nil {
 			continue
 		}
 		if _, err := io.WriteString(p.w, p.prefix+line+"\n"); err != nil {
@@ -210,6 +226,17 @@ func (p prefixWriter) Write(b []byte) (int, error) {
 		}
 	}
 	return len(b), nil
+}
+
+// lastLine is the adapter's last stderr line, trimmed and bounded.
+func (p *prefixWriter) lastLine() string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	s := strings.TrimSpace(p.last)
+	if len(s) > maxStderrTail {
+		s = s[:maxStderrTail] + "…"
+	}
+	return s
 }
 
 func splitLines(b []byte) []string {
