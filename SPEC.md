@@ -3072,7 +3072,7 @@ decided contract, not shipped behavior.
   fixture process adapter that sends ERROR `fail_record` for one record
   of a multi-record enrich session fails that record while the others
   advance; `make check` passes.
-- **M38 — Instantly's lead fields (ADR-066; §10, §11). Queued.**
+- **M38 — Instantly's lead fields (ADR-066; §10, §11). Built 2026-09-30 (changelog v0.64).**
   `instantly/add-to-campaign` maps all seven documented lead fields into
   the lead body, accepts the camelCase spelling of each, refuses a
   session whose `variables:` names one lead field twice (exit 2, nothing
@@ -3462,6 +3462,16 @@ one session reads the same both ways (ADR-064).
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.64 — 2026-09-30 (M38 build: Instantly's lead fields, built)
+**Changed:** §11 M38 marked built; no normative text changed.
+Behavioural notes from the build: the duplicate refusal's message names
+both targets and the field; attest reads `job_title`, `website` and
+`phone` from the re-read lead under those names, and a re-read that does
+not carry one is inconclusive, as for the other fields. The registry
+entry for `instantly/add-to-campaign` pins release tarballs, so the
+change reaches an install when the entry is repinned to a release that
+carries it.
 
 ### v0.63 — 2026-09-30 (ADR-066 reconciliation: Instantly's lead fields; build queued as M38)
 **Changed:** §10 item 6: the lead body takes all seven lead fields

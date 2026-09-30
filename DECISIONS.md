@@ -2749,6 +2749,27 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-09-30 — M38 internals: Instantly's lead fields (ADR-066)
+**Question:** Where the lead-field set lives, how the duplicate refusal
+gets exit 2, and how the tag check reads the sequence.
+**Choice:** One map in `internal/adapters/instantly`, `leadFields`, from
+every accepted target name to its lead field, replaces the four-name
+switch and `firstClass`; `addLead`, preflight and attest all read it, so
+the set cannot drift between them. The tag list preflight checks is a
+second, ordered list beside it (`leadFieldTags`), without `{{jobTitle}}`.
+The duplicate refusal is a `contractError` implementing `ExitCode() 2`,
+raised by `parseConfig`, which `cmd/gtme-instantly` already turns into
+its exit code through `httpx.ExitCodeFor`; the preflight session parses
+the same config first, so a duplicate stops the step before any send.
+The tag check reuses `campaignDetail.steps()`, which already joins each
+variant's subject and body, so a tag in a subject counts.
+**Why:** One table is the smallest change that makes ADR-066's set a
+single fact; the exit code follows the adapter's existing error path.
+**Spec impact:** None beyond ADR-066. Covered by
+`TestLeadFieldsTakeEitherSpelling`, `TestSnakeCaseJobTitleReachesTheLeadBody`,
+`TestOneLeadFieldOneTarget`, `TestPreflightChecksLeadFieldTags` and
+`TestAttestComparesTheNewLeadFields`.
+
 ### 2026-09-30 — A run that ends failed still adds its completers to the terminus group (#203)
 
 **Question:** SPEC §8 says every record that completes the run's final

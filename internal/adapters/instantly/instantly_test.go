@@ -426,33 +426,47 @@ func TestManifestDeclaresAttestation(t *testing.T) {
 // campaign is active, the sequence long enough, every variable referenced
 // and every variant carrying it; blocked, naming the check, otherwise;
 // inconclusive when the campaign cannot be read or the shape is unreadable.
+// runPreflightSession opens a preflight session (ADR-040) and returns the
+// stub and every message the adapter wrote.
+func runPreflightSession(t *testing.T, r map[string]adaptertest.Response, variables map[string]any) (*adaptertest.Stub, []protocol.Message) {
+	t.Helper()
+	stub := &adaptertest.Stub{Routes: r}
+	inR, inW := io.Pipe()
+	outR, outW := io.Pipe()
+	go func() {
+		w := protocol.NewWriter(inW)
+		w.Write(protocol.Message{Type: protocol.TypeOpen, StepID: "send", RunID: "run1", Preflight: true,
+			Config: map[string]any{"campaign": campaignID, "base_url": "https://instantly.test", "variables": variables}})
+		w.Write(protocol.End())
+		inW.Close()
+	}()
+	go func() {
+		outW.CloseWithError((&Adapter{HTTP: stub}).Run(context.Background(),
+			adapters.Ports{In: inR, Out: outW, Log: io.Discard, Env: map[string]string{"INSTANTLY_API_KEY": "secret"}}))
+	}()
+	var msgs []protocol.Message
+	rd := protocol.NewReader(outR)
+	for {
+		m, err := rd.Next()
+		if err != nil {
+			break
+		}
+		msgs = append(msgs, m)
+	}
+	return stub, msgs
+}
+
+// runPreflight returns only the PREFLIGHT messages of a preflight session.
+func runPreflight(t *testing.T, r map[string]adaptertest.Response, variables map[string]any) []protocol.Message {
+	t.Helper()
+	_, msgs := runPreflightSession(t, r, variables)
+	return preflights(msgs)
+}
+
 func TestPreflightChecksTheLiveCampaign(t *testing.T) {
 	run := func(r map[string]adaptertest.Response, variables map[string]any) (*adaptertest.Stub, []protocol.Message) {
 		t.Helper()
-		stub := &adaptertest.Stub{Routes: r}
-		inR, inW := io.Pipe()
-		outR, outW := io.Pipe()
-		go func() {
-			w := protocol.NewWriter(inW)
-			w.Write(protocol.Message{Type: protocol.TypeOpen, StepID: "send", RunID: "run1", Preflight: true,
-				Config: map[string]any{"campaign": campaignID, "base_url": "https://instantly.test", "variables": variables}})
-			w.Write(protocol.End())
-			inW.Close()
-		}()
-		go func() {
-			outW.CloseWithError((&Adapter{HTTP: stub}).Run(context.Background(),
-				adapters.Ports{In: inR, Out: outW, Log: io.Discard, Env: map[string]string{"INSTANTLY_API_KEY": "secret"}}))
-		}()
-		var msgs []protocol.Message
-		rd := protocol.NewReader(outR)
-		for {
-			m, err := rd.Next()
-			if err != nil {
-				break
-			}
-			msgs = append(msgs, m)
-		}
-		return stub, msgs
+		return runPreflightSession(t, r, variables)
 	}
 	vars := map[string]any{"first_name": "first_name", "personalization": "first_line",
 		"body_step_1": "outreach.body_1", "body_step_2": "outreach.body_2", "body_step_3": "outreach.body_3",

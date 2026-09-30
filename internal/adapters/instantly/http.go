@@ -35,7 +35,10 @@ type leadRequest struct {
 	FirstName        string            `json:"first_name,omitempty"`
 	LastName         string            `json:"last_name,omitempty"`
 	CompanyName      string            `json:"company_name,omitempty"`
+	JobTitle         string            `json:"job_title,omitempty"`
 	Personalization  string            `json:"personalization,omitempty"`
+	Website          string            `json:"website,omitempty"`
+	Phone            string            `json:"phone,omitempty"`
 	CustomVariables  map[string]string `json:"custom_variables,omitempty"`
 	SkipIfInCampaign bool              `json:"skip_if_in_campaign,omitempty"`
 }
@@ -97,7 +100,7 @@ func (l storedLead) variable(name string) (string, bool) {
 
 // addLead adds one person to the campaign. Everything beyond the email floor
 // derives from the variables: mapping (SPEC §10.6, ADR-018): a target name
-// matching a first-class lead field maps into the body, anything else becomes
+// naming a lead field (either spelling, ADR-066) maps into the body, anything else becomes
 // a custom variable of that name. Blank values never send — the runner's
 // on_missing policy has already skipped or failed such records (SPEC §8), so
 // the omission here is defense in depth, not the policy itself.
@@ -114,15 +117,21 @@ func (a *Adapter) addLead(ctx context.Context, cfg config, apiKey, campaignID st
 		if v == "" {
 			continue
 		}
-		switch target {
+		switch leadField(target) {
 		case "first_name":
 			body.FirstName = v
 		case "last_name":
 			body.LastName = v
 		case "company_name":
 			body.CompanyName = v
+		case "job_title":
+			body.JobTitle = v
 		case "personalization":
 			body.Personalization = v
+		case "website":
+			body.Website = v
+		case "phone":
+			body.Phone = v
 		default:
 			vars[target] = v
 		}
