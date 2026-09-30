@@ -1569,7 +1569,7 @@ an unmapped binding error of another class, fails that session's
 unanswered records and the step continues, as before. The run's exit
 code is the stopping error's class (§8 exit codes): the process
 adapter's exit code, or the binding's classified error (§10a, including
-a rule's reclassification by `match`).
+a rule's `class`, or its reclassification by `match`).
 
 ### deliver idempotency
 
@@ -2333,7 +2333,7 @@ ADR-041) is the contract an author works from.
 
 **Error verdicts (ADR-065).** `errors:` maps an HTTP status, or a class
 such as `4xx`, to one rule or to a list of rules. A rule is `{verdict,
-reason?, match?}`, with `verdict` one of `fail_record`, `fail_run`,
+reason?, match?, class?}`, with `verdict` one of `fail_record`, `fail_run`,
 `retry` or `skip`. `match` is a literal substring of the raw response
 body: no pattern syntax, no path, no operator. The rules for a status
 are tried in order, and the first whose `match` occurs in the body, or
@@ -2346,10 +2346,15 @@ step that stops" says, so `fail_run` stops the step in both tiers.
 a status the engine would not retry by default, and reports `retry`
 only when the attempts run out. `skip` and `fail_record` do not retry
 beyond the engine's default (429, network failures and 5xx). A rule
-that applied because of its `match` reclassifies the error as provider
+MAY name the error's `class`: `auth`, `rate_limit`, `network` or
+`provider` (§8 exit codes 3, 4, 5, 1). A rule that applied because of
+its `match` and names no `class` reclassifies the error as provider
 (exit 1): the binding has said that this status, with this body, does
-not carry its generic meaning. A rule without `match` keeps the
-classified error's class. For example, a destination that answers both
+not carry its generic meaning. A rule without `match` or `class` keeps
+the classified error's class. `class: auth` is how a binding says a
+body means a bad credential when the vendor answers with a status that
+does not (a 400 or 422 reading "invalid API key"): the run exits 3 and
+the step stops as an auth failure does. For example, a destination that answers both
 a revoked key and a full plan with 403:
 
 ```yaml
@@ -3034,7 +3039,7 @@ decided contract, not shipped behavior.
   RUN_ID` rebuilds the line. The binding engine emits ERROR for every
   `errors:` verdict instead of a warning or a returned error, and a
   `retry` that runs out is `retry`, not a stop. `spec/binding-schema.json`'s
-  `errors` accepts a rule or a list of rules with `match`, rejects a rule
+  `errors` accepts a rule or a list of rules with `match` and `class`, rejects a rule
   after a matchless one, and `gtme adapters verify` and `gtme help
   --bindings` follow. `instantly/add-to-campaign` emits `fail_run` on the
   lead-limit 403 and exits 1. The docs that describe `errors:` and the
@@ -3048,7 +3053,7 @@ decided contract, not shipped behavior.
   ends `failed`; with `skip` it sends 40, counts 40 `skipped`, writes no
   `deliveries` row and ends `done`; a `match` rule applies only when its
   text is in the body, the next rule applies otherwise, and a matched
-  rule's run exits 1; a binding whose target answers 401 with no rule
+  rule's run exits 1, or 3 when the rule says `class: auth`; a binding whose target answers 401 with no rule
   sends one request and exits 3; the Instantly fake that fills after N
   leads adds N, fails one, and reports the rest `not sent`, and a
   resume after it has room adds them without adding any lead twice; a
@@ -3433,8 +3438,8 @@ pass that produced them.
 `accepts`; §8 "A step that stops", defining the four error verdicts in
 the runner, the stop on `fail_run` and on exit 3, the `not sent`
 remainder, `detail.stopped` on the step-level `failed` event, and the
-exit code of a stopped run; §10a "Error verdicts", with rule lists and
-`match`; §11 M37 queued; the Recover story's clause.
+exit code of a stopped run; §10a "Error verdicts", with rule lists,
+`match` and `class`; §11 M37 queued; the Recover story's clause.
 **Changed:** §5's exit rule says exit 3 stops the step; §8 record
 accounting names `not sent`, and `gtme runs RUN_ID` prints it; §10
 item 6: Instantly's lead-limit 403 is `fail_run` and exit 1. No ledger

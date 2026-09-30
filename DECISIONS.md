@@ -5172,7 +5172,12 @@ regular expressions, JSONPath or operators: `match` is text the vendor
 prints, frozen at authoring time, as §10a requires. A rule that applied
 because of its `match` reclassifies the error as provider (exit 1),
 since the binding has said this status does not carry its generic
-meaning here. The object form stays valid, so every binding already
+meaning here, unless the rule names a `class` (`auth`, `rate_limit`,
+`network`, `provider`). The class exists for the opposite case: a
+vendor that reports a bad credential under a status that does not say
+so (a 400 or 422 reading "invalid API key"); without it, `match` could
+only ever move an error away from auth, never to it, and the run's exit
+code would misname the fix. The object form stays valid, so every binding already
 written is unchanged. (6) **Instantly** sends `ERROR fail_run` on the
 lead-limit 403, then exits 1.
 **Consequences:** At concurrency 1 the reported run would send 152

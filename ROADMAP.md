@@ -659,3 +659,13 @@ read reports the plan's lead limit and current usage, and in what shape.
 Nothing is specified until that is known. A partial send is still
 possible when capacity is short, so the check would say how many fit
 rather than only refusing.
+
+## Stop a step after repeated exhausted retries
+
+Named 2026-09-30 in review of ADR-065. ADR-065 makes a `retry` that runs
+out fail its record, not the run, so one flaky record cannot end a long
+run. The cost is a sustained outage: every remaining record retries to
+exhaustion and fails in turn. A runner policy that stops the step after
+some number of consecutive exhausted retries, reported like any
+ADR-065 stop and resumable the same way, would bound that. It needs no
+protocol change. Nothing is specified until a real run shows the cost.
