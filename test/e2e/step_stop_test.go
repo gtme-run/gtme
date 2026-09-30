@@ -229,7 +229,7 @@ func TestRecordVerdictsWriteNoDelivery(t *testing.T) {
 		word    string
 		code    int
 	}{
-		{"fail_record", "failed", -1},
+		{"fail_record", "failed", 0},
 		{"skip", "skipped", 0},
 	} {
 		t.Run(tc.verdict, func(t *testing.T) {
@@ -252,13 +252,12 @@ func TestRecordVerdictsWriteNoDelivery(t *testing.T) {
 			if line[tc.word] != 40 || line["out"] != 0 {
 				t.Errorf("step line = %v, want 40 %s, 0 out\nstderr:\n%s", line, tc.word, res.stderr)
 			}
-			if tc.code >= 0 && res.code != tc.code {
+			if res.code != tc.code {
 				t.Errorf("exit = %d, want %d\nstderr:\n%s", res.code, tc.code, res.stderr)
 			}
-			if tc.verdict == "skip" {
-				if st := h.queryStrings(`SELECT status FROM runs`); len(st) != 1 || st[0] != "done" {
-					t.Errorf("run status = %v, want done", st)
-				}
+			// Record failures do not fail the run (§5, §8; M37 as amended).
+			if st := h.queryStrings(`SELECT status FROM runs`); len(st) != 1 || st[0] != "done" {
+				t.Errorf("run status = %v, want done", st)
 			}
 		})
 	}

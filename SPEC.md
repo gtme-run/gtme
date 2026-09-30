@@ -3027,7 +3027,7 @@ decided contract, not shipped behavior.
   later run to the target counts settled records as `already
   delivered`; the `held:` line is gone once nothing is `unconfirmed`;
   `make check` passes.
-- **M37 — a step that stops (ADR-065; §5, §8, §10, §10a, §11). Queued.**
+- **M37 — a step that stops (ADR-065; §5, §8, §10, §10a, §11). Built 2026-09-30 (changelog v0.62).**
   §5's ERROR message and OPEN's `accepts` land in `spec/schemas/` and
   the Go protocol package; the runner lists `ERROR` in every OPEN.
   The runner acts on the four verdicts as §8 "A step that stops" says:
@@ -3050,7 +3050,7 @@ decided contract, not shipped behavior.
   line reconciles), exits with the error's class, and `--resume` after
   the target answers 200 sends the rest once each; the same binding
   with `fail_record` sends 40, fails 40, writes no `deliveries` row and
-  ends `failed`; with `skip` it sends 40, counts 40 `skipped`, writes no
+  ends `done` (record failures do not fail the run, §5); with `skip` it sends 40, counts 40 `skipped`, writes no
   `deliveries` row and ends `done`; a `match` rule applies only when its
   text is in the body, the next rule applies otherwise, and a matched
   rule's run exits 1, or 3 when the rule says `class: auth`; a binding whose target answers 401 with no rule
@@ -3432,6 +3432,17 @@ one session reads the same both ways (ADR-064).
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.62 — 2026-09-30 (M37 build: a step that stops, built)
+**Changed:** §11 M37 marked built. Its acceptance clause for a
+`fail_record` binding said the run ends `failed`; §5 and §8 say a
+record failure fails that record and the run continues, and a run with
+record failures ends `done`, so the clause now says `done` (human-approved
+2026-09-30). Behavioural notes from the build: the ERROR message schema
+is `spec/schemas/msg-error.schema.json`, named like the other message
+schemas; a rule with `class: auth` on a record verdict (`fail_record`,
+`skip`, `retry`) reports that verdict for the record and then stops the
+step as an auth failure does. No ledger DDL change and no new exit code.
 
 ### v0.61 — 2026-09-30 (ADR-065 reconciliation: a step that stops; build queued as M37)
 **Added:** §5 ERROR (`key`, `verdict`, `reason`) and OPEN's optional
