@@ -189,7 +189,7 @@ Plan prints `?` for a step whose adapter publishes no per-record estimate. That'
 
 **Only a filter writes a verdict.** A record that fails stays in the ledger ([SPEC §7](/spec#7-contract-validation--the-planner--decided)).
 
-A fail already stops a record at `fit`. `when: fit.passed` also holds the ones `fit` never judged, such as a record it skipped for a missing field. It also shows a reviewer, in the file, that the paid step waits on the judgment. `when:` accepts only `STEP_ID.passed` ([SPEC §9](/spec#9-pipelineyaml--decided)).
+A fail already stops a record at `fit`. `when: fit.passed` also holds the ones `fit` never judged, such as a record it skipped for a missing field. It also shows a reviewer, in the file, that the paid step waits on the judgment. `when:` accepts only `STEP_ID.passed`, and `STEP_ID` must be a filter ([SPEC §9](/spec#9-pipelineyaml--decided)). Plan refuses a gate on any other step, because no other role writes a verdict for it to read.
 
 A review writes a grade and never gates, so the planner refuses a gate on one. Add `when: grade.passed` to `out` and plan again:
 

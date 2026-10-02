@@ -100,7 +100,7 @@ var agentParticipantDoc = agentParticipants{
 		"Ctrl-C during an in-run walk leaves the rest pending; the run ends pending, not failed.",
 		"Answers are idempotent per (run, step, record): answering again before collection replaces the earlier answer, and the latest one wins.",
 		"A judgment is remembered like a model's: an unchanged value is not asked again, whoever answers next. `cache: 0d` or `respend: true` ask again on purpose.",
-		"A review labels one value and never gates — `when: <review>.passed` fails plan. Use a filter to gate.",
+		"A review labels one value and never gates — `when: <review>.passed` fails plan, as does `when:` on any step that is not a filter. Use a filter to gate.",
 		"`of:` names the value a review or an edit is about; its current value is part of the cache key, so a rewritten draft comes back and an unchanged one does not.",
 	},
 }
