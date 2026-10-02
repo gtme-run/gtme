@@ -397,3 +397,37 @@ steps:
 	res := h.mustRun("plan", "pipeline.yaml")
 	contains(t, res.stderr, "reads:     title", "plan output")
 }
+
+// TestPlanRejectsStepLevelUsesOnSQLStep (#115): a SQL step declares its
+// contract in config (SPEC §10a), so a step-level uses: on one is a key
+// nobody reads. Plan refuses it naming the place it belongs, rather than
+// printing `reads: (none)` and passing a misspelled field.
+func TestPlanRejectsStepLevelUsesOnSQLStep(t *testing.T) {
+	h := newHarness(t)
+	h.write("people.csv", peopleCSV)
+	for _, use := range []string{"sql/filter", "sql/transform"} {
+		with := `      query: "SELECT identity_id FROM current_fields"`
+		if use == "sql/transform" {
+			with = `      provides: [sql.x]
+      query: "SELECT identity_id, 1 AS \"sql.x\" FROM current_fields"`
+		}
+		h.write("pipeline.yaml", `name: sql-step-uses
+source:
+  use: csv/source
+  with:
+    path: people.csv
+steps:
+  - id: leaders
+    use: `+use+`
+    uses: [titel]
+    with:
+`+with+`
+`)
+		res := h.run("plan", "pipeline.yaml")
+		if res.code != 2 {
+			t.Fatalf("%s: exit = %d, want 2\nstderr:\n%s", use, res.code, res.stderr)
+		}
+		contains(t, res.stderr, `step "leaders"`, use+" stderr")
+		contains(t, res.stderr, "with: {uses: [...]}", use+" stderr names where uses: goes")
+	}
+}

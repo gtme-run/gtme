@@ -883,6 +883,12 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 		}
 		ps.Needs = configStrings(ps.Config["uses"])
 		ps.Required = append([]string(nil), ps.Needs...)
+		// A SQL step's contract is declared in config (SPEC §10a), so a
+		// step-level uses: would be a key nobody reads (#115).
+		if len(s.Uses) > 0 {
+			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig,
+				Msg: fmt.Sprintf("uses: on a %s step goes in its config, with: {uses: [...]}, where plan checks it; step-level uses: is read only on participant steps (ai/*, human/*, agent/*, text/*)", s.Use)})
+		}
 		if ps.IsTraverse {
 			gateDeliverKeys(false)
 			gateProvides(false)

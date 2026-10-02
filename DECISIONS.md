@@ -2769,6 +2769,24 @@ accident of where needs used to come from.
 **Spec impact:** None; this brings plan to §7 and §10a. Covered by
 `TestPlanFailsOnUnsatisfiableRunnerOwnedNeeds`.
 
+### 2026-10-02 — A step-level `uses:` on a SQL step is a plan error (#115)
+
+**Question:** SPEC §10a puts a SQL step's `uses:` in its config. A
+step-level `uses:` on `sql/filter` was silently ignored: `uses: [titel]`
+planned with `reads: (none)`. §9 lists `uses:` as valid on filter-role
+steps, and `sql/filter` is filter-role, but the same sentence names the
+participant adapters (`ai/*`, `human/*`, `agent/*`, `text/*`) as the
+steps it means. Honor the key or refuse it?
+**Choice:** Refuse it on every `sql/*` step, naming where it goes
+(`with: {uses: [...]}`). One place per step kind keeps a pipeline
+reviewable, matches how `provides:` is already refused on non-participant
+steps, and a pipeline that carried the key never had it read, so nothing
+that worked before stops working.
+**Why:** A key the runner ignores is the failure the `uses:` gate exists
+to prevent.
+**Spec impact:** None; §10a already places the key in config. Covered by
+`TestPlanRejectsStepLevelUsesOnSQLStep`.
+
 ### 2026-09-30 — M38 internals: Instantly's lead fields (ADR-066)
 **Question:** Where the lead-field set lives, how the duplicate refusal
 gets exit 2, and how the tag check reads the sequence.
