@@ -334,3 +334,118 @@ func TestPlanVizRejectsBothFlags(t *testing.T) {
 	}
 	contains(t, res.stderr, "--viz", "the error names the flags")
 }
+
+// TestPlanFailsOnUnsatisfiableRunnerOwnedNeeds (#117): a SQL step's declared
+// uses: and a group/deliver step's variables: are dynamic needs (SPEC §7,
+// §10a) and validate against the available set exactly as a manifest's
+// needs do, though neither step has a manifest.
+func TestPlanFailsOnUnsatisfiableRunnerOwnedNeeds(t *testing.T) {
+	h := newHarness(t)
+	// "Job Title" lands as csv.job_title, so nothing provides title.
+	h.write("people.csv", "email,full_name,Job Title\njane@acme.com,Jane Doe,VP Marketing\n")
+	for name, step := range map[string]string{
+		"sql/filter": `  - id: leaders
+    use: sql/filter
+    with:
+      uses: [title]
+      query: "SELECT identity_id FROM current_fields"
+`,
+		"sql/transform": `  - id: leaders
+    use: sql/transform
+    with:
+      uses: [title]
+      provides: [sql.x]
+      query: "SELECT identity_id, 1 AS \"sql.x\" FROM current_fields"
+`,
+		"group/deliver": `  - id: leaders
+    use: group/deliver
+    with:
+      group: leaders
+    variables:
+      role: title
+`,
+	} {
+		h.write("pipeline.yaml", `name: runner-owned-needs
+source:
+  use: csv/source
+  with:
+    path: people.csv
+steps:
+`+step)
+		res := h.run("plan", "pipeline.yaml")
+		if res.code != 2 {
+			t.Fatalf("%s: exit = %d, want 2\nstderr:\n%s", name, res.code, res.stderr)
+		}
+		contains(t, res.stderr, `step "leaders"`, name+" stderr")
+		contains(t, res.stderr, "needs title, which no earlier step provides", name+" stderr")
+	}
+
+	// Once the source provides title, the same SQL step plans.
+	h.write("people.csv", "email,full_name,title\njane@acme.com,Jane Doe,VP Marketing\n")
+	h.write("pipeline.yaml", `name: runner-owned-needs
+source:
+  use: csv/source
+  with:
+    path: people.csv
+steps:
+  - id: leaders
+    use: sql/filter
+    with:
+      uses: [title]
+      query: "SELECT identity_id FROM current_fields"
+`)
+	res := h.mustRun("plan", "pipeline.yaml")
+	contains(t, res.stderr, "reads:     title", "plan output")
+}
+
+// TestPlanRejectsStepLevelUsesOnSQLStep (#115): a SQL step declares its
+// contract in config (SPEC §10a), so a step-level uses: on one is a key
+// nobody reads. Plan refuses it naming the place it belongs, rather than
+// printing `reads: (none)` and passing a misspelled field.
+func TestPlanRejectsStepLevelUsesOnSQLStep(t *testing.T) {
+	h := newHarness(t)
+	h.write("people.csv", peopleCSV)
+	for _, use := range []string{"sql/filter", "sql/transform"} {
+		with := `      query: "SELECT identity_id FROM current_fields"`
+		if use == "sql/transform" {
+			with = `      provides: [sql.x]
+      query: "SELECT identity_id, 1 AS \"sql.x\" FROM current_fields"`
+		}
+		h.write("pipeline.yaml", `name: sql-step-uses
+source:
+  use: csv/source
+  with:
+    path: people.csv
+steps:
+  - id: leaders
+    use: `+use+`
+    uses: [titel]
+    with:
+`+with+`
+`)
+		res := h.run("plan", "pipeline.yaml")
+		if res.code != 2 {
+			t.Fatalf("%s: exit = %d, want 2\nstderr:\n%s", use, res.code, res.stderr)
+		}
+		contains(t, res.stderr, `step "leaders"`, use+" stderr")
+		contains(t, res.stderr, "with: {uses: [...]}", use+" stderr names where uses: goes")
+	}
+}
+
+// TestPlanPrintsTheSourceLimit (#132): a source adapter's with: {limit: N}
+// caps the run, so plan shows it — the cap is confirmable before anything
+// is spent.
+func TestPlanPrintsTheSourceLimit(t *testing.T) {
+	h := newHarness(t)
+	h.write("people.csv", peopleCSV)
+	h.write("pipeline.yaml", strings.Replace(csvToMockYAML, "path: people.csv", "path: people.csv\n    limit: 2", 1))
+
+	res := h.mustRun("plan", "pipeline.yaml")
+	contains(t, res.stderr, "limit:     2 record(s) at most", "plan output")
+
+	h.write("pipeline.yaml", csvToMockYAML)
+	res = h.mustRun("plan", "pipeline.yaml")
+	if strings.Contains(res.stderr, "limit:") {
+		t.Errorf("no limit: set, none printed:\n%s", res.stderr)
+	}
+}

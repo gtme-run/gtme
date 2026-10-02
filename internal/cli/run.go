@@ -45,27 +45,11 @@ func cmdRun(ctx context.Context, env Env, args []string) error {
 		return fail(ExitValidation, "--simulate runs are ephemeral and cannot be resumed")
 	}
 
-	// A bundle path is accepted wherever a pipeline path is (SPEC §8,
-	// ADR-029): hashes verify, the pipeline loads from inside, and the
-	// bundle's own bindings resolve first — nothing outside it except
-	// credentials.
-	var p *pipeline.Pipeline
-	if bundle.IsBundle(positional[0]) {
-		m, bp, err := bundle.Load(positional[0])
-		if err != nil {
-			return fail(ExitValidation, "%v", err)
-		}
-		p = bp
-		adapters.BundleDir = bundle.AdaptersDir(positional[0])
-		defer func() { adapters.BundleDir = "" }()
-		fmt.Fprintf(env.Stderr, "bundle %s (frozen from run %s) — hashes verified\n", m.Name, m.SourceRunID)
-	} else {
-		loaded, err := pipeline.Load(positional[0])
-		if err != nil {
-			return fail(ExitValidation, "%v", err)
-		}
-		p = loaded
+	p, done, err := loadPipeline(env, positional[0])
+	if err != nil {
+		return err
 	}
+	defer done()
 	l, err := openLedger(ctx)
 	if err != nil {
 		return err
@@ -194,10 +178,13 @@ func cmdPlan(ctx context.Context, env Env, args []string) error {
 		return fail(ExitValidation, "--viz and --viz-only contradict each other: --viz appends the diagram to the listing, --viz-only prints it alone")
 	}
 
-	p, err := pipeline.Load(positional[0])
+	// A bundle plans as it runs (#93), so its group references meet the
+	// ledger's at plan, the first rung of the gate (ADR-029).
+	p, done, err := loadPipeline(env, positional[0])
 	if err != nil {
-		return fail(ExitValidation, "%v", err)
+		return err
 	}
+	defer done()
 	// The ledger is read at plan time (SPEC §7: group references, config
 	// values, SQL EXPLAIN — all read-only, zero network, zero spend). It is
 	// opened here the way `gtme run` opens it; a fresh one is empty, which
@@ -226,6 +213,27 @@ func cmdPlan(ctx context.Context, env Env, args []string) error {
 		planner.Viz(env.Stderr, plan)
 	}
 	return nil
+}
+
+// loadPipeline loads a pipeline file or a campaign bundle. A bundle path is
+// accepted wherever a pipeline path is (SPEC §8, ADR-029): hashes verify, the
+// pipeline loads from inside, and the bundle's own bindings resolve first —
+// nothing outside it except credentials. done undoes that resolution order.
+func loadPipeline(env Env, path string) (*pipeline.Pipeline, func(), error) {
+	if bundle.IsBundle(path) {
+		m, p, err := bundle.Load(path)
+		if err != nil {
+			return nil, nil, fail(ExitValidation, "%v", err)
+		}
+		adapters.BundleDir = bundle.AdaptersDir(path)
+		fmt.Fprintf(env.Stderr, "bundle %s (frozen from run %s) — hashes verified\n", m.Name, m.SourceRunID)
+		return p, func() { adapters.BundleDir = "" }, nil
+	}
+	p, err := pipeline.Load(path)
+	if err != nil {
+		return nil, nil, fail(ExitValidation, "%v", err)
+	}
+	return p, func() {}, nil
 }
 
 // onlyCredentialProblems reports whether every plan problem is a missing

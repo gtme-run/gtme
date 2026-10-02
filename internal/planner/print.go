@@ -53,6 +53,13 @@ func Print(w io.Writer, p *Plan) {
 		if s.IsGroupSource && s.Limit > 0 {
 			fmt.Fprintf(w, "     limit:     %d member(s), oldest-added first\n", s.Limit)
 		}
+		// A source adapter's cap is config (ADR-047); plan shows it so the
+		// cap is confirmable before a run (#132).
+		if s.IsSource && !s.IsGroupSource {
+			if n := intConfig(s.Config, "limit"); n > 0 {
+				fmt.Fprintf(w, "     limit:     %d record(s) at most\n", n)
+			}
+		}
 		if s.IsGroupSource && s.Once {
 			// The number a scheduled run turns on is how much work is left
 			// (SPEC §8, ADR-052): members, not yet worked, and what this run

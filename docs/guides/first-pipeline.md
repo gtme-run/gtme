@@ -176,7 +176,7 @@ With your own CSV, your headers and counts will differ.
     ...
     ```
 
-    `reads: title` is the field the query uses. Plan doesn't check that the source provides it, so compare it with the source's `provides:` yourself. On a SQL step, `uses:` goes inside `with:`, unlike the next step.
+    `reads: title` is the field the query uses, and plan stops if no earlier step provides it. On a SQL step, `uses:` goes inside `with:`, unlike the next step.
 
     The query asks the ledger's `current_values` view, which holds one row per person per field, for the people to keep. `sql/filter` runs no model and costs nothing. A person the query doesn't return fails, and the ledger keeps that verdict and its reason ([ADR-027](/decisions#adr-027)). `LIKE` ignores case, so `VP%` matches `vp sales`, but it misses `SVP Growth`. Write patterns for the titles in your file, such as `value LIKE '%VP%'`.
 

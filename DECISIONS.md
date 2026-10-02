@@ -2749,6 +2749,76 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-10-02 — Runner-owned steps' declared needs meet the contract walk (#117)
+
+**Question:** SPEC §7 and §10a say a SQL step's `with: {uses: [...]}`
+validates against the available-field set like any dynamic needs, and §9
+says the same of a deliver step's `variables:`. The planner's contract
+walk ran only for steps with a resolved manifest, and runner-owned steps
+(`sql/*`, `group/deliver`) have none, so `uses: [title]` on a `sql/filter`
+planned clean when nothing upstream provided `title`, and the run then
+filtered every record.
+**Choice:** The walk runs for every non-source step. A step with no
+manifest contributes the needs it declared (`Required`), which for
+runner-owned steps is exactly their `with.uses` or `variables:` values; a
+step that failed to resolve has none. The usual `needs X, which no earlier
+step provides` error names the step and field. An open available set (a
+group source, a traverse) still skips the check, as it does for adapters.
+**Why:** The rule is already in the spec; the manifest guard was an
+accident of where needs used to come from.
+**Spec impact:** None; this brings plan to §7 and §10a. Covered by
+`TestPlanFailsOnUnsatisfiableRunnerOwnedNeeds`.
+
+### 2026-10-02 — A step-level `uses:` on a SQL step is a plan error (#115)
+
+**Question:** SPEC §10a puts a SQL step's `uses:` in its config. A
+step-level `uses:` on `sql/filter` was silently ignored: `uses: [titel]`
+planned with `reads: (none)`. §9 lists `uses:` as valid on filter-role
+steps, and `sql/filter` is filter-role, but the same sentence names the
+participant adapters (`ai/*`, `human/*`, `agent/*`, `text/*`) as the
+steps it means. Honor the key or refuse it?
+**Choice:** Refuse it on every `sql/*` step, naming where it goes
+(`with: {uses: [...]}`). One place per step kind keeps a pipeline
+reviewable, matches how `provides:` is already refused on non-participant
+steps, and a pipeline that carried the key never had it read, so nothing
+that worked before stops working.
+**Why:** A key the runner ignores is the failure the `uses:` gate exists
+to prevent.
+**Spec impact:** None; §10a already places the key in config. Covered by
+`TestPlanRejectsStepLevelUsesOnSQLStep`.
+
+### 2026-10-02 — Plan prints a source adapter's `limit:` (#132)
+
+**Question:** A group source's and a traverse's `limit:` print in plan,
+but a source adapter's `with: {limit: N}` (ADR-047) did not, so an
+operator could not confirm the cap on a small run, or a spend ceiling,
+before running.
+**Choice:** The source step prints `limit:     N record(s) at most` when
+its config carries a positive `limit`, beside the group source's line of
+the same shape. Nothing else changes.
+**Why:** The cap is a fact plan already holds; showing it costs one line.
+**Spec impact:** None; an added informational line in the default
+listing, which §7 item 4 does not enumerate exhaustively. Covered by
+`TestPlanPrintsTheSourceLimit`.
+
+### 2026-10-02 — `gtme plan` takes a bundle folder (#93)
+
+**Question:** SPEC §8 says a bundled pipeline's group references meet
+plan's referenced-groups-exist check, so a bundle moved to a clean ledger
+fails at plan. `gtme plan <bundle>` failed reading a directory, and
+`gtme plan <bundle>/pipeline.yaml` resolved adapters from the install
+rather than the bundle, so that rung was unreachable.
+**Choice:** `plan` and `run` share one loader, `loadPipeline` in
+`internal/cli/run.go`: a bundle path verifies its hashes, loads the
+pipeline from inside, and resolves the bundle's own bindings first, for
+plan exactly as for run. A path to a file inside a bundle is still a plain
+pipeline file, as it is for run.
+**Why:** The spec's gate ladder starts at plan, and the bundle READMEs
+already tell readers to run `gtme plan .`.
+**Spec impact:** None; this brings plan to §8's bundle paragraph. Covered
+by `TestPlanBundleChecksGroups` and the plan step in
+`TestBundleFreezeMoveSimulateDry`.
+
 ### 2026-10-02 — `when:` naming a step that is not a filter fails plan (#88)
 
 **Question:** ADR-048 says `when: <step>.passed` reads the filter role

@@ -157,7 +157,7 @@ gtme: bundle: pipeline.yaml does not match its manifest hash — the bundle has 
 
 The run stops before it reads a record. To change a bundle, copy `pipeline.yaml` out, edit and run the copy, then freeze that run into a new folder. Your own CSV under the same file name still verifies, because the manifest lists only frozen files.
 
-`gtme plan` doesn't accept a bundle folder yet, and only `gtme run` does. Check a bundle with `gtme run . --simulate` from inside its folder, then `--dry-run` on the next rung.
+`gtme plan` and `gtme run` both take a bundle folder. Check a bundle with `gtme plan .` from inside its folder, then `gtme run . --simulate`, then `--dry-run` on the next rung.
 
 A [group](/concepts/groups) named in a bundled pipeline resolves against the ledger the bundle runs on. A bundle that reads its people from another campaign's group stops on a fresh ledger until that campaign has run there.
 
