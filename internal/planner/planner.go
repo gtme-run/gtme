@@ -483,8 +483,10 @@ func Build(ctx context.Context, p *pipeline.Pipeline, l *ledger.Ledger) (*Plan, 
 			ps.RecordGroup = p.Name
 		}
 
-		// Contract walk: every required need must already be available.
-		if ps.Manifest != nil && !isSource {
+		// Contract walk: every required need must already be available —
+		// a manifest's, or the declared needs of a runner-owned step with
+		// none (a SQL step's with.uses, a group/deliver's variables; #117).
+		if !isSource {
 			var missing []string
 			for _, f := range ps.Required {
 				if !available[f] {

@@ -334,3 +334,66 @@ func TestPlanVizRejectsBothFlags(t *testing.T) {
 	}
 	contains(t, res.stderr, "--viz", "the error names the flags")
 }
+
+// TestPlanFailsOnUnsatisfiableRunnerOwnedNeeds (#117): a SQL step's declared
+// uses: and a group/deliver step's variables: are dynamic needs (SPEC §7,
+// §10a) and validate against the available set exactly as a manifest's
+// needs do, though neither step has a manifest.
+func TestPlanFailsOnUnsatisfiableRunnerOwnedNeeds(t *testing.T) {
+	h := newHarness(t)
+	// "Job Title" lands as csv.job_title, so nothing provides title.
+	h.write("people.csv", "email,full_name,Job Title\njane@acme.com,Jane Doe,VP Marketing\n")
+	for name, step := range map[string]string{
+		"sql/filter": `  - id: leaders
+    use: sql/filter
+    with:
+      uses: [title]
+      query: "SELECT identity_id FROM current_fields"
+`,
+		"sql/transform": `  - id: leaders
+    use: sql/transform
+    with:
+      uses: [title]
+      provides: [sql.x]
+      query: "SELECT identity_id, 1 AS \"sql.x\" FROM current_fields"
+`,
+		"group/deliver": `  - id: leaders
+    use: group/deliver
+    with:
+      group: leaders
+    variables:
+      role: title
+`,
+	} {
+		h.write("pipeline.yaml", `name: runner-owned-needs
+source:
+  use: csv/source
+  with:
+    path: people.csv
+steps:
+`+step)
+		res := h.run("plan", "pipeline.yaml")
+		if res.code != 2 {
+			t.Fatalf("%s: exit = %d, want 2\nstderr:\n%s", name, res.code, res.stderr)
+		}
+		contains(t, res.stderr, `step "leaders"`, name+" stderr")
+		contains(t, res.stderr, "needs title, which no earlier step provides", name+" stderr")
+	}
+
+	// Once the source provides title, the same SQL step plans.
+	h.write("people.csv", "email,full_name,title\njane@acme.com,Jane Doe,VP Marketing\n")
+	h.write("pipeline.yaml", `name: runner-owned-needs
+source:
+  use: csv/source
+  with:
+    path: people.csv
+steps:
+  - id: leaders
+    use: sql/filter
+    with:
+      uses: [title]
+      query: "SELECT identity_id FROM current_fields"
+`)
+	res := h.mustRun("plan", "pipeline.yaml")
+	contains(t, res.stderr, "reads:     title", "plan output")
+}
