@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -186,4 +187,37 @@ func TestRunsMirrorOfALegacyRun(t *testing.T) {
 	}
 	contains(t, block, "out: 2 already delivered", "legacy receipt")
 	contains(t, res.stderr, "in+? is a floor", "legacy note")
+}
+
+// TestRunsCountsAFailedRecordOnce: a deliver that fails a record also
+// writes a step-level failed event with no identity; `gtme runs RUN_ID`
+// counts records, so the step's failed column reads 1, as the live
+// receipt's does (#89).
+func TestRunsCountsAFailedRecordOnce(t *testing.T) {
+	h := newHarness(t)
+	h.write("people.csv", mirrorCSV)
+	h.write("fail.yaml", strings.Replace(strings.Replace(mirrorYAML, "path: out.csv", "path: sent/out.csv", 1), "    exclude: [dnc]\n", "", 1))
+
+	live := h.run("run", "fail.yaml")
+	if live.code == 0 {
+		t.Fatalf("a deliver into a missing folder exited 0; the scenario is not failing:\n%s", live.stderr)
+	}
+	id := h.queryStrings(`SELECT id FROM runs`)[0]
+	if n := h.queryInt(`SELECT count(*) FROM step_events WHERE step_id = 'out' AND event = 'failed' AND identity_id IS NULL`); n == 0 {
+		t.Fatalf("no step-level failed event at out; the scenario is not exercising #89")
+	}
+	failed := h.queryInt(`SELECT count(DISTINCT identity_id) FROM step_events WHERE step_id = 'out' AND event = 'failed'`)
+	block := receiptBlock(t, live.stderr)
+	if got := receiptBlock(t, h.mustRun("runs", id).stderr); got != block {
+		t.Errorf("gtme runs differs from the live receipt\ngot:\n%s\nwant:\n%s", got, block)
+	}
+	for _, l := range strings.Split(block, "\n") {
+		if f := strings.Fields(l); len(f) > 7 && f[0] == "out" {
+			if f[7] != strconv.Itoa(failed) {
+				t.Errorf("out's failed column = %s, want %d (one per record)\n%s", f[7], failed, block)
+			}
+			return
+		}
+	}
+	t.Fatalf("no out row in:\n%s", block)
 }
