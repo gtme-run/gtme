@@ -598,17 +598,24 @@ func Build(ctx context.Context, p *pipeline.Pipeline, l *ledger.Ledger) (*Plan, 
 	}
 	_ = writes
 
-	// when: reads the filter role only (SPEC §9, ADR-048): a review labels a
-	// value and never gates, so gating on one is refused naming the fix.
+	// when: reads the filter role only (SPEC §9, ADR-048): only a filter
+	// writes a pass verdict, so a when: naming any other step would hold
+	// every record (#88). A review labels a value and never gates; the rest
+	// write fields or send, so gating on one is refused naming the fix.
 	for i := range plan.Steps {
 		st := &plan.Steps[i]
 		if st.WhenStep == "" {
 			continue
 		}
-		if ref := plan.StepByID(st.WhenStep); ref != nil && ref.Role == adapters.RoleReview {
-			problems = append(problems, Problem{Step: st.ID, Kind: KindContract,
-				Msg: fmt.Sprintf("when: %s.passed reads the filter role only — %q is a review and never gates; add a sql/filter on its labels and gate on that", st.WhenStep, st.WhenStep)})
+		ref := plan.StepByID(st.WhenStep)
+		if ref == nil || ref.Role == "" || ref.Role == adapters.RoleFilter {
+			continue
 		}
+		msg := fmt.Sprintf("when: %s.passed reads the filter role only — %q is a review and never gates; add a sql/filter on its labels and gate on that", st.WhenStep, st.WhenStep)
+		if ref.Role != adapters.RoleReview {
+			msg = fmt.Sprintf("when: %s.passed reads the filter role only — %q is %s %s and writes no verdict, so every record would be held; add a sql/filter on what it wrote and gate on that", st.WhenStep, st.WhenStep, article(ref.Role), ref.Role)
+		}
+		problems = append(problems, Problem{Step: st.ID, Kind: KindContract, Msg: msg})
 	}
 
 	// The cron note (SPEC §7, ADR-049): a pipeline is run stage by stage, and
@@ -2079,4 +2086,12 @@ func withoutReservedKeys(resolved *adapters.Resolved, config map[string]any) map
 		}
 	}
 	return out
+}
+
+// article is "a" or "an" for a role name.
+func article(role string) string {
+	if role != "" && strings.ContainsRune("aeiou", rune(role[0])) {
+		return "an"
+	}
+	return "a"
 }
