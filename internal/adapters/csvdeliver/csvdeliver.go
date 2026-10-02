@@ -18,6 +18,8 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
+	"syscall"
 
 	"github.com/gtme-run/gtme/internal/adapters"
 	"github.com/gtme-run/gtme/internal/protocol"
@@ -143,8 +145,12 @@ func (a *Adapter) Run(ctx context.Context, p adapters.Ports) error {
 }
 
 // ensureHeader creates the file with its header exactly once; O_EXCL makes
-// the create atomic, so concurrent sessions cannot double-write it.
+// the create atomic, so concurrent sessions cannot double-write it. It holds
+// fileMu from the create to the header's write, so no session of this
+// process appends a row to the file before its header is in.
 func ensureHeader(cfg config) error {
+	fileMu.Lock()
+	defer fileMu.Unlock()
 	f, err := os.OpenFile(cfg.Path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 	if err != nil {
 		if os.IsExist(err) {
@@ -161,8 +167,18 @@ func ensureHeader(cfg config) error {
 	return cw.Error()
 }
 
-// appendRow writes one record as a single O_APPEND write, so concurrent
-// sessions interleave whole rows, never partial ones.
+// fileMu serializes this process's writes to the file. The file lock below does that
+// too where flock is real, but on a network filesystem the kernel may emulate
+// it with a per-process lock, which would let this process's sessions through
+// together.
+var fileMu sync.Mutex
+
+// appendRow writes one record as a single write under an exclusive lock on
+// the file, so concurrent sessions and processes append whole rows one at a
+// time (#185). O_APPEND alone keeps a write whole on a local filesystem but
+// not on a network or synced one. The size is checked under the lock: a write
+// that did not land as one row at the end fails the record rather than
+// reporting a delivery the file does not hold.
 func appendRow(cfg config, key protocol.Key, fields map[string]any) error {
 	row := make([]string, 0, len(cfg.Columns)+1)
 	row = append(row, key.IdentityKey)
@@ -178,13 +194,34 @@ func appendRow(cfg config, key protocol.Key, fields map[string]any) error {
 	if err := cw.Error(); err != nil {
 		return err
 	}
+	line := b.String()
+
+	fileMu.Lock()
+	defer fileMu.Unlock()
 	f, err := os.OpenFile(cfg.Path, os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		return fmt.Errorf("csv/deliver: %w", err)
 	}
 	defer f.Close()
-	_, err = f.WriteString(b.String())
-	return err
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		return fmt.Errorf("csv/deliver: locking %s: %w", cfg.Path, err)
+	}
+	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	before, err := f.Stat()
+	if err != nil {
+		return fmt.Errorf("csv/deliver: %w", err)
+	}
+	if _, err := f.WriteString(line); err != nil {
+		return fmt.Errorf("csv/deliver: %w", err)
+	}
+	after, err := f.Stat()
+	if err != nil {
+		return fmt.Errorf("csv/deliver: %w", err)
+	}
+	if after.Size() != before.Size()+int64(len(line)) {
+		return fmt.Errorf("csv/deliver: %s grew by %d bytes for a %d-byte row; another writer changed the file during the append", cfg.Path, after.Size()-before.Size(), len(line))
+	}
+	return nil
 }
 
 // stringify renders a variable's value as one CSV cell. A string is
