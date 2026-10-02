@@ -431,3 +431,21 @@ steps:
 		contains(t, res.stderr, "with: {uses: [...]}", use+" stderr names where uses: goes")
 	}
 }
+
+// TestPlanPrintsTheSourceLimit (#132): a source adapter's with: {limit: N}
+// caps the run, so plan shows it — the cap is confirmable before anything
+// is spent.
+func TestPlanPrintsTheSourceLimit(t *testing.T) {
+	h := newHarness(t)
+	h.write("people.csv", peopleCSV)
+	h.write("pipeline.yaml", strings.Replace(csvToMockYAML, "path: people.csv", "path: people.csv\n    limit: 2", 1))
+
+	res := h.mustRun("plan", "pipeline.yaml")
+	contains(t, res.stderr, "limit:     2 record(s) at most", "plan output")
+
+	h.write("pipeline.yaml", csvToMockYAML)
+	res = h.mustRun("plan", "pipeline.yaml")
+	if strings.Contains(res.stderr, "limit:") {
+		t.Errorf("no limit: set, none printed:\n%s", res.stderr)
+	}
+}

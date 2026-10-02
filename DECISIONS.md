@@ -2787,6 +2787,20 @@ to prevent.
 **Spec impact:** None; §10a already places the key in config. Covered by
 `TestPlanRejectsStepLevelUsesOnSQLStep`.
 
+### 2026-10-02 — Plan prints a source adapter's `limit:` (#132)
+
+**Question:** A group source's and a traverse's `limit:` print in plan,
+but a source adapter's `with: {limit: N}` (ADR-047) did not, so an
+operator could not confirm the cap on a small run, or a spend ceiling,
+before running.
+**Choice:** The source step prints `limit:     N record(s) at most` when
+its config carries a positive `limit`, beside the group source's line of
+the same shape. Nothing else changes.
+**Why:** The cap is a fact plan already holds; showing it costs one line.
+**Spec impact:** None; an added informational line in the default
+listing, which §7 item 4 does not enumerate exhaustively. Covered by
+`TestPlanPrintsTheSourceLimit`.
+
 ### 2026-09-30 — M38 internals: Instantly's lead fields (ADR-066)
 **Question:** Where the lead-field set lives, how the duplicate refusal
 gets exit 2, and how the tag check reads the sequence.
