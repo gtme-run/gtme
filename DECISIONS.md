@@ -2768,6 +2768,33 @@ on a non-filter would have to invent what `passed` means for it.
 **Spec impact:** None: this brings the planner to ADR-048 and §9. Covered
 by `test/e2e/when_gate_test.go`.
 
+### 2026-10-02 — csv/deliver appends under a file lock and checks the size (#185)
+**Question:** A 416-record `csv/deliver` run reported 415 rows written,
+and the file held 292 lines with rows cut at arbitrary bytes. Each row
+was one `O_APPEND` write, which a local filesystem keeps whole but a
+network or synced folder (SMB, NFS, a folder a sync client manages) does
+not have to, so concurrent sessions interleaved.
+**Choice:** `appendRow` takes an exclusive `flock` on the file around
+the write, and a process-wide mutex as well, because a network
+filesystem may emulate `flock` with a per-process lock that would let one
+process's sessions through together. Under the lock it compares the
+file's size before and after: a write that did not grow the file by
+exactly the row's bytes fails the record instead of acknowledging a
+delivery the file does not hold. `ensureHeader` holds the same mutex from
+its `O_EXCL` create to the header's write, so no session of the process
+appends a row ahead of the header.
+**Why:** Serializing the writers removes the dependence on `O_APPEND`
+atomicity, which is the property that failed. The lock is on the output
+file itself, which the operator named, so it adds no file beside the
+ledger. The size check is the cheap guard the issue asked for: a step
+whose file lost rows now fails them, and the rows that fail get no
+`deliveries` row, so a re-run sends them again.
+**Spec impact:** None. The adapter's output, manifest and acceptance are
+unchanged. `internal/adapters/csvdeliver/csvdeliver_test.go` asserts that
+an append waits while another holder has the file locked and that eight
+sessions writing long quoted rows to a new file leave the header first
+and every row whole.
+
 ### 2026-09-30 — M38 internals: Instantly's lead fields (ADR-066)
 **Question:** Where the lead-field set lives, how the duplicate refusal
 gets exit 2, and how the tag check reads the sequence.
