@@ -82,6 +82,16 @@ steps:
 		t.Errorf("manifest = %+v", manifest)
 	}
 
+	// Plan on the clean ledger takes the bundle folder too (#93), resolving
+	// the bundle's own bindings: apollox/* is installed nowhere but inside it.
+	res = b.runWithEnv(keys, "", "plan", "bundle")
+	if res.code != 0 {
+		t.Fatalf("bundle plan exit = %d\nstderr:\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "hashes verified", "bundle plan banner")
+	contains(t, res.stderr, "apollox/search", "bundle plan")
+	contains(t, res.stderr, "plan ok", "bundle plan")
+
 	// Simulate on the clean ledger: zero keys, zero network — the source
 	// binding serves the conformance fixtures packed inside the bundle.
 	res = b.run("run", "bundle", "--simulate")
@@ -206,4 +216,53 @@ group: accounts
 		t.Fatalf("bundle simulate exit = %d\nstderr:\n%s", res.code, res.stderr)
 	}
 	contains(t, res.stderr, "hashes verified", "bundle banner")
+}
+
+// TestPlanBundleChecksGroups (#93): a bundle's group references resolve
+// against the ledger it lands in (SPEC §8, ADR-029), so a bundle moved to a
+// clean ledger fails loudly at plan rather than running ungated.
+func TestPlanBundleChecksGroups(t *testing.T) {
+	h := newHarness(t)
+	h.write("people.csv", peopleCSV)
+	h.write("seed.yaml", "name: seed\nsource:\n  use: csv/source\n  with:\n    path: people.csv\nsteps: []\n")
+	h.mustRun("run", "seed.yaml")
+	h.mustRun("groups", "add", "warm", "jane.doe@acme.com")
+	h.write("p.yaml", `name: gated-bundle
+source:
+  use: csv/source
+  with:
+    path: people.csv
+steps:
+  - id: keep
+    use: sql/filter
+    require: [warm]
+    with:
+      query: "SELECT identity_id FROM current_fields"
+`)
+	h.mustRun("run", "p.yaml")
+	bundleDir := filepath.Join(h.work, "gated")
+	h.mustRun("freeze", "last", "--bundle", bundleDir)
+	// The bundle plans from inside its own folder too:
+	// `gtme plan .` is what the bundle READMEs tell readers to run. The
+	// source's input sits beside it, as in the pattern bundles.
+	if err := os.WriteFile(filepath.Join(bundleDir, "people.csv"), []byte(peopleCSV), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res := h.runIn(bundleDir, nil, "", "plan", ".")
+	if res.code != 0 {
+		t.Fatalf("plan . exit = %d\nstderr:\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "hashes verified", "plan . banner")
+
+	clean := newHarness(t)
+	clean.write("people.csv", peopleCSV)
+	moved := filepath.Join(clean.work, "bundle")
+	if err := os.Rename(bundleDir, moved); err != nil {
+		t.Fatal(err)
+	}
+	res = clean.run("plan", "bundle")
+	if res.code != 2 {
+		t.Fatalf("clean-ledger bundle plan exit = %d, want 2\nstderr:\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, `"warm"`, "the missing group is named")
 }

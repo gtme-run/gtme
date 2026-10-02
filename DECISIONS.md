@@ -2801,6 +2801,24 @@ the same shape. Nothing else changes.
 listing, which §7 item 4 does not enumerate exhaustively. Covered by
 `TestPlanPrintsTheSourceLimit`.
 
+### 2026-10-02 — `gtme plan` takes a bundle folder (#93)
+
+**Question:** SPEC §8 says a bundled pipeline's group references meet
+plan's referenced-groups-exist check, so a bundle moved to a clean ledger
+fails at plan. `gtme plan <bundle>` failed reading a directory, and
+`gtme plan <bundle>/pipeline.yaml` resolved adapters from the install
+rather than the bundle, so that rung was unreachable.
+**Choice:** `plan` and `run` share one loader, `loadPipeline` in
+`internal/cli/run.go`: a bundle path verifies its hashes, loads the
+pipeline from inside, and resolves the bundle's own bindings first, for
+plan exactly as for run. A path to a file inside a bundle is still a plain
+pipeline file, as it is for run.
+**Why:** The spec's gate ladder starts at plan, and the bundle READMEs
+already tell readers to run `gtme plan .`.
+**Spec impact:** None; this brings plan to §8's bundle paragraph. Covered
+by `TestPlanBundleChecksGroups` and the plan step in
+`TestBundleFreezeMoveSimulateDry`.
+
 ### 2026-09-30 — M38 internals: Instantly's lead fields (ADR-066)
 **Question:** Where the lead-field set lives, how the duplicate refusal
 gets exit 2, and how the tag check reads the sequence.
