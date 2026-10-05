@@ -121,16 +121,15 @@ steps:
    The output is similar to the following:
 
    ```
-   gtme: 5 plan problems:
+   gtme: 2 plan problems:
      - step "source": adapters: unknown adapter "hubspot/contact-search" — if it is a registry entry, install it: gtme adapters add hubspot/contact-search
      built-in: agent/compose, agent/filter, agent/review, ai/compose, ai/filter, ai/review, csv/deliver, csv/source, demo/enrich, http/deliver, http/enrich, human/compose, human/filter, human/review, text/compose
    ...
-     - step "lines": needs first_name, title, company_name, which no earlier step provides (available: nothing)
      - step "send": adapters: unknown adapter "instantly/add-to-campaign" — if it is a registry entry, install it: gtme adapters add instantly/add-to-campaign
-     - step "send": needs email, which no earlier step provides (available: first_line, ps_line)
+   ...
    ```
 
-   The problem is in the file itself, not a missing key. The `built-in` line is every [adapter](/concepts/adapter-tiers) this binary ships, and no vendor is on it. Neither `hubspot/contact-search` nor `instantly/add-to-campaign` is one, so plan prints the command that installs each from the registry. The two `needs` lines are fallout from it: with no source, no step downstream gets a field. Fix unknown adapters first.
+   The problem is in the file itself, not a missing key. The `built-in` line is every [adapter](/concepts/adapter-tiers) this binary ships, and no vendor is on it. Neither `hubspot/contact-search` nor `instantly/add-to-campaign` is one, so plan prints the command that installs each from the registry. Plan can't check which fields a missing adapter provides, so it reports nothing about the steps after one until you install it.
 
 1. Find the missing adapter in the registry. Searching reads GitHub and spends nothing:
 

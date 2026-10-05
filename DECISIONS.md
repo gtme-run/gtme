@@ -2763,10 +2763,13 @@ the adapter that provides it`, which is true of an operator's own adapter
 as well as a vendor's (#169). An explicit `cache: 0d` prints `off (cache:
 0d)` (#130). (2) **Unknown adapter.** An id within edit distance 2 of a
 built-in or installed adapter gets `did you mean "..."?` in place of the
-install hint, and a looked-for path prints once (#159). (3) **`adapters
-search`** prints `gtme adapters add <id>` for every entry, the form
-plan's hint prints and the one that installs the index's pinned commit
-(#158). (4) **`adapters verify`** reads a config default into the URL for
+install hint, and a looked-for path prints once. Once a step's adapter
+is not found, the unmet needs of later steps are not reported: what the
+missing adapter provides is unknown, so those lines only restated the
+first problem (#159). (3) **`adapters search`** prints `gtme adapters add
+<id>` for every entry, the form plan's hint prints and the one that
+installs the index's pinned commit, and a help flag after an `adapters`
+subcommand prints usage and exits 0 (#158). (4) **`adapters verify`** reads a config default into the URL for
 `{{ config.x }}` as well as `{{config.x}}` (#165). (5) **A refused
 token.** When GitHub answers a request carrying `GITHUB_TOKEN` with 401,
 the request is asked again without it and the token is not sent again in

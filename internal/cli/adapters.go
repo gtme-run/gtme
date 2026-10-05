@@ -32,6 +32,13 @@ func cmdAdapters(ctx context.Context, env Env, args []string) error {
 		return adaptersList(env)
 	}
 	sub, rest := args[0], args[1:]
+	for _, a := range rest {
+		// A help flag is a question, not a reference to install (#158).
+		if a == "-h" || a == "-help" || a == "--help" {
+			fmt.Fprintln(env.Stderr, adaptersUsage)
+			return nil
+		}
+	}
 	switch sub {
 	case "search":
 		if len(rest) != 1 {
@@ -67,10 +74,12 @@ func cmdAdapters(ctx context.Context, env Env, args []string) error {
 		}
 		return adaptersUpdate(env, rest[0], newRef)
 	default:
-		return fail(ExitValidation,
-			"usage: gtme adapters [search TEXT | add REF... | verify ID | update ID [@ref]]")
+		return fail(ExitValidation, "%s", adaptersUsage)
 	}
 }
+
+const adaptersUsage = "usage: gtme adapters [search TEXT | add REF... | verify ID | update ID [@ref]]\n" +
+	"  add takes github.com/<owner>/<repo>/<path>[@ref], or a registry id such as apollo/search"
 
 // installDir is where `add` puts a binding: the home half of the §6 search
 // path (never GTME_ADAPTER_PATH, which is the operator's own overlay).

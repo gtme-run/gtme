@@ -119,3 +119,63 @@ func TestHelpAgentNamesConcurrencyAndLegs(t *testing.T) {
 		t.Errorf("help --agent still calls a leg a segment")
 	}
 }
+
+// TestPlanReportsOnlyTheMissingAdapter (#159): what an unknown adapter
+// provides is unknown, so the unmet needs of the steps after it follow from
+// it and are not reported as problems of their own.
+func TestPlanReportsOnlyTheMissingAdapter(t *testing.T) {
+	h := newHarness(t)
+	h.write("pipeline.yaml", `name: missing
+version: 1
+source:
+  use: hubspot/contact-search
+steps:
+  - id: opener
+    use: text/compose
+    uses: [first_name]
+    provides: [opener]
+    with:
+      template: "Hi {{ record.first_name }}"
+`)
+	res := h.run("plan", "pipeline.yaml")
+	if res.code != 2 {
+		t.Fatalf("exit = %d, want 2\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "gtme adapters add hubspot/contact-search", "stderr")
+	if strings.Contains(res.stderr, "which no earlier step provides") {
+		t.Errorf("plan reported a need that only follows from the missing adapter:\n%s", res.stderr)
+	}
+
+	// With every adapter present, an unmet need is still a problem.
+	h.write("people.csv", peopleCSV)
+	h.write("present.yaml", `name: present
+version: 1
+source:
+  use: csv/source
+  with:
+    path: people.csv
+steps:
+  - id: opener
+    use: text/compose
+    uses: [first_name]
+    provides: [opener]
+    with:
+      template: "Hi {{ record.first_name }}"
+`)
+	res = h.run("plan", "present.yaml")
+	contains(t, res.stderr, "needs first_name, which no earlier step provides", "stderr with the source installed")
+}
+
+// TestAdaptersHelpFlagPrintsUsage (#158): a help flag after a subcommand is
+// a question, not a reference to install.
+func TestAdaptersHelpFlagPrintsUsage(t *testing.T) {
+	h := newHarness(t)
+	res := h.run("adapters", "add", "--help")
+	if res.code != 0 {
+		t.Fatalf("exit = %d, want 0\n%s", res.code, res.stderr)
+	}
+	contains(t, res.stderr, "usage: gtme adapters", "stderr")
+	if strings.Contains(res.stderr, "is not github.com") {
+		t.Errorf("--help was parsed as a reference:\n%s", res.stderr)
+	}
+}
