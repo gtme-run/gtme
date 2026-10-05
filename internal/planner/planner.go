@@ -58,7 +58,10 @@ type Step struct {
 	AIProvides json.RawMessage
 	aiProvides *jsonschema.Schema
 
-	Cache       time.Duration
+	Cache time.Duration
+	// CacheOff marks an explicit `cache: 0d`: the operator turned caching off,
+	// which the plan says in those words rather than as a missing setting.
+	CacheOff    bool
 	When        string
 	WhenStep    string
 	Batch       bool
@@ -1231,14 +1234,15 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 				continue
 			}
 			if strings.HasPrefix(name, scope.Pipeline+".") {
-				// This pipeline's own declared AI output (ADR-033): per-campaign
-				// by design, not a vendor coupling.
+				// This pipeline's own declared output (ADR-033): per-campaign by
+				// design, not a coupling. The declaring step may be an AI step,
+				// a participant step or text/compose, so the note names none.
 				ps.Notes = append(ps.Notes,
-					fmt.Sprintf("needs this pipeline's own judgment field %q (declared by an earlier AI step)", name))
+					fmt.Sprintf("needs this pipeline's own field %q (declared by an earlier step)", name))
 				continue
 			}
 			ps.Notes = append(ps.Notes,
-				fmt.Sprintf("needs vendor-namespaced field %q — this pipeline is coupled to that vendor", name))
+				fmt.Sprintf("needs namespaced field %q — this pipeline is coupled to the adapter that provides it", name))
 		}
 		// Manifest static schemas get the same check (an external adapter's
 		// authoring error surfaces here rather than as a silent mismatch). A
@@ -1366,6 +1370,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig, Msg: err.Error()})
 		}
 		ps.Cache = d
+		ps.CacheOff = err == nil && d == 0
 	} else if days := intConfig(ps.Config, "freshness_days"); days > 0 {
 		ps.Cache = time.Duration(days) * 24 * time.Hour
 	} else if days := resolved.Manifest.FreshnessDays; days > 0 {

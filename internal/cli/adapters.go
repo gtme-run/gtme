@@ -195,11 +195,10 @@ func adaptersSearch(env Env, q string) error {
 	tw := tabwriter.NewWriter(env.Stderr, 0, 4, 2, ' ', 0)
 	fmt.Fprintln(tw, "ID\tROLE\tTIER\tINSTALL\tDESCRIPTION")
 	for _, e := range hits {
-		install := fmt.Sprintf("gtme adapters add %s/%s@%s", e.Source.URL, e.Source.Path, refOrHead(e.Source.Ref))
-		if e.IsProcess() {
-			// A process entry installs by id, from its asset (ADR-063).
-			install = "gtme adapters add " + e.ID
-		}
+		// The bare id installs at the index's pinned commit, the one the
+		// registry verified (ADR-042), and is what plan's hint prints; a
+		// process entry installs by id from its asset (ADR-063).
+		install := "gtme adapters add " + e.ID
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", e.ID, e.Role, e.Tier, install, truncate(e.Description, 60))
 	}
 	return tw.Flush()
@@ -684,7 +683,7 @@ func bindingHost(b *binding.Binding) string {
 	}
 	for name, p := range schema.Properties {
 		if p.Default != nil {
-			u = strings.ReplaceAll(u, "{{config."+name+"}}", fmt.Sprint(p.Default))
+			u = configRefRE(name).ReplaceAllLiteralString(u, fmt.Sprint(p.Default))
 		}
 	}
 	if !strings.Contains(u, "{{") {
@@ -693,6 +692,12 @@ func bindingHost(b *binding.Binding) string {
 		}
 	}
 	return u
+}
+
+// configRefRE matches a bare `{{config.NAME}}` reference in either spelling,
+// with or without the spaces inside the braces.
+func configRefRE(name string) *regexp.Regexp {
+	return regexp.MustCompile(`\{\{\s*config\.` + regexp.QuoteMeta(name) + `\s*\}\}`)
 }
 
 func missingRequiredConfig(schemaRaw json.RawMessage, cfg map[string]any) []string {

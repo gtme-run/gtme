@@ -139,9 +139,9 @@ The receipt ends with `total: $0.0300 (estimated) spent`.
     It prints:
 
     ```
-    saved segment "near-misses"
     {"identity_id":"01M3MCRRZ4CTX3TRW74F1A432M","identity_key":"bob@globex.io","score":69}
     {"identity_id":"01M3MCRRZ5E617KRH4S6NGTVJY","identity_key":"carol@initech.dev","score":69}
+    saved segment "near-misses"
     2 rows
     ```
 
@@ -151,9 +151,9 @@ The receipt ends with `total: $0.0300 (estimated) spent`.
     AND v.identity_id NOT IN (SELECT identity_id FROM deliveries WHERE scope = 'SCOPE')
     ```
 
-    `--save` stores the SQL in the ledger under the name, then runs it. Keep the `identity_id` column. Without it, `gtme groups add --from-segment` stops with `the query must yield an identity_id column`.
+    `--save` runs the SQL, then stores it in the ledger under the name. Keep the `identity_id` column. Without it, `gtme groups add --from-segment` stops with `the query must yield an identity_id column`.
 
-    Saving under a name that exists replaces its SQL. `--save` stores the query before running it, so a query that errors is saved anyway. Fix it and save again under the same name.
+    Saving under a name that exists replaces its SQL. A query that errors isn't saved. Fix it and save again.
 
 1. Run it again by name:
 

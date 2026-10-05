@@ -141,8 +141,8 @@ steps:
    The output is similar to the following:
 
    ```
-   ID                      ROLE    TIER      INSTALL                                                                          DESCRIPTION
-   hubspot/contact-search  source  verified  gtme adapters add github.com/gtme-run/gtme-bindings/hubspot-contact-search@main  Source HubSpot contacts via the CRM v3 Search API, filtered…
+   ID                      ROLE    TIER      INSTALL                                   DESCRIPTION
+   hubspot/contact-search  source  verified  gtme adapters add hubspot/contact-search  Source HubSpot contacts via the CRM v3 Search API, filtered…
    ```
 
    Install both by ID, the commands plan printed:

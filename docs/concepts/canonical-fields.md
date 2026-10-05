@@ -182,9 +182,9 @@ Plan again, and the `out` block carries three notes:
 ```
 5. out [deliver] — csv/deliver@1
 ...
-     note:      needs vendor-namespaced field "demo.note" — this pipeline is coupled to that vendor
-     note:      needs vendor-namespaced field "demo.score" — this pipeline is coupled to that vendor
-     note:      needs this pipeline's own judgment field "hello.first_line" (declared by an earlier AI step)
+     note:      needs namespaced field "demo.note" — this pipeline is coupled to the adapter that provides it
+     note:      needs namespaced field "demo.score" — this pipeline is coupled to the adapter that provides it
+     note:      needs this pipeline's own field "hello.first_line" (declared by an earlier step)
 ...
 ```
 

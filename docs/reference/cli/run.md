@@ -35,12 +35,12 @@ links:
 
 # gtme run
 
-Execute a pipeline; --resume continues a run that stopped partway; --resend-unconfirmed, with --resume, sends the deliveries the run held because they may have reached the target before it stopped, and --settle-unconfirmed marks them found at the target without sending (=KEY,… for some); --dry-run holds deliver steps back and receipts their resolved variables instead of sending; --simulate executes everything offline from fixtures (no network, no spend, nothing persists)
+Execute a pipeline; --resume continues a run that stopped partway; --resend-unconfirmed, with --resume, sends the deliveries the run held because they may have reached the target before it stopped, and --settle-unconfirmed marks them found at the target without sending (=KEY,… for some); --dry-run holds deliver steps back and receipts their resolved variables instead of sending; --simulate executes everything offline from fixtures (no network, no spend, nothing persists); --concurrency sets how many records a step works on at once (default 4, or $GTME_CONCURRENCY), which is also how many deliveries can be in flight if the run dies.
 
 ## Forms
 
 ```
-gtme run pipeline.yaml [--resume RUN_ID [--resend-unconfirmed[=KEYS]] [--settle-unconfirmed[=KEYS]]] [--dry-run] [--simulate]
+gtme run pipeline.yaml [--resume RUN_ID [--resend-unconfirmed[=KEYS]] [--settle-unconfirmed[=KEYS]]] [--dry-run] [--simulate] [--concurrency N]
 ```
 
 ## Flags
@@ -52,6 +52,7 @@ gtme run pipeline.yaml [--resume RUN_ID [--resend-unconfirmed[=KEYS]] [--settle-
 | `--settle-unconfirmed` | nothing | --resend-unconfirmed, with --resume, sends the deliveries the run held because they may have reached the target before it stopped, and --settle-unconfirmed marks them found at the target without sending (=KEY,… for some) |
 | `--dry-run` | nothing | --dry-run holds deliver steps back and receipts their resolved variables instead of sending. |
 | `--simulate` | nothing | --simulate executes everything offline from fixtures (no network, no spend, nothing persists) |
+| `--concurrency` | `N` | --concurrency sets how many records a step works on at once (default 4, or $GTME_CONCURRENCY), which is also how many deliveries can be in flight if the run dies. |
 
 It exits with one of the [exit codes](/reference/cli#exit-codes) every verb shares.
 

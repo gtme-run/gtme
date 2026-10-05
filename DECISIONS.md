@@ -2749,6 +2749,54 @@ that shift is a stated property of the design, not a side effect.
 `spec/binding-schema.json` (`amount_usd` anyOf) and `spec/ledger.sql`
 ride the build, machine-compared as always.
 
+### 2026-10-05 — Backlog wording and small fixes (#97, #116, #124, #130, #138, #140, #141, #158, #159, #165, #169, #170)
+
+**Question:** Twelve open issues each named a line the binary prints that
+was wrong, or a small behavior that worked against the operator. Which of
+them are spec-invisible and can be fixed without a spec diff?
+**Choice:** (1) **Plan notes.** A need for this pipeline's own field
+prints `needs this pipeline's own field "x" (declared by an earlier
+step)`: the declaring step may be `text/compose` or a participant step,
+so the note no longer says "judgment" or "AI step" (#116). A namespaced
+need prints `needs namespaced field "x" — this pipeline is coupled to
+the adapter that provides it`, which is true of an operator's own adapter
+as well as a vendor's (#169). An explicit `cache: 0d` prints `off (cache:
+0d)` (#130). (2) **Unknown adapter.** An id within edit distance 2 of a
+built-in or installed adapter gets `did you mean "..."?` in place of the
+install hint, and a looked-for path prints once (#159). (3) **`adapters
+search`** prints `gtme adapters add <id>` for every entry, the form
+plan's hint prints and the one that installs the index's pinned commit
+(#158). (4) **`adapters verify`** reads a config default into the URL for
+`{{ config.x }}` as well as `{{config.x}}` (#165). (5) **A refused
+token.** When GitHub answers a request carrying `GITHUB_TOKEN` with 401,
+the request is asked again without it and the token is not sent again in
+that process; a failure after that names the token (#97). (6) **`groups
+add`** with a key the ledger has not seen names the key and the fix
+(#124). (7) **`query --save`** stores the statement after it has run, so
+one that fails is not saved (#140). (8) **`help --agent`** lists `gtme
+run --concurrency N` and calls a traverse's typed stretch a leg (#138,
+#141). (9) The create-adapter skill points at the wire protocol
+reference, which is where the process protocol is documented (#170).
+**Why:** Each is a string or an internal choice no second implementation
+needs to match. The search change follows ADR-042: the index's commit is
+the verified one, and `@main` pinned whatever the branch pointed to. The
+token retry keeps ADR-042's rule that the token is for private
+repositories; a public install never needed it, and codeload answers a
+bad token with 404, so a refused token is dropped for the rest of the
+process rather than turned into a phantom missing repository.
+**Left for a spec decision:** the `(N already in the ledger)` source line
+(#144, SPEC §8 fixes the words), the simulate receipt's `held (dry run)`
+and `spent (estimated)` (#99, both SPEC §8 vocabulary), `gtme run --as`
+(#148) and a way to drop a saved segment (#140), both new CLI surface,
+`csv/deliver` on a company leg (#145, a manifest contract), and the
+stale size figure in SPEC §8 (#114). The verb synopsis in SPEC §8 does
+not list `--concurrency`, though §8's prose and §11's acceptance use it.
+**Spec impact:** None. `test/e2e/backlog_wording_test.go`,
+`internal/cli/adapters_host_test.go` and
+`internal/adapterinstall/token_test.go` cover the changes; the docs pages
+that quote the changed lines are updated, and `docs/reference` is
+regenerated.
+
 ### 2026-10-02 — Runner-owned steps' declared needs meet the contract walk (#117)
 
 **Question:** SPEC §7 and §10a say a SQL step's `with: {uses: [...]}`

@@ -7,6 +7,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"strings"
@@ -180,6 +181,9 @@ func groupsEdit(ctx context.Context, env Env, args []string, event string) error
 	}
 	for _, key := range keys {
 		ident, err := lookupIdentity(ctx, l, key, typed)
+		if errors.Is(err, ledger.ErrNotFound) {
+			return fail(ExitValidation, "no identity known by key %q; a group holds records the ledger already has, so source it first, or check the key", key)
+		}
 		if err != nil {
 			return fail(ExitValidation, "%v", err)
 		}

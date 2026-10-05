@@ -140,8 +140,8 @@ pipeline hello (version 1)
      idempotency: email
      variables: note ← demo.note, score ← demo.score
      on_missing: skip
-     note:      needs vendor-namespaced field "demo.note" — this pipeline is coupled to that vendor
-     note:      needs vendor-namespaced field "demo.score" — this pipeline is coupled to that vendor
+     note:      needs namespaced field "demo.note" — this pipeline is coupled to the adapter that provides it
+     note:      needs namespaced field "demo.score" — this pipeline is coupled to the adapter that provides it
      est/record: $0.0000
 
 send surface: 1 deliver step(s)

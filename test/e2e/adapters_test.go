@@ -208,7 +208,10 @@ func TestAdaptersSearchFindsByVendor(t *testing.T) {
 		t.Fatalf("search exit = %d\n%s", res.code, res.stderr)
 	}
 	contains(t, res.stderr, "pets/list", "search output")
-	contains(t, res.stderr, "gtme adapters add github.com/petco/bindings/pets-list@main", "search output names the install command")
+	contains(t, res.stderr, "gtme adapters add pets/list", "search output names the install command")
+	if strings.Contains(res.stderr, "@main") {
+		t.Errorf("search prints a branch reference; the bare id is the one that installs the index's pinned commit:\n%s", res.stderr)
+	}
 }
 
 func TestAdaptersAddInstallsVerifiedAndPinned(t *testing.T) {

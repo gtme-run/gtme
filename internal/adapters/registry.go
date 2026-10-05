@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -170,7 +171,9 @@ func Resolve(id string) (*Resolved, error) {
 				// Name both shapes the loader accepts: an agent read this line
 				// as "manifest.json only" and had to dig the binding contract
 				// out of the binary (VALIDATION.md, 2026-08-29).
-				tried = append(tried, filepath.Join(dir, "{manifest.json + run, or binding.yaml}"))
+				if t := filepath.Join(dir, "{manifest.json + run, or binding.yaml}"); !slices.Contains(tried, t) {
+					tried = append(tried, t)
+				}
 				continue
 			}
 			m, err := ParseManifest(raw)
@@ -194,7 +197,11 @@ func Resolve(id string) (*Resolved, error) {
 
 	msg := &strings.Builder{}
 	fmt.Fprintf(msg, "adapters: unknown adapter %q", id)
-	if strings.Contains(id, "/") {
+	if near := nearestID(id); near != "" {
+		// A near miss of an adapter this machine has is a typo, not a
+		// registry entry waiting to be installed.
+		fmt.Fprintf(msg, " — did you mean %q?", near)
+	} else if strings.Contains(id, "/") {
 		// ADR-059: vendor adapters are registry entries; name the command that
 		// installs one. Offline — whether the index lists the id is add's job.
 		fmt.Fprintf(msg, " — if it is a registry entry, install it: gtme adapters add %s", id)
@@ -280,6 +287,38 @@ func Installed() []*Manifest {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
+}
+
+// nearestID returns the built-in or installed adapter id within a small edit
+// distance of id, or "" when nothing is close.
+func nearestID(id string) string {
+	best, bestDist := "", 3 // suggest only within edit distance 2
+	for _, m := range Installed() {
+		if d := editDistance(id, m.ID); d < bestDist {
+			best, bestDist = m.ID, d
+		}
+	}
+	return best
+}
+
+func editDistance(a, b string) int {
+	prev := make([]int, len(b)+1)
+	cur := make([]int, len(b)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(a); i++ {
+		cur[0] = i
+		for j := 1; j <= len(b); j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			cur[j] = min(cur[j-1]+1, prev[j]+1, prev[j-1]+cost)
+		}
+		prev, cur = cur, prev
+	}
+	return prev[len(b)]
 }
 
 type errNotFound struct{ msg string }

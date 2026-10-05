@@ -123,6 +123,8 @@ func Print(w io.Writer, p *Plan) {
 		switch {
 		case s.Cache > 0:
 			fmt.Fprintf(w, "     cache:     %s\n", pipeline.FormatCache(s.Cache))
+		case s.CacheOff && (s.Role == "enrich" || s.Role == "verify"):
+			fmt.Fprintf(w, "     cache:     off (cache: 0d)\n")
 		case s.Role == "enrich" || s.Role == "verify":
 			fmt.Fprintf(w, "     cache:     off (no freshness_days, no cache:)\n")
 		}
