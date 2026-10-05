@@ -209,8 +209,8 @@ The registry lists a binding in one of two ways (the decision record, [ADR-042](
     The output is the following:
 
     ```
-    ID                   ROLE    TIER      INSTALL                                                                       DESCRIPTION
-    stacklens/companies  source  verified  gtme adapters add github.com/gtme-run/gtme-bindings/stacklens-companies@main  Source companies that use a given technology from Stacklens…
+    ID                   ROLE    TIER      INSTALL                                DESCRIPTION
+    stacklens/companies  source  verified  gtme adapters add stacklens/companies  Source companies that use a given technology from Stacklens…
     ```
 
     gtme checked the whole file against the index schema before it searched. A row that breaks the schema fails the search and names the key, such as a hash pasted short:

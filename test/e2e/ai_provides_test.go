@@ -70,7 +70,7 @@ func TestAIDeclaredProvidesStoreNamespacedAndRejectEnum(t *testing.T) {
 		"provides:  qualify.rationale, qualify.state",
 		"reads:     qualify.state, qualify.rationale",
 		"provides:  qualify.subject",
-		`needs this pipeline's own judgment field "qualify.state" (declared by an earlier AI step)`,
+		`needs this pipeline's own field "qualify.state" (declared by an earlier step)`,
 		`provides: "state" lands as "qualify.state" (per-campaign); the canonical person field "state" is untouched — add canonical: true to write it instead`,
 	} {
 		contains(t, plan.stderr, want, "plan output")

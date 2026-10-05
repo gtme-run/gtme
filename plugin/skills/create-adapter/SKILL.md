@@ -16,7 +16,9 @@ recall it.
 1. **Binding or process?** One request per record (or per page) with a
    fixed response shape → **binding** (YAML). Conditionals, several calls
    per record, OAuth, computation → **process adapter** (an executable,
-   NDJSON in and out); `gtme help --agent` documents that protocol.
+   NDJSON in and out); the wire protocol reference documents that
+   protocol (gtme.run/docs/reference/wire-protocol, generated from
+   `spec/schemas/msg-*.schema.json`).
    `http/enrich` covers a one-off GET into one field with no
    credential declaration; a binding is for anything reused, priced, or
    keyed.

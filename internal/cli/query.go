@@ -74,13 +74,6 @@ func cmdQuery(ctx context.Context, env Env, args []string) error {
 		return fail(ExitValidation, "%v", err)
 	}
 
-	if *save != "" {
-		if err := l.SaveQuery(ctx, *save, query); err != nil {
-			return fail(ExitOther, "%v", err)
-		}
-		fmt.Fprintf(env.Stderr, "saved segment %q\n", *save)
-	}
-
 	db, err := ledger.OpenReadOnly(ctx, l.Path())
 	if err != nil {
 		return fail(ExitOther, "%v", err)
@@ -89,6 +82,9 @@ func cmdQuery(ctx context.Context, env Env, args []string) error {
 
 	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
+		if *save != "" {
+			return fail(ExitValidation, "query failed, so segment %q was not saved: %v", *save, err)
+		}
 		return fail(ExitValidation, "query failed: %v", err)
 	}
 	defer rows.Close()
@@ -96,6 +92,15 @@ func cmdQuery(ctx context.Context, env Env, args []string) error {
 	n, err := writeRows(env, rows, *format, *limit)
 	if err != nil {
 		return err
+	}
+	// A segment is saved only once its statement has run: one that cannot
+	// execute would sit in --list for good, there being no way to drop it.
+	if *save != "" {
+		rows.Close()
+		if err := l.SaveQuery(ctx, *save, query); err != nil {
+			return fail(ExitOther, "%v", err)
+		}
+		fmt.Fprintf(env.Stderr, "saved segment %q\n", *save)
 	}
 	fmt.Fprintf(env.Stderr, "%d rows\n", n)
 	return nil

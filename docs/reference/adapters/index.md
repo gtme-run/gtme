@@ -22,9 +22,6 @@ links:
   - to: /concepts/gate-ladder
     type: relates-to
     description: "Defines plan"
-  - to: /concepts/groups
-    type: relates-to
-    description: "Defines segment"
   - to: /concepts/ledger
     type: relates-to
     description: "Defines ledger"
@@ -39,7 +36,7 @@ links:
     description: "Defines compose, deliver, enrich, filter, review, and role"
   - to: /concepts/types-and-traverse
     type: relates-to
-    description: "Defines mint, relation, traverse, and type"
+    description: "Defines leg, mint, relation, traverse, and type"
 ---
 
 # Adapter catalog
@@ -74,7 +71,7 @@ These have no manifest and no adapter session; the runner executes them from a `
 |---|---|
 | `use: sql/filter — with: {query: "SELECT identity_id, pass[, reason] FROM ..."}` | runner-owned filter: rows decide pass/fail per eligible record (a missing row, or pass=0, fails it with the reason recorded); read-only against the §3 surface, $0 |
 | `use: sql/transform — with: {query: "SELECT identity_id, <expr> AS \"ns.field\" ..."}` | runner-owned derivation: result columns append like adapter output (registry-checked, provenance `sql/transform @ \<query-hash\>`); declare provides: [ns.field]; cross-record aggregates and fan-in live here |
-| `use: sql/traverse — with: {entity_type: <type>, query: "SELECT r.to_id AS identity_id, r.from_id AS parent_id FROM relations r WHERE r.relation = 'works_at'"}` | runner-owned traverse (ADR-054): follows relations the ledger already holds — the companies of this run's people — into a new segment of entity_type; mints nothing, writes no relation; parents are finished here, only the children continue |
+| `use: sql/traverse — with: {entity_type: <type>, query: "SELECT r.to_id AS identity_id, r.from_id AS parent_id FROM relations r WHERE r.relation = 'works_at'"}` | runner-owned traverse (ADR-054): follows relations the ledger already holds — the companies of this run's people — into a new leg of entity_type; mints nothing, writes no relation; parents are finished here, only the children continue |
 
 ## Used in
 

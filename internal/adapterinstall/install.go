@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/gtme-run/gtme/internal/secrets"
@@ -108,10 +109,41 @@ func get(url string, accept string) (*http.Response, error) {
 	if accept != "" {
 		req.Header.Set("Accept", accept)
 	}
-	if t := token(); t != "" && authorized(url) {
+	sent := false
+	// A token GitHub has already refused in this process is not sent again:
+	// codeload answers a bad one with 404, which would read as a missing
+	// repository.
+	if t := token(); t != "" && authorized(url) && !tokenRejected.Load() {
 		req.Header.Set("Authorization", "Bearer "+t)
+		sent = true
 	}
+	resp, err := client.Do(req)
+	if err != nil || !sent || resp.StatusCode != http.StatusUnauthorized {
+		return resp, err
+	}
+	// GitHub refused the token itself (expired or revoked). The token is for
+	// private repositories (ADR-042) and a public one needs none, so ask
+	// again without it; a stale token in the shell must not block a public
+	// install (#97). A private repository then answers 404, and tokenHint
+	// names the cause.
+	resp.Body.Close()
+	tokenRejected.Store(true)
+	req.Header.Del("Authorization")
 	return client.Do(req)
+}
+
+// tokenRejected records that GitHub answered the GITHUB_TOKEN with 401 during
+// this process, so a later failure can name it.
+var tokenRejected atomic.Bool
+
+// tokenHint is appended to a fetch error when the token was refused: the
+// status alone (a 404 for a private repository asked without credentials)
+// does not say why.
+func tokenHint() string {
+	if !tokenRejected.Load() {
+		return ""
+	}
+	return " (GitHub rejected the GITHUB_TOKEN that is set, so this was asked without it; refresh the token for a private repository, or unset it)"
 }
 
 // authorized reports whether the URL belongs to a host the GITHUB_TOKEN is
@@ -137,7 +169,7 @@ func ResolveCommit(r Ref) (string, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("adapters: resolving %s: %s from %s", r.String(), resp.Status, url)
+		return "", fmt.Errorf("adapters: resolving %s: %s from %s%s", r.String(), resp.Status, url, tokenHint())
 	}
 	var doc struct {
 		SHA string `json:"sha"`
@@ -170,7 +202,7 @@ func FetchDir(r Ref, commit string) (string, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("adapters: fetching %s: %s from %s", r.String(), resp.Status, url)
+		return "", fmt.Errorf("adapters: fetching %s: %s from %s%s", r.String(), resp.Status, url, tokenHint())
 	}
 
 	dir, err := os.MkdirTemp("", "gtme-adapter-fetch-*")

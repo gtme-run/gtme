@@ -96,20 +96,20 @@ gtme adapters search hubspot
 The output is the following:
 
 ```
-ID                      ROLE    TIER      INSTALL                                                                          DESCRIPTION
-hubspot/contact-search  source  verified  gtme adapters add github.com/gtme-run/gtme-bindings/hubspot-contact-search@main  Source HubSpot contacts via the CRM v3 Search API, filtered…
+ID                      ROLE    TIER      INSTALL                                   DESCRIPTION
+hubspot/contact-search  source  verified  gtme adapters add hubspot/contact-search  Source HubSpot contacts via the CRM v3 Search API, filtered…
 ```
 
 Install it with the line in the `INSTALL` column:
 
 ```sh
-gtme adapters add github.com/gtme-run/gtme-bindings/hubspot-contact-search@main
+gtme adapters add hubspot/contact-search
 ```
 
 The output is similar to the following:
 
 ```
-fetched github.com/gtme-run/gtme-bindings/hubspot-contact-search@main at af95211c7c3d
+fetched github.com/gtme-run/gtme-bindings/hubspot-contact-search@bcf671b9e1df177ed24e98b58e0c132176261c78 at bcf671b9e1df
 hubspot/contact-search v1 — source (person)
   calls:       api.hubapi.com
   demands:     HUBSPOT_ACCESS_TOKEN
@@ -133,11 +133,11 @@ The output is the following:
 
 ```
 ID                      VERSION  ROLE    KIND     SOURCE
-hubspot/contact-search  1        source  binding  github.com/gtme-run/gtme-bindings/hubspot-contact-search@main (af95211c7c3d)
+hubspot/contact-search  1        source  binding  github.com/gtme-run/gtme-bindings/hubspot-contact-search@bcf671b9e1df177ed24e98b58e0c132176261c78 (bcf671b9e1df)
 mock-enrich-py          1        enrich  process  installed by hand
 ```
 
-`SOURCE` shows the pinned commit, so `@main` only names the branch it came from. Both live in `~/.gtme/adapters/`.
+`SOURCE` shows the commit the registry pinned for the ID. Both live in `~/.gtme/adapters/`.
 
 **A binding is a YAML file the runner (`gtme` itself) interprets.** Here's the head of yours, trimmed:
 

@@ -58,7 +58,13 @@ type Step struct {
 	AIProvides json.RawMessage
 	aiProvides *jsonschema.Schema
 
-	Cache       time.Duration
+	Cache time.Duration
+	// Unresolved marks a step whose adapter is not on this machine: what it
+	// provides is unknown, so later steps' needs cannot be judged (#159).
+	Unresolved bool
+	// CacheOff marks an explicit `cache: 0d`: the operator turned caching off,
+	// which the plan says in those words rather than as a missing setting.
+	CacheOff    bool
 	When        string
 	WhenStep    string
 	Batch       bool
@@ -398,6 +404,10 @@ func Build(ctx context.Context, p *pipeline.Pipeline, l *ledger.Ledger) (*Plan, 
 	}
 	plan := &Plan{Pipeline: p}
 	var problems []Problem
+	// unknownUpstream is set once a step's adapter is not found: the fields
+	// it would provide are unknown, so a later step's unmet needs follow from
+	// the missing adapter and are not reported on their own (#159).
+	unknownUpstream := false
 
 	available := map[string]bool{}
 	steps := p.AllSteps()
@@ -493,7 +503,7 @@ func Build(ctx context.Context, p *pipeline.Pipeline, l *ledger.Ledger) (*Plan, 
 					missing = append(missing, f)
 				}
 			}
-			if len(missing) > 0 && !plan.Wildcard {
+			if len(missing) > 0 && !plan.Wildcard && !unknownUpstream {
 				msg := fmt.Sprintf("needs %s, which no earlier step provides (available: %s)",
 					strings.Join(missing, ", "), describe(available))
 				if hint := providerHint(missing); hint != "" {
@@ -503,7 +513,7 @@ func Build(ctx context.Context, p *pipeline.Pipeline, l *ledger.Ledger) (*Plan, 
 			}
 			// One-of needs (SPEC §7): at least one branch must be fully
 			// available; a failure names every branch and what it is missing.
-			if len(ps.NeedsBranches) > 0 && !plan.Wildcard {
+			if len(ps.NeedsBranches) > 0 && !plan.Wildcard && !unknownUpstream {
 				if !anyBranchAvailable(ps.NeedsBranches, available) {
 					problems = append(problems, Problem{Step: s.ID, Kind: KindContract,
 						Msg: fmt.Sprintf("needs at least one of %s; no earlier step provides a complete alternative (available: %s)",
@@ -545,6 +555,9 @@ func Build(ctx context.Context, p *pipeline.Pipeline, l *ledger.Ledger) (*Plan, 
 						fmt.Sprintf("column %q looks like canonical %q — map it explicitly with columns: {%s: <your header>}", bare, s, s))
 				}
 			}
+		}
+		if ps.Unresolved {
+			unknownUpstream = true
 		}
 		if ps.Wildcard {
 			plan.Wildcard = true
@@ -965,6 +978,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 
 	resolved, err := adapters.Resolve(s.Use)
 	if err != nil {
+		ps.Unresolved = adapters.IsNotFound(err)
 		return ps, append(problems, Problem{Step: s.ID, Kind: KindAdapter, Msg: err.Error()})
 	}
 	ps.Adapter = resolved
@@ -1231,14 +1245,15 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 				continue
 			}
 			if strings.HasPrefix(name, scope.Pipeline+".") {
-				// This pipeline's own declared AI output (ADR-033): per-campaign
-				// by design, not a vendor coupling.
+				// This pipeline's own declared output (ADR-033): per-campaign by
+				// design, not a coupling. The declaring step may be an AI step,
+				// a participant step or text/compose, so the note names none.
 				ps.Notes = append(ps.Notes,
-					fmt.Sprintf("needs this pipeline's own judgment field %q (declared by an earlier AI step)", name))
+					fmt.Sprintf("needs this pipeline's own field %q (declared by an earlier step)", name))
 				continue
 			}
 			ps.Notes = append(ps.Notes,
-				fmt.Sprintf("needs vendor-namespaced field %q — this pipeline is coupled to that vendor", name))
+				fmt.Sprintf("needs namespaced field %q — this pipeline is coupled to the adapter that provides it", name))
 		}
 		// Manifest static schemas get the same check (an external adapter's
 		// authoring error surfaces here rather than as a silent mismatch). A
@@ -1366,6 +1381,7 @@ func ResolveStep(s pipeline.Step, isSource bool, scope Scope) (Step, []Problem) 
 			problems = append(problems, Problem{Step: s.ID, Kind: KindConfig, Msg: err.Error()})
 		}
 		ps.Cache = d
+		ps.CacheOff = err == nil && d == 0
 	} else if days := intConfig(ps.Config, "freshness_days"); days > 0 {
 		ps.Cache = time.Duration(days) * 24 * time.Hour
 	} else if days := resolved.Manifest.FreshnessDays; days > 0 {

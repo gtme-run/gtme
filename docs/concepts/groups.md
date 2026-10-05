@@ -286,9 +286,9 @@ gtme query --save marketers "SELECT v.identity_id, i.identity_key \
 ```
 
 ```
-saved segment "marketers"
 {"identity_id":"01M3FBCP00C754EHAPF8RF0H0N","identity_key":"jane.doe@acme.com"}
 {"identity_id":"01M3FBCP02TGBGEKJWSMHX63BJ","identity_key":"carol@initech.dev"}
+saved segment "marketers"
 2 rows
 ```
 

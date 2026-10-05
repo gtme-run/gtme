@@ -186,7 +186,7 @@ steps:
 `)
 	res := h.mustRun("plan", "pipeline.yaml")
 	contains(t, res.stderr, `column "e_mail" looks like canonical "email"`, "plan output")
-	contains(t, res.stderr, `vendor-namespaced field "csv.favorite_color"`, "plan output")
+	contains(t, res.stderr, `namespaced field "csv.favorite_color"`, "plan output")
 	// Suggested is not applied: the column stays namespaced.
 	contains(t, res.stderr, "csv.e_mail", "plan output")
 }
