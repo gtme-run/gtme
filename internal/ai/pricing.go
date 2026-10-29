@@ -13,13 +13,17 @@ type price struct {
 // receipt shows "?" rather than a wrong number. Cache reads are billed at ~0.1x
 // input and cache writes at ~1.25x (5-minute TTL).
 var prices = map[string]price{
+	"claude-opus-5-5":   {4, 20},
 	"claude-opus-5":     {5, 25},
 	"claude-opus-4-8":   {5, 25},
 	"claude-opus-4-7":   {5, 25},
 	"claude-opus-4-6":   {5, 25},
+	"claude-sonnet-5-5": {2, 10},
 	"claude-sonnet-5":   {3, 15},
 	"claude-sonnet-4-6": {3, 15},
 	"claude-sonnet-4-5": {3, 15},
+	// Haiku 5.5 list price up to a 100K-token prompt; a gtme batch is far below it.
+	"claude-haiku-5-5":  {0.10, 0.50},
 	"claude-haiku-4-5":  {1, 5},
 	"claude-fable-5":    {10, 50},
 }
@@ -39,16 +43,20 @@ func Price(model string, inputTokens, outputTokens, cacheReadTokens, cacheWriteT
 	return cost, true
 }
 
-// lookupPrice matches a model id exactly, then by prefix so a dated snapshot
-// (claude-haiku-4-5-20251001) prices like its family.
+// lookupPrice matches a model id exactly, then by the longest family prefix
+// so a dated snapshot (claude-haiku-4-5-20251001) prices like its family and
+// claude-sonnet-5-5-<date> prices as Sonnet 5.5, never as Sonnet 5. Map
+// iteration order must not decide between two matching families.
 func lookupPrice(model string) (price, bool) {
 	if p, ok := prices[model]; ok {
 		return p, true
 	}
+	var best string
+	var found price
 	for id, p := range prices {
-		if strings.HasPrefix(model, id) {
-			return p, true
+		if strings.HasPrefix(model, id) && len(id) > len(best) {
+			best, found = id, p
 		}
 	}
-	return price{}, false
+	return found, best != ""
 }
