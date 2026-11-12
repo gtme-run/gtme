@@ -1,0 +1,4 @@
+{
+  "description": "The gtme console: run state, receipts and the review queue beside the chat (ADR-067)",
+  "modules": ["./register.tsx"]
+}

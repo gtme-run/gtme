@@ -19,6 +19,31 @@ skills cannot drift from the version installed.
 | `/gtme:create-adapter` | a vendor or data source gtme lacks, or records that are not people or companies |
 | `/gtme:analyze` | what happened, what it cost, why a record stopped, what is known about someone |
 
+## The console
+
+The plugin also carries a console, a pane beside the chat (DECISIONS.md
+ADR-067). Claude Code folds a command's output to one line, so a run the
+agent starts is otherwise a "Running…" and a folded receipt.
+
+- `/gtme` opens it, and a `gtme run` or `gtme answer` the agent runs
+  opens it by itself.
+- It shows the latest run's steps, each waiting, running, done, or
+  waiting on you, with the receipt's counts, spend and total, and recent
+  runs. A line above the prompt names the step in flight.
+- A record a `human/filter` step is waiting on has **Approve** and
+  **Reject**, which run `gtme answer` as `console`. **Ask** hands the
+  record to the agent for a recommendation, and **Collect** asks it to
+  run the pipeline again once everything is answered. The console never
+  runs `gtme run` itself.
+- It reads only through the binary (`gtme query`, `gtme runs`, `gtme show
+  --pending`), with the `GTME_LEDGER`, `GTME_HOME` and `HOME` the agent's
+  last gtme command set and from the folder it ran in, so it shows
+  whichever ledger that command used: `~/.gtme/ledger.db` by default.
+
+It needs a Claude Code version that loads mods; an older one runs the
+skills without it. Turn it off with the plugin's **Show the gtme console**
+setting in `/plugin`. `claude plugin test plugin` runs its tests.
+
 Two rules every skill carries, from `START.md`:
 
 - **Never arm a live target unasked.** A `gtme run` with no `--simulate`
