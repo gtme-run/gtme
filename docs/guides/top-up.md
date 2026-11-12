@@ -71,87 +71,91 @@ links:
 
 ## Build a practice history
 
-**The practice file is a webinar follow-up: score each attendee, keep anyone scoring 70 or more, and write them to `follow-up.csv`.** Make a folder with its own ledger:
+**The practice file is a webinar follow-up: score each attendee, keep anyone scoring 70 or more, and write them to `follow-up.csv`.**
 
-```sh
-mkdir -p top-up && cd top-up
-export GTME_LEDGER=./ledger.db
-```
+1. Make a folder with its own ledger:
 
-Save this [pipeline](/concepts/pipeline) as `attendees.yaml`:
+    ```sh
+    mkdir -p top-up && cd top-up
+    export GTME_LEDGER=./ledger.db
+    ```
 
-```yaml
-name: attendees
-version: 1
+1. Save this [pipeline](/concepts/pipeline) as `attendees.yaml`:
 
-source:
-  use: csv/source
-  with:
-    path: attendees.csv
-    columns: { full_name: Full Name, email: Email, title: Title, company_domain: Company Website }
+    ```yaml
+    name: attendees
+    version: 1
 
-steps:
-  - id: score
-    use: demo/enrich
-    cache: 30d
-    with:
-      cost_per_record_usd: 0.01
+    source:
+      use: csv/source
+      with:
+        path: attendees.csv
+        columns: { full_name: Full Name, email: Email, title: Title, company_domain: Company Website }
 
-  - id: keep
-    use: sql/filter
-    with:
-      query: >
-        SELECT identity_id FROM current_values
-        WHERE field = 'demo.score' AND CAST(value AS INTEGER) >= 70
+    steps:
+      - id: score
+        use: demo/enrich
+        cache: 30d
+        with:
+          cost_per_record_usd: 0.01
 
-  - id: follow_up
-    use: csv/deliver
-    with:
-      path: follow-up.csv
-    variables:
-      full_name: full_name
-      score: demo.score
-    idempotency: email
-```
+      - id: keep
+        use: sql/filter
+        with:
+          query: >
+            SELECT identity_id FROM current_values
+            WHERE field = 'demo.score' AND CAST(value AS INTEGER) >= 70
 
-`score` is an enrich step, one that adds fields to each record, and `cache: 30d` is its [cache window](/concepts/facts): a score written in the last 30 days counts as fresh. `idempotency: email` on `follow_up` keys each delivery on the email address.
+      - id: follow_up
+        use: csv/deliver
+        with:
+          path: follow-up.csv
+        variables:
+          full_name: full_name
+          score: demo.score
+        idempotency: email
+    ```
 
-Save the first export and launch:
+    `score` is an enrich step, one that adds fields to each record, and `cache: 30d` is its [cache window](/concepts/facts): a score written in the last 30 days counts as fresh. `idempotency: email` on `follow_up` keys each delivery on the email address.
 
-```sh
-cat > attendees.csv <<'EOF'
-Full Name,Email,Title,Company Website
-Jane Doe,jane.doe@acme.com,VP Marketing,acme.com
-Bob Stone,bob@globex.io,Head of Growth,globex.io
-Carol Reyes,carol@initech.dev,Marketing Operations Manager,initech.dev
-Dana Park,dana@contoso.com,Head of Growth,contoso.com
-EOF
-gtme run attendees.yaml
-```
+1. Save the first export and launch:
 
-The run ends with this [receipt](/concepts/runs-and-receipts):
+    ```sh
+    cat > attendees.csv <<'EOF'
+    Full Name,Email,Title,Company Website
+    Jane Doe,jane.doe@acme.com,VP Marketing,acme.com
+    Bob Stone,bob@globex.io,Head of Growth,globex.io
+    Carol Reyes,carol@initech.dev,Marketing Operations Manager,initech.dev
+    Dana Park,dana@contoso.com,Head of Growth,contoso.com
+    EOF
+    gtme run attendees.yaml
+    ```
 
-```
-step       adapter      in  out  empty  cached  filtered  failed  cost     avoided
-source     csv/source   0   4    -      0       -         -       $0       -
-score      demo/enrich  4   4    -      0       -         -       $0.0400  -
-keep       sql/filter   4   2    -      0       2         -       $0       -
-follow_up  csv/deliver  2   2    -      0       -         -       $0       -
-total: $0.0400 (estimated) spent
-```
+    The run ends with this [receipt](/concepts/runs-and-receipts):
 
-Jane and Dana scored 70 or more, passed `keep`, and went to `follow-up.csv`. Now the new export arrives. Jane and Dana are back, Bob's title changed, Carol is gone, and Gus and Hana are new. Replace the file:
+    ```
+    step       adapter      in  out  empty  cached  filtered  failed  cost     avoided
+    source     csv/source   0   4    -      0       -         -       $0       -
+    score      demo/enrich  4   4    -      0       -         -       $0.0400  -
+    keep       sql/filter   4   2    -      0       2         -       $0       -
+    follow_up  csv/deliver  2   2    -      0       -         -       $0       -
+    total: $0.0400 (estimated) spent
+    ```
 
-```sh
-cat > attendees.csv <<'EOF'
-Full Name,Email,Title,Company Website
-Jane Doe,jane.doe@acme.com,VP Marketing,acme.com
-Bob Stone,bob@globex.io,VP Growth,globex.io
-Dana Park,dana@contoso.com,Head of Growth,contoso.com
-Gus Lee,gus@hooli.com,Director of Demand Gen,hooli.com
-Hana Sato,hana@stark.io,CMO,stark.io
-EOF
-```
+    Jane and Dana scored 70 or more, passed `keep`, and went to `follow-up.csv`.
+
+1. Replace the file with the new export. Jane and Dana are back, Bob's title changed, Carol is gone, and Gus and Hana are new:
+
+    ```sh
+    cat > attendees.csv <<'EOF'
+    Full Name,Email,Title,Company Website
+    Jane Doe,jane.doe@acme.com,VP Marketing,acme.com
+    Bob Stone,bob@globex.io,VP Growth,globex.io
+    Dana Park,dana@contoso.com,Head of Growth,contoso.com
+    Gus Lee,gus@hooli.com,Director of Demand Gen,hooli.com
+    Hana Sato,hana@stark.io,CMO,stark.io
+    EOF
+    ```
 
 ## Steps
 
