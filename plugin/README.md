@@ -40,8 +40,11 @@ agent starts is otherwise a "Running…" and a folded receipt.
   last gtme command set and from the folder it ran in, so it shows
   whichever ledger that command used: `~/.gtme/ledger.db` by default.
 
-It needs a Claude Code version that loads mods; an older one runs the
-skills without it. Turn it off with the plugin's **Show the gtme console**
+In Claude Code's fullscreen layout (`/tui fullscreen`) the console docks
+beside the transcript as a side panel from 110 columns; on the main screen
+it sits above the prompt and shows only the review queue while records
+wait. It needs a Claude Code version that loads mods; an older one runs
+the skills without it. Turn it off with the plugin's **Show the gtme console**
 setting in `/plugin`. `claude plugin test plugin` runs its tests.
 
 Two rules every skill carries, from `START.md`:

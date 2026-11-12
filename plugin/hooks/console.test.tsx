@@ -132,3 +132,21 @@ test('with the console setting off, a gtme run draws nothing and calls nothing',
   await $.tool.call({ tool: 'Bash', command: 'gtme run review.yaml' })
   expect(ran).toBe(0)
 })
+
+test('docked beside the transcript, the pane keeps the step rows while records wait', async ($, on) => {
+  on('process.run', (_, e) => ({ value: fakeGtme(e.argv, false) }))
+  on('fs.exists', () => ({ value: true }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.toast', () => ({ value: undefined }))
+  on('ui.notify', () => ({ value: { isSent: true, channel: 'client' as const } }))
+  on('tool.call', () => ({ result: {} }))
+  mock.clock(on)
+
+  await $.tool.call({ tool: 'Bash', command: 'cd /tmp/x && gtme run review.yaml' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, placement: 'dock', bodyColumns: 60, scroll: { offset: 0, bodyRows: 40 } } })
+
+  expect(await ui.find({ type: 'Text', text: /human\/filter/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Jane Doe · VP Sales/ })).toBeDefined()
+  expect(await ui.find({ type: 'Button', key: `approve:${KEY}` })).toBeDefined()
+  await ui.unmount()
+})

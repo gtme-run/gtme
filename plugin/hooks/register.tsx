@@ -16,6 +16,9 @@ import type {
 // person. The mod never opens the ledger itself.
 
 const PANE = 'gtme-console'
+// The width the console asks for when the surface docks it beside a
+// fullscreen transcript (Claude Code caps a dock at 45% of the terminal).
+const DOCK_COLUMNS = 64
 const BINARIES = ['gtme', '/opt/homebrew/bin/gtme', '/usr/local/bin/gtme']
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/
 const GTME_VERB = /(^|[\s;&|(])gtme\s+(run|answer)\b/
@@ -454,7 +457,7 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'gtme' }, async $ => {
     await refresh($)
-    await $.ui.open({ id: PANE, title: 'gtme' })
+    await $.ui.open({ id: PANE, title: 'gtme', columns: DOCK_COLUMNS })
 
     return { text: 'gtme console opened.' }
   })
@@ -479,7 +482,7 @@ export const register: Register = (on, options) => {
     const pipeline = pipelineOf(e.command)
     const startedAt = Date.now()
     await update($, active, () => ({ pipeline, mode, startedAt }))
-    void $.ui.open({ id: PANE, title: 'gtme' })
+    void $.ui.open({ id: PANE, title: 'gtme', columns: DOCK_COLUMNS })
 
     const timer = $.clock.every(1000, () => void refresh($))
 
@@ -536,7 +539,7 @@ export const register: Register = (on, options) => {
               {s.pending} of {s.review.length} records waiting for you in {latest?.pipeline ?? 'the last run'}{' '}
             </Text>
           )}
-          <Button key="open" label="Open" onPress={() => void $.ui.open({ id: PANE, title: 'gtme', focus: true })} />
+          <Button key="open" label="Open" onPress={() => void $.ui.open({ id: PANE, title: 'gtme', columns: DOCK_COLUMNS, focus: true })} />
         </Box>
         {await next(e)}
       </Box>
@@ -556,7 +559,11 @@ export const register: Register = (on, options) => {
     // While records wait on the person the queue is what matters: the pane
     // drops the step rows, notes and recent runs (the diagram still shows
     // each step's state), so the queue fits a pane seated above the prompt.
-    const isReviewing = s.review.length > 0
+    // Docked beside a fullscreen transcript the pane has the full height and
+    // a narrow column; seated above the prompt it has a few rows and the full
+    // width. Only the inline seat needs the compact review layout.
+    const isDocked = e.props.placement === 'dock'
+    const isReviewing = s.review.length > 0 && !isDocked
 
     return (
       <Box flexDirection="column" gap={1}>
@@ -613,7 +620,13 @@ export const register: Register = (on, options) => {
               ◆ waiting for you · {s.pending} of {s.review.length} unanswered
             </Text>
             {s.review.map(item => (
-              <Box gap={1}>
+              <Box flexDirection={isDocked ? 'column' : 'row'} gap={isDocked ? 0 : 1} marginTop={isDocked ? 1 : 0}>
+                {isDocked && (
+                  <Text>
+                    <Text bold={item.answer === null} dimColor={item.answer !== null}>{item.key}</Text>
+                    <Text dimColor>{'\n'}{item.answer ?? item.surface}</Text>
+                  </Text>
+                )}
                 {item.answer !== null ? (
                   <Text color={item.answer.startsWith('approved') ? 'green' : item.answer.startsWith('rejected') ? 'red' : undefined}>
                     {item.answer.startsWith('approved') ? '✓' : item.answer.startsWith('rejected') ? '✗' : '•'}
@@ -637,10 +650,12 @@ export const register: Register = (on, options) => {
                     />
                   </Box>
                 )}
-                <Text wrap="truncate-end">
-                  <Text bold={item.answer === null} dimColor={item.answer !== null}>{item.key}</Text>
-                  <Text dimColor>  {item.answer ?? item.surface}</Text>
-                </Text>
+                {!isDocked && (
+                  <Text wrap="truncate-end">
+                    <Text bold={item.answer === null} dimColor={item.answer !== null}>{item.key}</Text>
+                    <Text dimColor>  {item.answer ?? item.surface}</Text>
+                  </Text>
+                )}
               </Box>
             ))}
             {isAllAnswered && (
