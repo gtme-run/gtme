@@ -11,7 +11,7 @@ order: 8
 roles: [builder, operator]
 defines:
   - term: "fact"
-    definition: "One row in field_values saying who wrote what value for which field of which identity, how sure it was, and when."
+    definition: "One row in `field_values` saying who wrote what value for which field of which identity, how sure it was, and when."
   - term: "provenance"
     definition: "The source, run, confidence, and time recorded on every fact, so any value can be traced to what wrote it."
   - term: "confidence"

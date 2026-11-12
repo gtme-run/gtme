@@ -19,7 +19,7 @@ defines:
   - term: "idempotency"
     definition: "The rule that a delivery with the same key, target, and scope as an existing row is not made again."
   - term: "resume"
-    definition: "gtme run --resume, which continues a stopped run under the same id from each record's last completed step."
+    definition: "`gtme run --resume`, which continues a stopped run under the same id from each record's last completed step."
   - term: "ULID"
     definition: "An id that sorts by the time it was made; every run and most ledger rows have one."
 links:

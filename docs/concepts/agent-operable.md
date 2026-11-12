@@ -11,7 +11,7 @@ order: 14
 roles: [agent, builder]
 defines:
   - term: "exit code"
-    definition: "The number a gtme command ends with, one per kind of failure: 0 ok, 2 a refused file or value, 3 a missing credential, 4 rate-limited, 5 network, 1 anything else."
+    definition: "The number a gtme command ends with, one per kind of failure: `0` ok, `2` a refused file or value, `3` a missing credential, `4` rate-limited, `5` network, `1` anything else."
   - term: "stdout"
     definition: "The output stream gtme reserves for data, such as query rows, record JSON, and frozen YAML, so a program can read it without cleanup."
   - term: "stderr"
