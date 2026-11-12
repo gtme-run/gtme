@@ -2,10 +2,19 @@
   "name": "gtme",
   "displayName": "gtme",
   "version": "0.8.0",
-  "description": "Skills for running gtme campaigns: create a pipeline from a goal, walk it up the ladder from plan to armed, add a vendor adapter, and read what the ledger knows. Every fact comes from the binary (gtme help --agent, gtme help --bindings) at run time.",
+  "description": "Skills for running gtme campaigns: create a pipeline from a goal, walk it up the ladder from plan to armed, add a vendor adapter, and read what the ledger knows. A console beside the chat shows each run as it goes and the records waiting on you. Every fact comes from the binary (gtme help --agent, gtme help --bindings) at run time.",
   "author": { "name": "gtme", "url": "https://gtme.run" },
   "homepage": "https://gtme.run",
   "repository": "https://github.com/gtme-run/gtme",
   "license": "MIT",
-  "keywords": ["gtme", "outbound", "go-to-market", "pipelines", "campaigns"]
+  "keywords": ["gtme", "outbound", "go-to-market", "pipelines", "campaigns"],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "console": {
+      "type": "boolean",
+      "title": "Show the gtme console",
+      "description": "A pane beside the chat with the run in progress, its receipt, and Approve/Reject for records a human step is waiting on. Off, the skills work exactly as before.",
+      "default": true
+    }
+  }
 }

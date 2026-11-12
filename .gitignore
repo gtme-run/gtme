@@ -12,3 +12,7 @@ NOTES.md
 
 # An armed run of a pattern bundle with a csv/deliver step writes beside it.
 bundles/**/out.csv
+
+# Claude Code writes the plugin API types beside a mod it loads.
+plugin/.claude-plugin/types/
+plugin/tsconfig.json

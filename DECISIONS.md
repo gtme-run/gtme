@@ -5579,6 +5579,86 @@ the preflight session hits it first.
 duplicate refusal, the new preflight check), §11 (M38 queued),
 Changelog (v0.63). No wire, schema, ledger or exit-code change.
 
+### ADR-067: The Claude Code plugin carries a console — a client of the CLI beside the chat
+**Status:** Proposed (2026-11-11 — from a prototype built and tested
+against real runs; human-approved by merging this packet)
+**Context:** Most gtme runs started from Claude Code are started by the
+agent, and Claude Code collapses a tool call's output to one line by
+default. The person watching sees "Running…" and then a folded receipt:
+which step a run is on, what it has spent, and whether anything is
+waiting on them are all in the ledger and none of it is on screen. The
+gap is sharpest at a participant step. The agent's shell has no TTY, so
+every `human/*` step it runs ends `pending` (§8, "People and agents
+answer"), and the person learns that only if they read the receipt and
+then type `gtme answer` once per record. Claude Code plugins can now
+carry a *mod*: a hooks module that runs inside Claude Code and draws a
+pane beside the chat, a band above the prompt, toasts and notifications,
+and runs local processes. §13 lists "dashboards or any UI" as a v0
+non-goal, excepting only a one-shot static render (`plan --viz`, ADR-051),
+and a pane that refreshes and takes button presses is neither.
+**Decision:** (1) **The plugin in `plugin/` carries one hooks module,
+the console.** `/gtme` opens a pane; a `gtme run` or `gtme answer` the
+agent runs opens it by itself. It shows the latest run's pipeline as a
+row of steps, each waiting, running, done or waiting on a person, with
+the receipt's counts per step, spend, the receipt's total and notes,
+and recent runs. A band above the prompt names the step in flight while
+a run executes and the number of records waiting while a run is
+`pending`. A toast reports how a run ended; a run that ends waiting on a
+person also sends a desktop notification. (2) **Every fact comes from the
+binary.** The console calls `gtme query --format ndjson`, `gtme runs
+RUN_ID` and `gtme show --run RUN_ID --pending`, never the ledger file;
+the ledger schema it reads is §3's public read surface, the one `help
+--agent` already publishes for agents. It refreshes once a second while
+a gtme command runs, from Claude Code's own timer. (3) **Its one write
+is `gtme answer`, and only a person's press makes it.** A record waiting
+at a `human/filter` step has Approve and Reject, which run `gtme answer
+RUN STEP KEY --set pass=… --set reason=… --as console`. Every waiting
+record has Ask, which hands the record to the agent for a recommendation
+and tells it not to answer. Once every record is answered, Collect asks
+the agent to run the pipeline again, which collects as §8 says. The
+console never runs `gtme run` itself, so the arm gate stays where the
+`run-pipeline` skill puts it. (4) **It follows the command.** The
+console runs gtme with the `GTME_LEDGER`, `GTME_HOME` and `HOME` the
+agent's last gtme command set (shell variables in that command
+expanded), and from the folder that command `cd`'d into; it switches to
+a named ledger only when that file exists. (5) **It can be turned off.**
+`plugin.json` declares a `console` boolean in `userConfig` (default
+on); off, the module registers nothing and the skills are unchanged.
+(6) **No binary ships in the plugin.** A plugin with a `bin/` directory
+cannot be installed on every Claude Code surface the skills reach today;
+the console finds `gtme` on `PATH` and says how to install it when it is
+not there. (7) **Tests.** `plugin/hooks/console.test.tsx` runs under
+`claude plugin test`: it answers every `gtme` call from a fake ledger
+and asserts that Approve runs the `gtme answer` above from the command's
+folder and environment, on the terminal and desktop surfaces. The
+plugin's version still tracks the binary's tag.
+**Consequences:** A person can watch an agent-run pipeline step by step
+and answer a participant step without leaving the chat or typing a
+command per record. The console is a client of the CLI, not part of
+gtme: a second implementation of the binary owes it nothing beyond the
+read verbs and `gtme answer` it already must provide, and the binary has
+no new verb, flag, output or state. The prototype found that `gtme show
+--pending` and `gtme answer` rebuild a run's plan from its recorded
+config and so depend on the caller's working directory (a relative
+source path) and `HOME` (installed adapters). From elsewhere they report
+a participant step as "pending with its provider", because
+`internal/cli/show.go` replaces the rebuild's error with that message.
+(4) works around it; the binary's fix is issue #228, fixed by PR #229. The console needs a Claude Code version that loads mods;
+an older one installs the plugin and runs the skills without it.
+**Rejected:** *A dashboard served by the binary* — a process, a port and
+retained state in gtme itself, which §13 still rules out. *Reading the
+ledger file directly* — it would couple the plugin to the schema's
+internals and bypass the one read surface agents are given. *Buttons
+that run `gtme run`* — arming is a judgment the skill gates on the dry-run
+receipt, and a button would make it a click. *Shipping the binary in the
+plugin's `bin/`* — see (6). *A separate plugin for the console* — a
+second install for the same people, when a `userConfig` toggle gives the
+same choice.
+**Spec impact:** AMEND §13: the "dashboards or any UI" non-goal is about
+the binary, and names the plugin's console (ADR-067) as a client of the
+CLI outside it. Changelog (v0.65). No verb, flag, schema, ledger, wire or
+exit-code change.
+
 ### ADR-054: `traverse` — a run is a sequence of typed segments, and a type is a file
 **Status:** Accepted (2026-09-05 — design session; answers ADR-008's parked
 question and ROADMAP.md's "Entity types" (until this packet, "Object

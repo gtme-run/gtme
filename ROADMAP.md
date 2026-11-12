@@ -669,3 +669,15 @@ exhaustion and fails in turn. A runner policy that stops the step after
 some number of consecutive exhausted retries, reported like any
 ADR-065 stop and resumable the same way, would bound that. It needs no
 protocol change. Nothing is specified until a real run shows the cost.
+
+## Console gates — the arm gate and the key rule as hooks
+
+Named 2026-11-11 with ADR-067. The plugin's console can see every Bash
+command the agent runs, so it could hold the two rules the skills carry
+in prose: refuse an armed `gtme run` on a pipeline that reaches a vendor
+until the person has approved it after that pipeline's dry-run receipt
+(a confirm dialog, not a typed yes), and refuse `gtme secret set KEY
+VALUE` with the value on the command line. Both would make a rule the
+agent follows into one Claude Code enforces. Deferred until the console
+has been used on real runs; the open question is how the gate knows a
+target is a vendor without re-planning the pipeline itself.
