@@ -366,3 +366,11 @@ test('with the gates setting off, nothing is held', { options: { gates: false } 
   await $.tool.call({ tool: 'Bash', command: 'gtme secret set INSTANTLY_API_KEY sk_123' })
   expect(seen.ran).toBe(true)
 })
+
+test('before any command names a ledger, the header names the one the environment sets', async ($, on) => {
+  on('env.get', (_, e) => ({ value: e.name === 'GTME_LEDGER' ? '/work/demo/demo.db' : undefined }))
+  on('process.run', () => ({ value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /…\/demo\/demo\.db/ })).toBeDefined()
+  await ui.unmount()
+})

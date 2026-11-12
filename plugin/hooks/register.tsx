@@ -860,13 +860,16 @@ export const register: Register = (on, options) => {
     // a narrow column; seated above the prompt it has a few rows and the full
     // width. Only the inline seat needs the compact review layout.
     const isDocked = e.props.placement === 'dock'
+    // Before any command names one, the ledger is the one Claude Code's own
+    // environment sets (or the default), so the header says which.
+    const envLedger = (await $.env.get('GTME_LEDGER').catch(() => undefined)) ?? null
     const isReviewing = s.review.length > 0 && !isDocked
 
     return (
       <Box flexDirection="column" gap={1}>
         <Box>
           <Text color="cyan" bold>gtme console </Text>
-          <Text dimColor>{ledgerLabel(s.ledger)} </Text>
+          <Text dimColor>{ledgerLabel(s.ledger ?? envLedger)} </Text>
           <Button key="refresh" label="Refresh" onPress={() => void refresh($)} />
         </Box>
 
