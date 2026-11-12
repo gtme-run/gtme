@@ -15,11 +15,11 @@ defines:
   - term: "segment"
     definition: "A saved read-only query over the ledger that runs fresh every time it is used."
   - term: "suppression group"
-    definition: "A group named by a suppress rule on a deliver step, which withholds a send from anyone touched in that group within a window."
+    definition: "A group named by a `suppress:` rule on a deliver step, which withholds a send from anyone touched in that group within a window."
   - term: "handoff"
-    definition: "A group/deliver step or a top-level group key that adds finished records to a group, the write that lets a second pipeline pick them up."
+    definition: "A `group/deliver` step or a top-level `group:` key that adds finished records to a group, the write that lets a second pipeline pick them up."
   - term: "touch"
-    definition: "A touched event recorded in a group per successful delivery, which counts contact history without changing membership."
+    definition: "A `touched` event recorded in a group per successful delivery, which counts contact history without changing membership."
 links:
   - to: /concepts/ledger
     type: relates-to
