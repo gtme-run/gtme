@@ -12,7 +12,7 @@ defines:
   - term: "identity key"
     definition: "The one normalized string, an email, a public LinkedIn URL, a domain, or a name hash, that says which record a row is about."
   - term: "name hash"
-    definition: "The weakest identity key, a SHA-256 of a person's name and company domain prefixed nh:, used when a row carries no stronger key."
+    definition: "The weakest identity key, a SHA-256 of a person's name and company domain prefixed `nh:`, used when a row carries no stronger key."
   - term: "key tier"
     definition: "The order the identity fields are tried in, email first, so a record carrying two keys is named by the stronger one."
   - term: "key upgrade"
