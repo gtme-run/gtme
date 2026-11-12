@@ -212,9 +212,26 @@ func resolveAnswerRun(ctx context.Context, l *ledger.Ledger, target string) (led
 	return run, nil
 }
 
-// participantStep re-plans the run's frozen pipeline and returns the named
-// step, refusing anything that is not a participant a person or agent
-// answers.
+// notParticipantError says a pending step is an adapter's (a deferred
+// batch), not a person's or an agent's: `gtme answer` refuses it and `gtme
+// show --pending` names it and moves on. Every other failure reading a step
+// back is an error of its own and is reported as one (#228).
+type notParticipantError struct{ step string }
+
+func (e notParticipantError) Error() string {
+	return fmt.Sprintf("step %q is not a human/* or agent/* step — `gtme answer` records a participant's judgment, not an adapter's", e.step)
+}
+
+// participantStep reads the named step back from the run's frozen pipeline,
+// refusing anything that is not a participant a person or agent answers.
+//
+// It resolves that one step, not the whole pipeline (#228): what waits is
+// ledger state, and re-planning the pipeline reopened the source (a relative
+// CSV path resolves against the caller's folder) and every other step's
+// adapter (resolved against the caller's HOME), so the same run read
+// differently depending on where the command ran. A participant step takes
+// its entity type from its pipeline (SPEC §6, ADR-033); the records waiting
+// at it are of that type, so the ledger says what it is.
 func participantStep(ctx context.Context, l *ledger.Ledger, run ledger.Run, stepID string) (*planner.Step, error) {
 	var p pipeline.Pipeline
 	if run.ConfigJSON == "" {
@@ -224,22 +241,52 @@ func participantStep(ctx context.Context, l *ledger.Ledger, run ledger.Run, step
 		return nil, fail(ExitOther, "run %s: decoding config: %v", run.ID, err)
 	}
 	p.Version = 1
-	plan, err := planner.Build(ctx, &p, l)
-	if err != nil {
-		return nil, fail(ExitOther, "run %s: %v", run.ID, err)
-	}
-	for i := range plan.Steps {
-		st := &plan.Steps[i]
-		if st.ID != stepID {
+	for i, s := range p.AllSteps() {
+		if s.ID != stepID {
 			continue
 		}
-		if st.Manifest == nil || !st.RunnerOwned() {
-			return nil, fail(ExitValidation,
-				"step %q is not a human/* or agent/* step — `gtme answer` records a participant's judgment, not an adapter's", stepID)
+		if i == 0 {
+			return nil, exitError{code: ExitValidation, err: notParticipantError{stepID}}
 		}
-		return st, nil
+		entityType, err := pendingEntityType(ctx, l, run.ID, stepID)
+		if err != nil {
+			return nil, fail(ExitOther, "run %s: %v", run.ID, err)
+		}
+		st, problems := planner.ResolveStep(s, false, planner.Scope{Ctx: ctx, Pipeline: p.Name, EntityType: entityType, Ledger: l})
+		if st.Manifest == nil || !st.RunnerOwned() {
+			if len(problems) > 0 && st.Manifest == nil {
+				return nil, fail(ExitOther, "run %s: step %q: %s", run.ID, stepID, problems[0].Msg)
+			}
+			return nil, exitError{code: ExitValidation, err: notParticipantError{stepID}}
+		}
+		if len(problems) > 0 {
+			msgs := make([]string, len(problems))
+			for j, pr := range problems {
+				msgs[j] = pr.Msg
+			}
+			return nil, fail(ExitOther, "run %s: step %q: %s", run.ID, stepID, strings.Join(msgs, "; "))
+		}
+		return &st, nil
 	}
 	return nil, fail(ExitValidation, "run %s has no step %q", run.ID, stepID)
+}
+
+// pendingEntityType is the entity type of the records waiting at a step,
+// read from their identities; "" when none waits (the caller only asks about
+// steps with something pending).
+func pendingEntityType(ctx context.Context, l *ledger.Ledger, runID, stepID string) (string, error) {
+	tokens, err := l.PendingTokens(ctx, runID, stepID)
+	if err != nil {
+		return "", err
+	}
+	for id := range tokens {
+		ident, err := l.IdentityByID(ctx, id)
+		if err != nil {
+			return "", err
+		}
+		return ident.EntityType, nil
+	}
+	return "", nil
 }
 
 // walkPending is `gtme answer` with no identity key: the same interactive
