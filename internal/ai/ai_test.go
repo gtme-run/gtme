@@ -33,6 +33,24 @@ func TestPriceKnownAndUnknownModels(t *testing.T) {
 	if _, ok := Price("claude-haiku-4-5-20251001", 10, 10, 0, 0); !ok {
 		t.Error("dated snapshots should match their family")
 	}
+
+	// The 5.5 generation prices on its own rows, not its predecessor's.
+	cost, ok = Price("claude-sonnet-5-5", 1_000_000, 1_000_000, 0, 0)
+	if !ok || math.Abs(cost-12.0) > 1e-9 {
+		t.Errorf("claude-sonnet-5-5 cost = %v, ok = %v; want 12 ($2 in + $10 out)", cost, ok)
+	}
+	cost, ok = Price("claude-haiku-5-5", 1_000_000, 1_000_000, 0, 0)
+	if !ok || math.Abs(cost-0.6) > 1e-9 {
+		t.Errorf("claude-haiku-5-5 cost = %v, ok = %v; want 0.6 ($0.10 in + $0.50 out)", cost, ok)
+	}
+	// A dated 5.5 snapshot matches two families by prefix; the longer one must
+	// win every time, whatever order the map iterates in.
+	for i := 0; i < 50; i++ {
+		cost, ok = Price("claude-sonnet-5-5-20261001", 1_000_000, 0, 0, 0)
+		if !ok || math.Abs(cost-2.0) > 1e-9 {
+			t.Fatalf("snapshot cost = %v, ok = %v; want 2 (Sonnet 5.5 input)", cost, ok)
+		}
+	}
 }
 
 func TestResolveRejectsUnknownEngine(t *testing.T) {
