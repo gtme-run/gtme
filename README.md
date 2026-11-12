@@ -1,47 +1,167 @@
-# gtme — GTM as code
+# /gtme: run outbound campaigns from Claude Code
 
-**Built for engineers who do GTM — not the other way around.**
+**/gtme** is a CLI and a Claude Code plugin. You describe a campaign in
+your own words, Claude writes it as a small YAML pipeline, and /gtme runs
+it against your vendors. An append-only ledger remembers every fact, so a
+re-run pays only for what's new and nobody gets the same message twice.
+
+[![The /gtme console in Claude Code: one prompt runs a pipeline, the re-run pays nothing, and the send waits for your yes](https://gtme.run/gtme-console-demo-v3.jpg)](https://gtme.run/gtme-console-demo-v3.mp4)
+
+**[▶ Watch the 42-second demo](https://gtme.run/gtme-console-demo-v3.mp4).**
+One prompt runs a pipeline, the re-run pays nothing, and the send waits for
+your yes. More at **[gtme.run](https://gtme.run)**.
+
+## Get started in three steps
+
+1. **Install the binary.**
+
+   ```sh
+   brew install gtme-run/tap/gtme     # macOS and Linux, arm64 and amd64
+   ```
+
+2. **Add the plugin in Claude Code.**
+
+   ```text
+   /plugin marketplace add gtme-run/gtme
+   /plugin install gtme@gtme-run
+   ```
+
+3. **Type `/gtme`.** The console opens beside the chat. Ask for a campaign,
+   or start with "See it run" in **[START.md](START.md)**, which needs no
+   keys and spends nothing.
+
+Other ways to install, and building from a checkout, are under
+[Install](#install).
+
+## From a sentence to a sent campaign
+
+Four prompts in Claude Code, and what each one returns. Every command is
+the one Claude runs for you, and every output comes from a real run.
+
+**1. You ask for the campaign.**
+
+> Find VPs and heads of marketing at 50 to 200 person SaaS companies in
+> Apollo. Keep the ones likely to own outbound tooling, write a first line
+> and a PS from their recent posts, and add them to my Q3 VP Marketing
+> campaign in Instantly. Five people to start.
+
+Claude writes `apollo-to-instantly.yaml`:
+
+```yaml
+name: apollo-to-instantly
+version: 1
+
+source:
+  use: apollo/search
+  with:
+    query: "saas"
+    titles: ["vp marketing", "head of marketing"]
+    employee_ranges: ["50,200"]
+    limit: 5
+
+steps:
+  - id: icp-filter
+    use: ai/filter
+    uses: [first_name, title, company_name]
+    with:
+      template: >
+        Keep only contacts likely to own outbound tooling decisions.
+      batch_size: 25
+
+  ...
+
+  - id: personalize
+    use: ai/compose
+    when: icp-filter.passed
+    uses: [recent_posts, role_history]
+    with:
+      template: >
+        Write first_line and ps_line using recent_posts and role_history.
+        first_line references something specific and recent; ps_line is one
+        short, low-pressure sentence. No flattery, no exclamation marks.
+      batch_size: 25
+
+  - id: send
+    use: instantly/add-to-campaign
+    with:
+      campaign: 0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b   # the campaign id
+    variables:
+      first_line: first_line
+      ps_line: ps_line
+    idempotency: email
+```
+
+**2. You ask for a rehearsal.**
+
+> Dry-run it against my real accounts.
+
+Claude runs `gtme run apollo-to-instantly.yaml --dry-run`:
+
+```
+run 01M3D1ZTKBQBS57C9WPK8NQM60 — done (dry run — nothing sent)
+step         adapter                    in  out  empty  cached  filtered  failed  cost     avoided
+source       apollo/search              0   5    -      0       -         -       $0       -
+icp-filter   ai/filter                  5   5    -      0       -         -       $0.0105  -
+reveal       apollo/enrich              5   5    -      0       -         -       $0.0500  -
+linkedin     harvest/profile            5   5    -      0       -         -       $0.0600  -
+personalize  ai/compose                 5   5    -      0       -         -       $0.0232  -
+send         instantly/add-to-campaign  5   0    -      0       -         -       $0       -
+send: preflight ok — campaign "Q3 VP Marketing" (0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b) — 3 check(s) (✓ campaign active, ✓ variable first_line referenced, ✓ variable ps_line referenced)
+total: $0.1437 (estimated) spent
+```
+
+Five people found, judged, enriched, and drafted for fourteen cents. The
+send step checked the campaign and held all five.
+
+**3. You say send.**
+
+> Looks good. Send it.
+
+Claude asks before the armed run, and you confirm. Then it runs
+`gtme run apollo-to-instantly.yaml`, which adds the five to the campaign.
+
+**4. You run it again.**
+
+> Run it again.
+
+Claude runs `gtme run apollo-to-instantly.yaml` again:
+
+```
+step         adapter                    in  out  empty  cached  filtered  failed  cost  avoided
+source       apollo/search              0   5    -      0       -         -       $0    -
+icp-filter   ai/filter                  5   0    -      5       -         -       $0    ?
+reveal       apollo/enrich              5   0    -      5       -         -       $0    $0.0500
+linkedin     harvest/profile            5   0    -      5       -         -       $0    $0.0600
+personalize  ai/compose                 5   0    -      5       -         -       $0    ?
+send         instantly/add-to-campaign  5   0    -      0       -         -       $0    -
+send: 5 already delivered
+total: $0 (estimated) spent, $0.1100+? avoided via cache (20 records skipped)
+```
+
+Every paid step comes back from the ledger at $0, and `idempotency: email`
+keeps the send from adding anyone twice.
+
+## The console
+
+Claude Code folds a command's output to one line, so the plugin carries a
+console: a pane beside the chat that `/gtme` opens, and that a run the
+agent starts opens by itself. It shows the latest run's steps as they
+move, with the receipt's counts and spend. When a `human/*` step is
+waiting on you, each record gets its controls there (approve or reject, a
+review label, a draft to edit), and every answer is recorded in the
+ledger. The console never runs anything that spends or sends; that stays
+with you. [plugin/README.md](plugin/README.md) has the details.
+
+The four skills behind it are `/gtme:create-pipeline`,
+`/gtme:run-pipeline`, `/gtme:create-adapter`, and `/gtme:analyze`. Claude
+picks one from what you ask, or you can call one by name.
+
+## Under the hood
 
 Outbound tooling assumes you want a UI, credits, and someone else's opinion
 of your workflow. If you'd rather have a CLI, a ledger you can query, YAML
 you can diff, and receipts for every dollar — this is that. Campaigns are
 pipelines. Adapters are data. Judgment is versioned. Everything replays.
-
-```yaml
-name: q3-outbound
-source:
-  use: apollo/search              # a vendor adapter that is ~150 lines of YAML: gtme adapters add apollo/search
-  with: { query: "vp marketing, saas", limit: 200 }
-steps:
-  - id: fit
-    use: ai/filter                # AI judgment behind the same contract as any step
-    uses: [full_name, title, company_domain]
-    with: { template: Keep people who own outbound tooling decisions. }
-  - id: lines
-    use: ai/compose
-    when: fit.passed
-    uses: [full_name, title, company_name]
-    with: { template: Write first_line and ps_line for a short, honest intro. }
-  - id: send                      # delivery is a step like any other — put it anywhere, use several
-    use: instantly/add-to-campaign
-    with: { campaign: 0198a0b1-2c3d-4e5f-8a9b-0c1d2e3f4a5b }   # the campaign id, not its name
-    variables: { first_line: first_line, ps_line: ps_line }
-    idempotency: email            # re-runs deliver nothing twice, ever
-```
-
-```
-$ gtme run q3-outbound.yaml
-...
-step     adapter                   in   out  cached  cost     avoided
-source   apollo/search             0    200  0       $0       -
-fit      ai/filter                 200  74   0       $0.19    -
-lines    ai/compose                74   74   0       $0.31    -
-send     instantly/add-to-campaign 74   74   0       $0       -
-total: $0.50 spent
-```
-
-Run it again Monday with fresh data: overlapping records cache-skip, the
-receipt shows dollars *avoided*, and nobody gets delivered twice.
 
 ## What it is
 
@@ -183,7 +303,9 @@ install github.com/gtme-run/gtme/cmd/gtme@latest` builds the tagged
 release straight from the module. Building from a checkout is `git clone`
 + `./install.sh`, which also installs the repo's example external
 adapters so the README quickstart works offline.
-Whichever way, **[START.md](START.md)** is the next page: four ways to start,
+Then add the Claude Code plugin with the two `/plugin` lines in
+[Get started](#get-started-in-three-steps). Whichever way,
+**[START.md](START.md)** is the next page: four ways to start,
 each one pipeline file, each ending in a receipt.
 
 ## The adapters
@@ -275,9 +397,7 @@ whatever the machine has installed. Contracts travel; your ledger,
 credentials, and input data stay yours. The natural unit for a playbook, a
 handoff, or a per-client repo.
 
-For Claude Code there is a plugin in [`plugin/`](plugin/): `/plugin
-marketplace add gtme-run/gtme`, then `/plugin install gtme@gtme-run`.
-Four skills — create a pipeline from a goal, run one up the ladder, add a
+The Claude Code plugin in [`plugin/`](plugin/) carries four skills — create a pipeline from a goal, run one up the ladder, add a
 vendor, analyze the ledger — each a procedure that reads its facts from
 `gtme help --agent` at run time. Five such playbooks ship in [`bundles/`](bundles/): qualify → group →
 send, an email waterfall, the account shape, events via CSV + cron, and
@@ -285,7 +405,7 @@ posts to engagers via a traverse. Every one simulates offline from the
 checkout (`cd bundles/<pattern> && gtme run . --simulate`) and CI proves
 it; each README says what its receipt shows and which rung comes next.
 
-## Get started
+## Build from a checkout
 
 ```sh
 git clone https://github.com/gtme-run/gtme && cd gtme
