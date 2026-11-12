@@ -80,108 +80,110 @@ links:
 
 ## Build a practice history
 
-**The practice file scores 12 trial signups and posts each one to a stand-in CRM.** Make a folder with its own ledger:
+**The practice file scores 12 trial signups and posts each one to a stand-in CRM.**
 
-```sh
-mkdir -p recover && cd recover
-export GTME_LEDGER=./ledger.db
-```
+1. Make a folder with its own ledger:
 
-Save this as `signups.csv`:
+    ```sh
+    mkdir -p recover && cd recover
+    export GTME_LEDGER=./ledger.db
+    ```
 
-```
-Full Name,Email,Title,Company Website
-Jane Doe,jane.doe@acme.com,VP Marketing,acme.com
-Bob Stone,bob@globex.io,Head of Growth,globex.io
-Carol Diaz,carol@initech.dev,RevOps Lead,initech.dev
-Dana Park,dana@contoso.com,CMO,contoso.com
-Eli Moss,eli@umbrella.co,Growth Manager,umbrella.co
-Fay Chen,fay@wayne.io,Demand Gen Lead,wayne.io
-Gus Lee,gus@hooli.com,VP Sales,hooli.com
-Hana Sato,hana@stark.io,Marketing Ops,stark.io
-Ivan Roy,ivan@soylent.co,Head of Sales,soylent.co
-Jo Kim,jo@vandelay.com,SDR Manager,vandelay.com
-Kai Ward,kai@tyrell.io,CRO,tyrell.io
-Lena Ruiz,lena@cyberdyne.dev,RevOps Manager,cyberdyne.dev
-```
+1. Save this as `signups.csv`:
 
-Save this [pipeline](/concepts/pipeline) as `signups.yaml`:
+    ```
+    Full Name,Email,Title,Company Website
+    Jane Doe,jane.doe@acme.com,VP Marketing,acme.com
+    Bob Stone,bob@globex.io,Head of Growth,globex.io
+    Carol Diaz,carol@initech.dev,RevOps Lead,initech.dev
+    Dana Park,dana@contoso.com,CMO,contoso.com
+    Eli Moss,eli@umbrella.co,Growth Manager,umbrella.co
+    Fay Chen,fay@wayne.io,Demand Gen Lead,wayne.io
+    Gus Lee,gus@hooli.com,VP Sales,hooli.com
+    Hana Sato,hana@stark.io,Marketing Ops,stark.io
+    Ivan Roy,ivan@soylent.co,Head of Sales,soylent.co
+    Jo Kim,jo@vandelay.com,SDR Manager,vandelay.com
+    Kai Ward,kai@tyrell.io,CRO,tyrell.io
+    Lena Ruiz,lena@cyberdyne.dev,RevOps Manager,cyberdyne.dev
+    ```
 
-```yaml
-name: signups
-version: 1
+1. Save this [pipeline](/concepts/pipeline) as `signups.yaml`:
 
-source:
-  use: csv/source
-  with:
-    path: signups.csv
-    columns: { full_name: Full Name, email: Email, title: Title, company_domain: Company Website }
+    ```yaml
+    name: signups
+    version: 1
 
-steps:
-  - id: score
-    use: demo/enrich
-    with:
-      cost_per_record_usd: 0.01
+    source:
+      use: csv/source
+      with:
+        path: signups.csv
+        columns: { full_name: Full Name, email: Email, title: Title, company_domain: Company Website }
 
-  - id: crm
-    use: http/deliver
-    with:
-      url: http://127.0.0.1:8765/leads
-    variables:
-      email: email
-      full_name: full_name
-      score: demo.score
-    idempotency: email
-```
+    steps:
+      - id: score
+        use: demo/enrich
+        with:
+          cost_per_record_usd: 0.01
 
-`idempotency: email` tells `crm` to skip anyone whose email it has already delivered to this target.
+      - id: crm
+        use: http/deliver
+        with:
+          url: http://127.0.0.1:8765/leads
+        variables:
+          email: email
+          full_name: full_name
+          score: demo.score
+        idempotency: email
+    ```
 
-Save the stand-in CRM as `target.py`. It takes a second per lead, so the run is slow enough to kill, and it logs each email it receives to `received.log`:
+    `idempotency: email` tells `crm` to skip anyone whose email it has already delivered to this target.
 
-```python
-import http.server, json, time
+1. Save the stand-in CRM as `target.py`. It takes a second per lead, so the run is slow enough to kill, and it logs each email it receives to `received.log`:
 
-class Target(http.server.BaseHTTPRequestHandler):
-    def do_POST(self):
-        lead = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-        time.sleep(1)
-        with open("received.log", "a") as log:
-            log.write(lead["email"] + "\n")
-        try:
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"{}")
-        except (BrokenPipeError, ConnectionResetError):
-            pass  # the run died before it heard back
+    ```python
+    import http.server, json, time
 
-    def log_message(self, *args):
-        pass
+    class Target(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            lead = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            time.sleep(1)
+            with open("received.log", "a") as log:
+                log.write(lead["email"] + "\n")
+            try:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"{}")
+            except (BrokenPipeError, ConnectionResetError):
+                pass  # the run died before it heard back
 
-http.server.ThreadingHTTPServer(("127.0.0.1", 8765), Target).serve_forever()
-```
+        def log_message(self, *args):
+            pass
 
-In a second terminal, in the same folder, start it and leave it running:
+    http.server.ThreadingHTTPServer(("127.0.0.1", 8765), Target).serve_forever()
+    ```
 
-```sh
-python3 target.py
-```
+1. In a second terminal, in the same folder, start it and leave it running:
 
-Back in the first terminal, crash the run. This starts it [armed](/concepts/gate-ladder), waits two seconds, and kills the process the way a killed terminal or a crashed machine would:
+    ```sh
+    python3 target.py
+    ```
 
-```sh
-gtme run signups.yaml & sleep 2; kill -9 $!
-```
+1. Back in the first terminal, crash the run. This starts it [armed](/concepts/gate-ladder), waits two seconds, and kills the process the way a killed terminal or a crashed machine would:
 
-The output is similar to the following:
+    ```sh
+    gtme run signups.yaml & sleep 2; kill -9 $!
+    ```
 
-```
-run 01M3QACQCVRSH6ERF9DMWKG261 (signups)
-source [info]: read 12 rows from signups.csv
-source: sourced 12 records
-score: 12 in, 12 out, 0 cached, 0 filtered, 0 failed
-```
+    The output is similar to the following:
 
-There's no receipt. The process died while `crm` was sending.
+    ```
+    run 01M3QACQCVRSH6ERF9DMWKG261 (signups)
+    source [info]: read 12 rows from signups.csv
+    source: sourced 12 records
+    score: 12 in, 12 out, 0 cached, 0 filtered, 0 failed
+    ```
+
+    There's no receipt. The process died while `crm` was sending.
 
 ## Steps
 
