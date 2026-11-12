@@ -52,6 +52,9 @@ const drafting = atom({ plugin: 'gtme', key: 'drafting' } as const, null)
 const DRAFT_MODEL = 'haiku'
 
 let isRefreshing = false
+// A refresh asked for while one runs is not dropped: it runs once that one
+// ends, so the last word after a fast run is never a stale read.
+let isRefreshAgain = false
 
 // ---------------------------------------------------------------- the binary
 
@@ -210,9 +213,11 @@ async function reviewOf($: EngineInterface, run: RunRow, where: Where): Promise<
 
 async function refresh($: EngineInterface) {
   if (isRefreshing) {
+    isRefreshAgain = true
     return
   }
   isRefreshing = true
+  isRefreshAgain = false
   const old = await read($, snap)
   const where: Where = { env: old.env, workdir: old.workdir }
 
@@ -268,6 +273,10 @@ async function refresh($: EngineInterface) {
     await update($, snap, s => ({ ...s, error: message, refreshedAt: Date.now() }))
   } finally {
     isRefreshing = false
+    if (isRefreshAgain) {
+      isRefreshAgain = false
+      void refresh($)
+    }
   }
 }
 
