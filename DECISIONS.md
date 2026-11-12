@@ -5615,8 +5615,7 @@ config and so depend on the caller's working directory (a relative
 source path) and `HOME` (installed adapters). From elsewhere they report
 a participant step as "pending with its provider", because
 `internal/cli/show.go` replaces the rebuild's error with that message.
-(4) works around it; the fix belongs in the binary and is tracked
-separately. The console needs a Claude Code version that loads mods;
+(4) works around it; the binary's fix is issue #228, fixed by PR #229. The console needs a Claude Code version that loads mods;
 an older one installs the plugin and runs the skills without it.
 **Rejected:** *A dashboard served by the binary* — a process, a port and
 retained state in gtme itself, which §13 still rules out. *Reading the

@@ -681,13 +681,3 @@ VALUE` with the value on the command line. Both would make a rule the
 agent follows into one Claude Code enforces. Deferred until the console
 has been used on real runs; the open question is how the gate knows a
 target is a vendor without re-planning the pipeline itself.
-
-## `show --pending` and `answer` independent of where they run
-
-Found 2026-11-11 building ADR-067's console. Both verbs rebuild a run's
-plan from its recorded config, so a relative source path resolves
-against the caller's working directory and installed adapters against
-its `HOME`; from anywhere else the rebuild fails and `show --pending`
-reports a participant step as "pending with its provider". Reading what
-waits needs the step's role and surface, not a fresh plan of the source.
-The console works around it by running gtme as the agent's command did.
