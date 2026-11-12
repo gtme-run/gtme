@@ -2800,6 +2800,34 @@ not list `--concurrency`, though §8's prose and §11's acceptance use it.
 that quote the changed lines are updated, and `docs/reference` is
 regenerated.
 
+### 2026-11-11 — `show --pending` and `answer` read a pending step the same from any folder (#228)
+
+**Question:** Both verbs re-planned the run's whole recorded pipeline to
+learn what the pending step is. Planning reopens the source (a relative
+CSV path resolves against the caller's folder) and resolves every step's
+adapter (against the caller's `HOME`), so run from anywhere but the
+pipeline's folder with its `HOME`, `answer` failed opening the CSV and
+`show --pending` printed "pending with its provider, not a participant —
+`gtme run` collects it" for a `human/*` step. It printed that for any
+failure, because `showPending` read every error from the lookup as a
+deferred adapter batch.
+**Choice:** `participantStep` resolves only the named step, with
+`planner.ResolveStep`, taking the entity type a participant step inherits
+from the identities waiting at it in the ledger. A step that is not a
+participant's returns a `notParticipantError`, and `showPending` prints the
+provider line for that error alone and returns any other. The refusal's
+text and exit code are unchanged.
+**Why:** What waits is ledger state (§8, ADR-049), and reading it should
+not depend on files or installs the step being answered never touches.
+The records waiting at a step are of its segment's type, so the ledger is
+the authority on what the full plan used to work out. The source and the
+other steps are what made the answer depend on where the command ran.
+**Spec impact:** None. This brings both verbs to §8, which describes them
+as reads of ledger state. Covered by `TestPendingReadsFromAnywhere` and
+`TestPendingReadsUnderAnotherHome` (both fail before the change), and the
+provider line on a real deferred step by a new check in
+`TestDeferredStepEndsTheRunPendingAndRunCollects`.
+
 ### 2026-10-02 — Runner-owned steps' declared needs meet the contract walk (#117)
 
 **Question:** SPEC §7 and §10a say a SQL step's `with: {uses: [...]}`

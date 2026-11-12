@@ -380,3 +380,79 @@ steps:
 	sim := h.mustRun("run", "cron.yaml", "--simulate")
 	contains(t, sim.stderr, "simulation gap", "a human step is a gap under --simulate")
 }
+
+// TestPendingReadsFromAnywhere (#228): what waits on a person is ledger
+// state, so `gtme show --pending` and `gtme answer` read it the same from
+// any folder. Both used to re-plan the run's whole pipeline, which reopened
+// the source CSV relative to the caller's folder; from elsewhere show
+// reported the human step as "pending with its provider" and answer failed
+// opening people.csv.
+func TestPendingReadsFromAnywhere(t *testing.T) {
+	h := newHarness(t)
+	h.write("people.csv", peopleCSV)
+	h.write("gate.yaml", `name: gate
+source:
+  use: csv/source
+  with:
+    path: people.csv
+steps:
+  - id: vet
+    use: human/filter
+    uses: [title]
+`)
+	h.mustRun("run", "gate.yaml")
+	elsewhere := t.TempDir()
+
+	show := h.runIn(elsewhere, nil, "", "show", "--run", "last", "--pending")
+	if show.code != 0 {
+		t.Fatalf("show --pending from another folder: exit = %d\nstderr:\n%s", show.code, show.stderr)
+	}
+	contains(t, show.stderr, "vet: 3 awaiting human/filter", "show --pending from another folder")
+	if strings.Contains(show.stderr, "with its provider") {
+		t.Errorf("a human step must never read as pending with its provider:\n%s", show.stderr)
+	}
+	contains(t, show.stdout, `"identity_key":"jane.doe@acme.com"`, "the NDJSON half")
+
+	answer := h.runIn(elsewhere, nil, "", "answer", "last", "vet", "jane.doe@acme.com", "--set", "pass=true", "--set", "reason=owns budget")
+	if answer.code != 0 {
+		t.Fatalf("answer from another folder: exit = %d\nstderr:\n%s", answer.code, answer.stderr)
+	}
+	if n := h.queryInt(`SELECT count(*) FROM step_events WHERE event = 'answered' AND step_id = 'vet'`); n != 1 {
+		t.Errorf("answered events = %d, want 1", n)
+	}
+}
+
+// TestPendingReadsUnderAnotherHome (#228): an adapter the run used that is
+// installed only under the run's HOME must not matter to reading or
+// answering the human step after it; re-planning the whole pipeline resolved
+// that adapter too, and from another HOME it could not.
+func TestPendingReadsUnderAnotherHome(t *testing.T) {
+	h := newHarness(t)
+	h.writeAdapter("any-entity", anyEntityManifest, echoAdapterScript)
+	h.write("people.csv", peopleCSV)
+	h.write("gate.yaml", `name: gate
+source:
+  use: csv/source
+  with:
+    path: people.csv
+steps:
+  - id: any
+    use: any-entity
+  - id: vet
+    use: human/filter
+    uses: [title, headline]
+`)
+	h.mustRun("run", "gate.yaml")
+	otherHome := []string{"HOME=" + t.TempDir()}
+
+	show := h.runIn(h.work, otherHome, "", "show", "--run", "last", "--pending")
+	if show.code != 0 {
+		t.Fatalf("show --pending under another HOME: exit = %d\nstderr:\n%s", show.code, show.stderr)
+	}
+	contains(t, show.stderr, "vet: 3 awaiting human/filter", "show --pending under another HOME")
+
+	answer := h.runIn(h.work, otherHome, "", "answer", "last", "vet", "bob@globex.io", "--set", "pass=false", "--set", "reason=not a buyer")
+	if answer.code != 0 {
+		t.Fatalf("answer under another HOME: exit = %d\nstderr:\n%s", answer.code, answer.stderr)
+	}
+}

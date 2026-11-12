@@ -56,6 +56,11 @@ func TestDeferredStepEndsTheRunPendingAndRunCollects(t *testing.T) {
 	contains(t, res.stderr, "pending — ended with a step in flight; the next `gtme run` of this pipeline collects", "receipt title")
 	contains(t, res.stderr, "judge: 2 record(s) in flight (fixture-batch-1); the next `gtme run` of this pipeline collects, or `gtme run --resume", "receipt")
 	runID := h.queryStrings(`SELECT id FROM runs WHERE pipeline = 'judge-deferred'`)[0]
+	// A deferred adapter batch is pending too, and is not a participant's to
+	// answer: show --pending names it and moves on (#228 kept this message for
+	// exactly this case).
+	pend := h.mustRun("show", "--run", runID, "--pending")
+	contains(t, pend.stderr, "judge: pending with its provider, not a participant", "show --pending on a deferred step")
 	if s := h.queryStrings(`SELECT status FROM runs WHERE id = '` + runID + `'`); s[0] != "pending" {
 		t.Fatalf("status = %s, want pending", s[0])
 	}

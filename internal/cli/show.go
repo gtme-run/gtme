@@ -281,11 +281,15 @@ func showPending(ctx context.Context, env Env, l *ledger.Ledger, target, step st
 	enc := json.NewEncoder(env.Stdout)
 	for _, id := range steps {
 		st, err := participantStep(ctx, l, run, id)
-		if err != nil {
+		var adapterStep notParticipantError
+		if errors.As(err, &adapterStep) {
 			// A deferred adapter batch is pending too, and is not answered
 			// here: name it and move on rather than failing the listing.
 			fmt.Fprintf(env.Stderr, "%s: pending with its provider, not a participant — `gtme run` collects it\n", id)
 			continue
+		}
+		if err != nil {
+			return err
 		}
 		contract, err := participant.ContractFor(st.Role, st.ProvidesSchema)
 		if err != nil {
