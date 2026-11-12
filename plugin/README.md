@@ -65,6 +65,16 @@ Two rules every skill carries, from `START.md`:
 - **Never handle a key.** `gtme secret set KEY` prompts the human. No key
   goes on a command line, into a file, or into the chat.
 
+The plugin also holds both rules (DECISIONS.md ADR-068), so they don't
+depend on the agent remembering them. An armed `gtme run` on a pipeline
+that reaches a vendor is refused until a dry run of that pipeline newer
+than its last edit, and then waits for you to pick **Arm it** in a dialog
+that names the targets and how many sends the dry run resolved. A
+`gtme secret set` with the value on the command line is refused. Local
+targets, dry runs and simulations run as asked, and gtme commands run
+outside Claude Code are untouched. The plugin's **Hold armed sends and
+keys on the command line** setting turns this off.
+
 Install gtme itself: `brew install gtme-run/tap/gtme`, or see
 [gtme.run/get](https://gtme.run/get). First run on a machine:
 [gtme.run/start.md](https://gtme.run/start.md), "See it run".

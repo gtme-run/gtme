@@ -670,7 +670,10 @@ some number of consecutive exhausted retries, reported like any
 ADR-065 stop and resumable the same way, would bound that. It needs no
 protocol change. Nothing is specified until a real run shows the cost.
 
-## Console gates — the arm gate and the key rule as hooks
+## Console gates — the arm gate and the key rule as hooks — BUILT
+
+Built 2026-11-11 as ADR-068: the vendor question is answered by `gtme
+plan`'s send surface. What follows is the original note.
 
 Named 2026-11-11 with ADR-067. The plugin's console can see every Bash
 command the agent runs, so it could hold the two rules the skills carry
