@@ -229,14 +229,14 @@ The registry lists a binding in one of two ways (the decision record, [ADR-042](
 
 ## Open the pull request
 
-1. Push the branch to your fork and open the pull request against the registry:
+Push the branch to your fork and open the pull request against the registry:
 
-    ```sh
-    git push -u origin stacklens-companies
-    gh pr create --fill-first
-    ```
+```sh
+git push -u origin stacklens-companies
+gh pr create --fill-first
+```
 
-    `gh` opens the pull request on the registry and prints its URL. `--fill-first` takes the title and body from the folder's commit. `gh pr checks` shows the registry's checks as they finish.
+`gh` opens the pull request on the registry and prints its URL. `--fill-first` takes the title and body from the folder's commit. `gh pr checks` shows the registry's checks as they finish.
 
 **The registry's CI and a maintainer check the pull request.** The registry's `verify` workflow checks the pull request. It builds gtme, repeats the verify loop you ran, and recomputes the hash of every verified row. If a file in the folder changed after you hashed it, the hash check fails with a line like this:
 
