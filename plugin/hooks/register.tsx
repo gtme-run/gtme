@@ -566,11 +566,165 @@ function seconds(fromMs: number): number {
   return Math.max(0, Math.round((Date.now() - fromMs) / 1000))
 }
 
+// ------------------------------------------------------------------- gates
+
+// The two rules the skills carry in prose, held here so Claude Code enforces
+// them (DECISIONS.md, the 2026-11-11 gates entry): an armed run that reaches
+// a vendor waits for the person's yes after a dry run of that pipeline, and
+// a key never goes on a command line.
+
+// Deliver adapters whose target is local: a file, or a group in the ledger.
+const LOCAL_TARGETS = new Set(['csv/deliver', 'group/deliver'])
+
+// A segment runs gtme only when gtme is its command: at its start, after any
+// `VAR=value` assignments. Prose that mentions gtme (a heredoc, an echo, a
+// commit message) is not a gtme command, and the gates leave it alone.
+const GTME_RUN = /^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*gtme\s+run\s+([^\s-][^\s]*)/
+const GTME_SECRET_SET = /^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*gtme\s+secret\s+set\s+(\S+)\s+(\S+)/
+
+// The command's segments, split where the shell would run them one by one.
+// A heredoc's body is text the shell hands to a command, never runs: it is
+// dropped first, from `<<WORD` (or `<<'WORD'`, `<<-WORD`) to the line WORD.
+function segmentsOf(command: string): string[] {
+  const code = command.replace(/<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1[^\n]*\n[\s\S]*?\n\s*\2\s*(?=\n|$)/g, '')
+
+  return code.split(/&&|\|\||[;\n|&]/).map(part => part.trim()).filter(part => part !== '')
+}
+
+// Each `gtme run PIPELINE` in the command that would send for real: neither
+// --dry-run nor --simulate.
+function armedRunsOf(command: string): string[] {
+  return segmentsOf(command).flatMap(segment => {
+    const m = segment.match(GTME_RUN)
+    if (m?.[1] === undefined || /\s--(dry-run|simulate)\b/.test(segment)) {
+      return []
+    }
+
+    return [m[1]]
+  })
+}
+
+// `gtme secret set KEY VALUE`: the value is on the command line.
+function keyOnCommandLine(command: string): string | null {
+  for (const segment of segmentsOf(command)) {
+    const m = segment.match(GTME_SECRET_SET)
+    if (m?.[1] !== undefined) {
+      return m[1]
+    }
+  }
+
+  return null
+}
+
+// What `gtme plan` says a pipeline sends to: its name and the deliver steps
+// whose adapters are not local. null when plan fails, so the run fails on its
+// own and with gtme's own words.
+function sendSurfaceOf(planText: string): { name: string; targets: string[] } | null {
+  const name = planText.match(/^pipeline (\S+) \(version/m)?.[1]
+  if (name === undefined) {
+    return null
+  }
+  const at = planText.indexOf('send surface:')
+  if (at === -1) {
+    return { name, targets: [] }
+  }
+  const targets: string[] = []
+  for (const line of planText.slice(at).split('\n').slice(1)) {
+    const m = line.match(/^\s+\S+ → (\S+)/)
+    if (m?.[1] === undefined) {
+      break
+    }
+    if (!LOCAL_TARGETS.has(m[1]) && !targets.includes(m[1])) {
+      targets.push(m[1])
+    }
+  }
+
+  return { name, targets }
+}
+
+// Why the command may not run, or null when it may.
+async function armGate($: EngineInterface, command: string): Promise<string | null> {
+  const runs = armedRunsOf(command)
+  if (runs.length === 0) {
+    return null
+  }
+  const where: Where = { env: envOf(command).env, workdir: workdirOf(command) }
+  for (const path of runs) {
+    const plan = await gtme($, ['plan', path], where)
+    if (plan === null) {
+      return 'gtme console: gtme is not on PATH, so the arm gate cannot check this run (brew install gtme-run/tap/gtme)'
+    }
+    const surface = plan.exitCode === 0 ? sendSurfaceOf(plan.stdout + plan.stderr) : null
+    if (surface === null || surface.targets.length === 0) {
+      continue
+    }
+    const targets = surface.targets.join(', ')
+    const file = path.startsWith('/') || where.workdir === null ? path : `${where.workdir}/${path}`
+    let editedAt = 0
+    try {
+      editedAt = (await $.fs.stat(file)).mtimeMs
+    } catch {
+      // unreadable here: any dry run of the pipeline counts
+    }
+    const dry = (
+      await query<{ id: string; started_at: string }>(
+        $,
+        `SELECT id, started_at FROM runs WHERE pipeline = '${surface.name.replace(/'/g, "''")}' AND dry = 1 ORDER BY started_at DESC LIMIT 1`,
+        where,
+      )
+    )[0]
+    if (dry === undefined || !ULID.test(dry.id) || Date.parse(dry.started_at) < editedAt) {
+      $.ui.toast(`${surface.name}: held an armed run to ${targets} until a dry run`)
+      return `gtme console: ${path} sends to ${targets}, and an armed run waits for the person. Run \`gtme run ${path} --dry-run\` first (it sends nothing) and show the person its receipt; then run it armed again and the console asks them to arm it. ${dry === undefined ? 'There is no dry run of this pipeline yet.' : 'The pipeline file changed after its last dry run.'}`
+    }
+    const resolved = (
+      await query<{ n: number }>($, `SELECT count(*) AS n FROM step_events WHERE run_id = '${dry.id}' AND event = 'dry_run'`, where)
+    )[0]?.n ?? 0
+    let choice: string
+    try {
+      choice = await $.ui.ask(
+        `Arm ${surface.name}? It sends to ${targets}. Its dry run at ${dry.started_at.slice(11, 16)} UTC resolved ${resolved} send(s); its receipt is the last one ${surface.name} printed.`,
+        { header: 'Arm gtme', options: ['Arm it', 'Not yet'] },
+      )
+    } catch {
+      return `gtme console: the person closed the arm dialog for ${surface.name} without arming it, so the run did not start`
+    }
+    if (choice !== 'Arm it') {
+      return `gtme console: the person did not arm ${surface.name}${choice === 'Not yet' ? '' : `; they said: “${choice}”`}`
+    }
+  }
+
+  return null
+}
+
 // ------------------------------------------------------------------- hooks
 
 export const register: Register = (on, options) => {
-  // The plugin's `console` setting (userConfig, default on). Off, the module
-  // registers nothing and the skills run as they always have.
+  // The gates come first, so they hold a command before anything else sees
+  // it run, and stand whether or not the console is shown: the plugin's
+  // `gates` setting (userConfig, default on) is theirs alone.
+  if (options.gates !== false) {
+    on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
+      if (!/\bgtme\s+(run|secret)\b/.test(e.command)) {
+        return next(e)
+      }
+      const key = keyOnCommandLine(e.command)
+      if (key !== null) {
+        $.ui.toast(`held a command that put ${key}'s value on the command line`)
+        return {
+          deny: `gtme console: never put a key on the command line. Ask the person to run \`gtme secret set ${key}\` themselves (in Claude Code, \`! gtme secret set ${key}\`), which prompts for the value without echoing it.`,
+        }
+      }
+      const held = await armGate($, e.command)
+
+      return held === null ? next(e) : { deny: held }
+    }).catch(($, e, next) =>
+      next.called ? next(e) : { deny: 'gtme console: the arm gate failed while checking this command, so it held it; try again, or turn the gates off in /plugin' },
+    )
+  }
+
+  // The plugin's `console` setting (userConfig, default on). Off, the console
+  // registers nothing more and the skills run as they always have.
   if (options.console === false) {
     return
   }

@@ -15,6 +15,12 @@
       "title": "Show the gtme console",
       "description": "A pane beside the chat with the run in progress, its receipt, and Approve/Reject for records a human step is waiting on. Off, the skills work exactly as before.",
       "default": true
+    },
+    "gates": {
+      "type": "boolean",
+      "title": "Hold armed sends and keys on the command line",
+      "description": "An armed gtme run that reaches a vendor waits for your yes in a dialog after a dry run of that pipeline, and a gtme secret set with the value on the command line is refused. Works whether or not the console is shown.",
+      "default": true
     }
   }
 }

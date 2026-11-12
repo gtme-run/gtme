@@ -5691,6 +5691,65 @@ the binary, and names the plugin's console (ADR-067) as a client of the
 CLI outside it. Changelog (v0.65). No verb, flag, schema, ledger, wire or
 exit-code change.
 
+### ADR-068: The console holds the arm gate and the key rule
+**Status:** Proposed (2026-11-11 — from ROADMAP's "Console gates", built
+and run live against a scratch pipeline; human-approved by merging this
+packet)
+**Context:** Two rules in every plugin skill keep an agent from doing
+what a person must decide (START.md): an armed run that reaches a vendor
+follows the person's yes after they read the dry-run receipt, and a key
+never goes on a command line. Both are prose the agent follows. The
+console (ADR-067) sees every Bash command the agent runs before it runs,
+and Claude Code lets it refuse one or ask the person in its own dialog,
+so the rules can be held rather than only stated. ROADMAP's open question
+was how the console knows a pipeline reaches a vendor without planning it
+itself.
+**Decision:** (1) **The arm gate.** When the agent's command runs `gtme
+run PIPELINE` with neither `--dry-run` nor `--simulate`, the console runs
+`gtme plan PIPELINE` first, with the command's folder and environment.
+Plan spends nothing and reaches no network, and its send surface names
+each deliver step's adapter. `csv/deliver` and `group/deliver` are local;
+any other adapter is a vendor. A pipeline that reaches none runs as
+asked. One that reaches a vendor runs only (a) after a dry run of that
+pipeline (`runs.dry = 1`) newer than the pipeline file's last change,
+else the command is refused with the dry-run command to run first, and
+(b) once the person picks **Arm it** in a dialog that names the targets
+and how many sends the dry run resolved. **Not yet**, closing the dialog,
+or anything typed instead refuses it, and the agent is told which. (2)
+**The key rule.** `gtme secret set KEY VALUE` is refused, and the agent
+is told to ask the person to run `gtme secret set KEY`, which prompts
+without echoing. (3) **What counts as a gtme command.** A segment of the
+command (split at `;`, `&&`, `||`, `|`, `&` and newlines) runs gtme only
+when `gtme` is its command, after any `VAR=value` assignments, and a
+heredoc's body is dropped before splitting: prose that mentions gtme is
+not held. (4) **A setting of their own.** `userConfig` gains `gates`
+(default on), separate from `console`: the gates hold whether or not the
+pane is shown. They are registered first, so they judge a command before
+anything else in the plugin sees it run, and a failure in the gate itself
+holds the command rather than letting it through.
+**Consequences:** The two rules become ones Claude Code enforces for an
+agent working through the plugin. A gtme command run outside Claude
+Code, by cron or by hand, is untouched, as is a pipeline whose sends are
+all local. Nothing is added to the binary; the gate reads plan's default
+output, the normative listing of §7 item 4, so a change to its wording
+is a console change too. A headless session (`claude -p`) has no one to
+ask, so an armed run to a vendor there is refused unless the gates are
+off. The prototype caught its own first false positive: a heredoc that
+mentioned `gtme secret set` was held until (3).
+**Rejected:** *Reading the pipeline YAML in the console*: a second
+parser of the format, and blind to built-in adapters' roles. *A typed
+"arm" in the chat*: the skills' own history (DECISIONS.md, 2026-09-07)
+shows a magic word fails both ways. *Holding every armed run*: local
+targets are the agent's to run (START.md), and a gate that asks for every
+CSV would be clicked through.
+**Spec impact:** None. The plugin is outside the binary (§13, ADR-067),
+and every call it makes is a read verb the CLI already has. Covered by
+`plugin/hooks/console.test.tsx` (a key held; a vendor run with no dry
+run held; Arm it lets it run; Not yet holds it; a dry run and a local
+pipeline pass unasked; prose that mentions gtme passes; gates off lets
+everything through), and run live in a terminal: held without a dry run,
+dry run allowed, a key held, and armed by a person's Arm it.
+
 ### ADR-054: `traverse` — a run is a sequence of typed segments, and a type is a file
 **Status:** Accepted (2026-09-05 — design session; answers ADR-008's parked
 question and ROADMAP.md's "Entity types" (until this packet, "Object

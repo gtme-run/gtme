@@ -121,7 +121,7 @@ test('a command that is not gtme run or answer is left alone', async ($, on) => 
   expect(ran).toBe(0)
 })
 
-test('with the console setting off, a gtme run draws nothing and calls nothing', { options: { console: false } }, async ($, on) => {
+test('with the console and the gates off, a gtme run draws nothing and calls nothing', { options: { console: false, gates: false } }, async ($, on) => {
   let ran = 0
   on('process.run', () => {
     ran += 1
@@ -132,6 +132,18 @@ test('with the console setting off, a gtme run draws nothing and calls nothing',
 
   await $.tool.call({ tool: 'Bash', command: 'gtme run review.yaml' })
   expect(ran).toBe(0)
+})
+
+test('with only the console off, the gates still hold a key', { options: { console: false } }, async ($, on) => {
+  let reached = false
+  on('tool.call', () => {
+    reached = true
+    return { result: {} }
+  })
+
+  const r = await $.tool.call({ tool: 'Bash', command: ['gtme', 'secret', 'set', 'SOME_KEY', 'some-value'].join(' ') })
+  expect(String((r as { deny?: string }).deny)).toMatch(/never put a key on the command line/)
+  expect(reached).toBe(false)
 })
 
 test('docked beside the transcript, the pane keeps the step rows while records wait', async ($, on) => {
@@ -245,4 +257,112 @@ test('Draft with Claude fills the field, and saving it notes who drafted it', as
   const answer = calls.find(a => a[1] === 'answer')
   expect(answer?.slice(-2)).toEqual(['--note', 'drafted with Claude in the gtme console'])
   await ui.unmount()
+})
+
+// The gates. `gtme plan` is answered from text shaped like the real one.
+const PLAN_VENDOR = `pipeline send (version 1)
+
+send surface: 2 deliver step(s)
+  send → http/deliver (touch scope: send)
+  log → csv/deliver (touch scope: send)
+
+plan ok — nothing has been spent
+`
+const PLAN_LOCAL = `pipeline local (version 1)
+
+send surface: 1 deliver step(s)
+  out → csv/deliver (touch scope: local)
+
+plan ok — nothing has been spent
+`
+
+function gateEngine(on: On, opts: { plan: string; dryRun: boolean; choice?: string }) {
+  const seen = { ran: false, asked: '' }
+  const ok = (stdout: string) => ({ exitCode: 0, stdout: '', stderr: stdout, isStdoutTruncated: false, isStderrTruncated: false })
+  on('process.run', (_, e) => {
+    const args = e.argv.slice(1)
+    if (args[0] === 'plan') {
+      return { value: ok(opts.plan) }
+    }
+    if (args[0] === 'query' && (args[1] ?? '').includes('dry = 1')) {
+      return { value: { ...ok(''), stdout: opts.dryRun ? `{"id":"${RUN}","started_at":"2026-11-12T04:00:00.000Z"}\n` : '' } }
+    }
+    if (args[0] === 'query' && (args[1] ?? '').includes("event = 'dry_run'")) {
+      return { value: { ...ok(''), stdout: '{"n":3}\n' } }
+    }
+
+    return { value: ok('') }
+  })
+  on('fs.stat', () => ({ value: { kind: 'file' as const, size: 1, mtimeMs: 0, isLink: false } }))
+  on('fs.exists', () => ({ value: true }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.toast', () => ({ value: undefined }))
+  on('ui.notify', () => ({ value: { isSent: true, channel: 'client' as const } }))
+  on('tool.call', (_, e) => {
+    if (e.tool === 'AskUserQuestion') {
+      const question = e.questions[0]?.question ?? ''
+      seen.asked = question
+      return { result: { questions: e.questions, answers: { [question]: opts.choice ?? 'Arm it' } } }
+    }
+    seen.ran = true
+    return { result: {} }
+  })
+  mock.clock(on)
+
+  return seen
+}
+
+test('a key on the command line is held', async ($, on) => {
+  const seen = gateEngine(on, { plan: PLAN_LOCAL, dryRun: false })
+  const r = await $.tool.call({ tool: 'Bash', command: 'gtme secret set INSTANTLY_API_KEY sk_123' })
+  expect(String((r as { deny?: string }).deny)).toMatch(/never put a key on the command line/)
+  expect(seen.ran).toBe(false)
+})
+
+test('an armed run to a vendor with no dry run is held', async ($, on) => {
+  const seen = gateEngine(on, { plan: PLAN_VENDOR, dryRun: false })
+  const r = await $.tool.call({ tool: 'Bash', command: 'cd /tmp/x && gtme run send.yaml' })
+  expect(String((r as { deny?: string }).deny)).toMatch(/--dry-run/)
+  expect(seen.ran).toBe(false)
+})
+
+test('after a dry run, the person arms it', async ($, on) => {
+  const seen = gateEngine(on, { plan: PLAN_VENDOR, dryRun: true, choice: 'Arm it' })
+  const r = await $.tool.call({ tool: 'Bash', command: 'cd /tmp/x && gtme run send.yaml' })
+  expect((r as { deny?: string }).deny).toBeUndefined()
+  expect(seen.ran).toBe(true)
+})
+
+test('after a dry run, Not yet holds it', async ($, on) => {
+  const seen = gateEngine(on, { plan: PLAN_VENDOR, dryRun: true, choice: 'Not yet' })
+  const r = await $.tool.call({ tool: 'Bash', command: 'cd /tmp/x && gtme run send.yaml' })
+  expect(String((r as { deny?: string }).deny)).toMatch(/did not arm send/)
+  expect(seen.ran).toBe(false)
+})
+
+test('a dry run, and a pipeline that only writes locally, pass with no question', async ($, on) => {
+  const seen = gateEngine(on, { plan: PLAN_LOCAL, dryRun: false })
+  await $.tool.call({ tool: 'Bash', command: 'cd /tmp/x && gtme run send.yaml --dry-run' })
+  expect(seen.ran).toBe(true)
+  seen.ran = false
+  await $.tool.call({ tool: 'Bash', command: 'cd /tmp/x && gtme run local.yaml' })
+  expect(seen.ran).toBe(true)
+  expect(seen.asked).toBe('')
+})
+
+test('prose that mentions gtme is not a gtme command', async ($, on) => {
+  const seen = gateEngine(on, { plan: PLAN_VENDOR, dryRun: false })
+  // A heredoc whose text names both commands: the shell runs `cat`, not gtme.
+  await $.tool.call({
+    tool: 'Bash',
+    command: "cat > notes.md <<'EOF'\n\"description\": \"an armed gtme run waits, and gtme secret set with the value is refused\"\ngtme run send.yaml is how it starts\nEOF",
+  })
+  expect(seen.ran).toBe(true)
+  expect(seen.asked).toBe('')
+})
+
+test('with the gates setting off, nothing is held', { options: { gates: false } }, async ($, on) => {
+  const seen = gateEngine(on, { plan: PLAN_VENDOR, dryRun: false })
+  await $.tool.call({ tool: 'Bash', command: 'gtme secret set INSTANTLY_API_KEY sk_123' })
+  expect(seen.ran).toBe(true)
 })
