@@ -2800,6 +2800,38 @@ not list `--concurrency`, though §8's prose and §11's acceptance use it.
 that quote the changed lines are updated, and `docs/reference` is
 regenerated.
 
+### 2026-11-11 — The console answers review and compose steps too (ADR-067)
+
+**Question:** ADR-067 (3) gave the console Approve and Reject for a
+`human/filter` record and only Ask for the other participant steps. A
+`human/review` grades a value an earlier step drafted, and a
+`human/compose` writes a field, or rewrites one with `of:`. Those are the
+steps a person reviewing or writing copy uses, and typing `gtme answer
+--set copy.first_line="…"` once per record is the chore the console exists
+to remove.
+**Choice:** The console reads each waiting record's `outputs` from `gtme
+show --pending` (`copy.grade=ship|rewrite|drop`, `copy.first_line=<text>`)
+and draws a control per output: a field with a closed set of labels gets
+one button per label, any other field a text box. A compose box starts
+from the value its `of:` names, which the record's surface carries, and
+the draft survives redraws as plugin state until it is saved. **Draft with
+Claude** fills the box from the model the console calls through Claude
+Code, prompted with what the step shows the person (its `uses:`), and
+never answers by itself. Saving runs one `gtme answer` with every field,
+and when Claude drafted the text, `--note` says so and says whether the
+person changed it, so `gtme show --provenance` can tell a person's line
+from a suggestion they accepted. The one write is still `gtme answer`,
+pressed by the person, as (3) requires.
+**Why:** The controls come from the binary's own description of what a
+step accepts, so a new label or field needs no console change. The note
+keeps provenance honest about how a line came to be.
+**Spec impact:** None: the console is outside the binary (§13, ADR-067),
+and every answer is one `gtme answer` already validates. Covered by
+`plugin/hooks/console.test.tsx` (a label answers its field; a compose box
+starts from the draft and saves what was typed; Draft with Claude fills
+the box and the save carries the note), and run live in a terminal on a
+fake-drafted pipeline: graded, typed, drafted, saved, collected.
+
 ### 2026-11-11 — `show --pending` and `answer` read a pending step the same from any folder (#228)
 
 **Question:** Both verbs re-planned the run's whole recorded pipeline to

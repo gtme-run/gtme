@@ -1,3 +1,4 @@
+import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
 // The engine stands beneath the plugin in a test, so every `gtme` call the
@@ -148,5 +149,100 @@ test('docked beside the transcript, the pane keeps the step rows while records w
   expect(await ui.find({ type: 'Text', text: /human\/filter/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /Jane Doe · VP Sales/ })).toBeDefined()
   expect(await ui.find({ type: 'Button', key: `approve:${KEY}` })).toBeDefined()
+  await ui.unmount()
+})
+
+// A copy pipeline: a review grades the draft, then a compose rewrites it.
+const COPY_CONFIG = JSON.stringify({
+  name: 'copy',
+  source: { id: 'source', use: 'csv/source' },
+  steps: [
+    { id: 'draft', use: 'fake-draft' },
+    { id: 'grade', use: 'human/review' },
+    { id: 'edit', use: 'human/compose' },
+  ],
+})
+const DRAFT = 'Maya, quick one: how is Northwind handling outbound?'
+
+function fakeCopy(argv: readonly string[], step: 'grade' | 'edit') {
+  const args = argv.slice(1)
+  const ok = (stdout: string) => ({ exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false })
+  if (args[0] === 'query') {
+    const sql = args[1] ?? ''
+    if (sql.includes('FROM runs ORDER BY')) {
+      return ok(JSON.stringify({ id: RUN, pipeline: 'copy', status: 'pending', dry: 0, started_at: '2026-11-12T03:40:00.000Z' }) + '\n')
+    }
+    if (sql.includes('config_json')) {
+      return ok(JSON.stringify({ config_json: COPY_CONFIG }) + '\n')
+    }
+    if (sql.includes('FROM step_events') && !sql.includes('answered')) {
+      return ok(`{"step_id":"${step}","event":"pending","n":1}\n`)
+    }
+
+    return ok('')
+  }
+  if (args[0] === 'show') {
+    const outputs = step === 'grade' ? ['copy.grade=ship|rewrite|drop'] : ['copy.first_line=<text>']
+    const surface = `draft.first_line (the value under review): ${JSON.stringify(DRAFT)}\nfull_name: "Maya Chen"\n`
+    return ok(JSON.stringify({ identity_key: KEY, step, role: step === 'grade' ? 'review' : 'compose', run_id: RUN, outputs, surface }) + '\n')
+  }
+
+  return ok('')
+}
+
+function engine(on: On, step: 'grade' | 'edit', calls: (readonly string[])[]) {
+  on('process.run', (_, e) => {
+    calls.push(e.argv)
+
+    return { value: fakeCopy(e.argv, step) }
+  })
+  on('fs.exists', () => ({ value: true }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.toast', () => ({ value: undefined }))
+  on('ui.notify', () => ({ value: { isSent: true, channel: 'client' as const } }))
+  on('tool.call', () => ({ result: {} }))
+  mock.clock(on)
+}
+
+test('a review shows the draft and answers with the label pressed', async ($, on) => {
+  const calls: (readonly string[])[] = []
+  engine(on, 'grade', calls)
+  await $.tool.call({ tool: 'Bash', command: 'cd /tmp/x && gtme run copy.yaml' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+
+  expect(await ui.find({ type: 'Text', text: /quick one: how is Northwind/ })).toBeDefined()
+  await ui.press({ key: `choose:grade/${KEY}:copy.grade:ship` })
+  expect(calls.find(a => a[1] === 'answer')?.slice(1)).toEqual(['answer', RUN, 'grade', KEY, '--set', 'copy.grade=ship', '--as', 'console'])
+  await ui.unmount()
+})
+
+test('a compose of: starts from the draft and saves what the person wrote', async ($, on) => {
+  const calls: (readonly string[])[] = []
+  engine(on, 'edit', calls)
+  await $.tool.call({ tool: 'Bash', command: 'cd /tmp/x && gtme run copy.yaml' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+
+  const field = await ui.find({ type: 'Input', key: `write:edit/${KEY}:copy.first_line` })
+  expect(field?.props.value).toBe(DRAFT)
+  await ui.input({ key: `write:edit/${KEY}:copy.first_line`, text: 'Maya, how is Northwind finding reps right now?' })
+  expect(calls.find(a => a[1] === 'answer')?.slice(1)).toEqual([
+    'answer', RUN, 'edit', KEY, '--set', 'copy.first_line=Maya, how is Northwind finding reps right now?', '--as', 'console',
+  ])
+  await ui.unmount()
+})
+
+test('Draft with Claude fills the field, and saving it notes who drafted it', async ($, on) => {
+  const calls: (readonly string[])[] = []
+  engine(on, 'edit', calls)
+  on('model.complete', () => ({ value: { isAnswered: true as const, text: 'Maya, what does outbound look like at Northwind this quarter?', usage: { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } } }))
+  await $.tool.call({ tool: 'Bash', command: 'cd /tmp/x && gtme run copy.yaml' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+
+  await ui.press({ key: `draft:edit/${KEY}` })
+  const field = await ui.find({ type: 'Input', key: `write:edit/${KEY}:copy.first_line` })
+  expect(field?.props.value).toBe('Maya, what does outbound look like at Northwind this quarter?')
+  await ui.press({ key: `save:edit/${KEY}` })
+  const answer = calls.find(a => a[1] === 'answer')
+  expect(answer?.slice(-2)).toEqual(['--note', 'drafted with Claude in the gtme console'])
   await ui.unmount()
 })
