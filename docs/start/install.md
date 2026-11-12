@@ -52,30 +52,32 @@ Three other ways give you the same program:
 
 ## Check that it worked
 
-**Two commands prove the install.** The first prints the version you have:
+**Two commands prove the install.**
 
-```sh
-gtme version
-```
+1. Print the version you have:
 
-The output is similar to the following:
+    ```sh
+    gtme version
+    ```
 
-```
-gtme v0.6.1
-```
+    The output is similar to the following:
 
-The second creates the `~/.gtme` folder and the [ledger](/concepts/ledger) inside it, the one file where gtme remembers the people, facts, and deliveries from every run:
+    ```
+    gtme v0.6.1
+    ```
 
-```sh
-gtme init
-```
+1. Create the `~/.gtme` folder and the [ledger](/concepts/ledger) inside it, the one file where gtme remembers the people, facts, and deliveries from every run:
 
-The output is similar to the following:
+    ```sh
+    gtme init
+    ```
 
-```
-ledger created: /tmp/you/.gtme/ledger.db
-gtme home: /tmp/you/.gtme
-```
+    The output is similar to the following:
+
+    ```
+    ledger created: /tmp/you/.gtme/ledger.db
+    gtme home: /tmp/you/.gtme
+    ```
 
 On your machine, both paths start with your home folder. Running `gtme init` again is safe: it prints `ledger up to date` and changes nothing.
 
