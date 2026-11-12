@@ -18,9 +18,19 @@ export type ReviewItem = {
   key: string
   step: string
   role: string
+  // What the step shows the person, the referent's line taken out.
   surface: string
+  // The value a review grades or a compose `of:` revises, when the step has one.
+  referent: string | null
+  // What the step accepts, as `gtme show --pending` spells it:
+  // `copy.grade=ship|rewrite|drop`, `copy.first_line=<text>`.
+  outputs: string[]
   answer: string | null
 }
+
+// Text a person is writing into a compose step's fields, by `step/key`, then
+// field. `__ai` holds the text Claude drafted, so the answer's note can say so.
+export type Drafts = Record<string, Record<string, string>>
 
 export type Snapshot = {
   ledger: string | null
@@ -49,6 +59,8 @@ declare module 'claude-code' {
     gtme: {
       snap: Shaped<Snapshot>
       active: Active | null
+      drafts: Drafts
+      drafting: string | null
     }
   }
 }

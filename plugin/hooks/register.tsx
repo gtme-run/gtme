@@ -4,6 +4,7 @@ import type { EngineInterface, Register } from 'claude-code'
 import type {
   Active,
   CostRow,
+  Drafts,
   PlanStep,
   ReviewItem,
   RunRow,
@@ -41,8 +42,14 @@ const EMPTY: Snapshot = {
 }
 
 // The tag declines a snapshot an earlier version stored (it outlives a reload).
-const snap = atom({ plugin: 'gtme', key: 'snap' } as const, EMPTY, { shape: 'snap-3' })
+const snap = atom({ plugin: 'gtme', key: 'snap' } as const, EMPTY, { shape: 'snap-4' })
 const active = atom({ plugin: 'gtme', key: 'active' } as const, null)
+const drafts = atom({ plugin: 'gtme', key: 'drafts' } as const, {} as Drafts)
+// `step/key` of the record Claude is drafting for, while it does.
+const drafting = atom({ plugin: 'gtme', key: 'drafting' } as const, null)
+
+// The model the console's Draft with Claude asks: a short line needs no more.
+const DRAFT_MODEL = 'haiku'
 
 let isRefreshing = false
 
@@ -118,6 +125,10 @@ function answerText(detail: string): string {
     if (fields.pass === false) {
       return `rejected by ${who}${typeof fields.reason === 'string' ? ` (${fields.reason})` : ''}`
     }
+    const values = Object.values(fields).filter(v => typeof v === 'string' || typeof v === 'number')
+    if (values.length > 0) {
+      return `${values.map(v => (String(v).includes(' ') ? `“${String(v)}”` : String(v))).join(' · ')} · by ${who}`
+    }
 
     return `answered by ${who}`
   } catch {
@@ -125,12 +136,31 @@ function answerText(detail: string): string {
   }
 }
 
+// `draft.first_line (the value under review): "Hi Jane…"`: the line gtme's
+// surface gives the value a review or a compose `of:` is about.
+const REFERENT_LINE = /^[\w.]+ \(the value[^)]*\): (".*")$/
+
+function referentOf(surface: string): string | null {
+  for (const line of surface.split('\n')) {
+    const quoted = line.match(REFERENT_LINE)?.[1]
+    if (quoted !== undefined) {
+      try {
+        return JSON.parse(quoted) as string
+      } catch {
+        return quoted.slice(1, -1)
+      }
+    }
+  }
+
+  return null
+}
+
 async function reviewOf($: EngineInterface, run: RunRow, where: Where): Promise<ReviewItem[]> {
   const shown = await gtme($, ['show', '--run', run.id, '--pending'], where)
   if (shown === null) {
     return []
   }
-  const waiting = ndjson<{ identity_key: string; step: string; role: string; surface: string }>(shown.stdout)
+  const waiting = ndjson<{ identity_key: string; step: string; role: string; surface: string; outputs?: string[] }>(shown.stdout)
   if (waiting.length === 0) {
     // gtme printed why on stderr (it could not rebuild the run's plan from
     // here, say): say so rather than show an empty queue.
@@ -156,12 +186,15 @@ async function reviewOf($: EngineInterface, run: RunRow, where: Where): Promise<
     key: w.identity_key,
     step: w.step,
     role: w.role,
+    referent: referentOf(w.surface),
+    outputs: w.outputs ?? [],
     // `full_name: "Jane Doe"` lines → `Jane Doe · VP Sales · demo.score 54`:
     // a plain field shows its value; a namespaced one keeps its name, since a
-    // bare number says nothing.
+    // bare number says nothing. The referent's line is drawn on its own.
     surface: w.surface
       .trim()
       .split('\n')
+      .filter(line => !REFERENT_LINE.test(line))
       .map(line => {
         const m = line.match(/^([\w.]+): "?(.*?)"?$/)
         if (m === null || m[1] === undefined || m[2] === undefined) {
@@ -238,18 +271,117 @@ async function refresh($: EngineInterface) {
   }
 }
 
-async function answer($: EngineInterface, run: RunRow, item: ReviewItem, pass: boolean) {
+// One participant's answer for one waiting record, through `gtme answer`.
+async function answerWith($: EngineInterface, run: RunRow, item: ReviewItem, sets: Record<string, string>, note?: string) {
   const s = await read($, snap)
-  const reason = pass ? 'approved in the gtme console' : 'rejected in the gtme console'
-  const ran = await gtme(
-    $,
-    ['answer', run.id, item.step, item.key, '--set', `pass=${pass}`, '--set', `reason=${reason}`, '--as', 'console'],
-    { env: s.env, workdir: s.workdir },
-  )
+  const args = ['answer', run.id, item.step, item.key]
+  for (const [field, value] of Object.entries(sets)) {
+    args.push('--set', `${field}=${value}`)
+  }
+  args.push('--as', 'console')
+  if (note !== undefined) {
+    args.push('--note', note)
+  }
+  const ran = await gtme($, args, { env: s.env, workdir: s.workdir })
   if (ran === null || ran.exitCode !== 0) {
     $.ui.toast(`gtme answer failed: ${ran?.stderr.trim().split('\n')[0] ?? 'gtme not found'}`)
+  } else {
+    await update($, drafts, d => {
+      const { [`${item.step}/${item.key}`]: _done, ...rest } = d
+      return rest
+    })
   }
   await refresh($)
+}
+
+async function answer($: EngineInterface, run: RunRow, item: ReviewItem, pass: boolean) {
+  const reason = pass ? 'approved in the gtme console' : 'rejected in the gtme console'
+  await answerWith($, run, item, { pass: String(pass), reason })
+}
+
+// What a record's outputs ask for: a field with a closed set of labels is a
+// choice (one button each); any other is text (an input). A filter's
+// pass/reason are its Approve and Reject.
+type Control = { field: string; options: string[] }
+
+function controlsOf(item: ReviewItem): Control[] {
+  if (item.role === 'filter') {
+    return []
+  }
+
+  return item.outputs.flatMap(output => {
+    const at = output.indexOf('=')
+    if (at < 1) {
+      return []
+    }
+    const hint = output.slice(at + 1)
+    const options = !hint.startsWith('<') && hint.includes('|') ? hint.split('|') : []
+
+    return [{ field: output.slice(0, at), options }]
+  })
+}
+
+// The text a compose field shows: what the person typed, else the referent
+// it revises, else nothing.
+function draftOf(all: Drafts, item: ReviewItem, field: string): string {
+  return all[`${item.step}/${item.key}`]?.[field] ?? item.referent ?? ''
+}
+
+// Saves every text field of a compose record, with a note when Claude
+// drafted the text (and whether the person changed it).
+async function saveText($: EngineInterface, run: RunRow, item: ReviewItem, override?: { field: string; value: string }) {
+  const all = await read($, drafts)
+  const mine = all[`${item.step}/${item.key}`] ?? {}
+  const sets: Record<string, string> = {}
+  for (const c of controlsOf(item).filter(c => c.options.length === 0)) {
+    sets[c.field] = override?.field === c.field ? override.value : draftOf(all, item, c.field)
+  }
+  if (Object.values(sets).some(v => v.trim() === '')) {
+    $.ui.toast('Write something first, or press Draft with Claude.')
+    return
+  }
+  const ai = mine.__ai
+  const note = ai === undefined ? undefined : Object.values(sets).includes(ai) ? 'drafted with Claude in the gtme console' : 'drafted with Claude, edited in the gtme console'
+  await answerWith($, run, item, sets, note)
+}
+
+async function draftWithClaude($: EngineInterface, item: ReviewItem, field: string) {
+  const id = `${item.step}/${item.key}`
+  await update($, drafting, () => id)
+  const r = await $.model.complete({
+    model: DRAFT_MODEL,
+    maxTokens: 300,
+    system:
+      'You write outbound sales email copy for a person to review. Reply with the text alone: no quotes, no preamble, no options.',
+    prompt: [
+      `Write the field "${field}" for this prospect.`,
+      item.surface === '' ? '' : `What the reviewer sees: ${item.surface}`,
+      item.referent === null ? '' : `The current draft: ${item.referent}\nImprove it.`,
+      'Use only facts in what the reviewer sees: drop any claim about them it does not support, and name their company if it is there.',
+      'One sentence, under 25 words, specific to them, plain words, no hype.',
+    ]
+      .filter(line => line !== '')
+      .join('\n'),
+  })
+  await update($, drafting, () => null)
+  if (!r.isAnswered) {
+    $.ui.toast(`Claude could not draft that line (${r.reason})`)
+    return
+  }
+  const text = r.text.trim()
+  await update($, drafts, d => ({ ...d, [id]: { ...(d[id] ?? {}), [field]: text, __ai: text } }))
+}
+
+function askText(item: ReviewItem, run: RunRow): string {
+  const what =
+    item.role === 'filter'
+      ? 'recommend approve or reject'
+      : item.role === 'review'
+        ? `recommend which answer (${item.outputs.join(', ')}) and why`
+        : `suggest what to write for ${item.outputs.map(o => o.split('=')[0]).join(', ')}`
+  const referent = item.referent === null ? '' : ` The value it is about: “${item.referent}”.`
+
+  return `In the gtme console, record ${item.key} is waiting at step "${item.step}" (${item.role}) of run ${run.id} (pipeline ${run.pipeline}).${item.surface === '' ? '' : ` What it shows: ${item.surface}.`}${referent} Read what the ledger knows about it (gtme show ${item.key} --provenance, in the same environment as the last gtme command) and ${what}, in two sentences. Don't answer it yourself.`
 }
 
 // ------------------------------------------------------- reading the command
@@ -383,13 +515,13 @@ function stepViews(s: Snapshot, runStatus: string): StepView[] {
     if (claimed > 0 && finished < claimed && runStatus === 'running') {
       return { id, use, state: 'running', detail: `${claimed - finished} in flight` }
     }
-    if ((events.get('pending') ?? 0) > 0 && runStatus === 'pending') {
-      const mine = s.review.filter(r => r.step === id)
+    // Waiting on a person only while records in the queue wait here: a step
+    // whose answers were collected keeps its old pending events.
+    const mine = s.review.filter(r => r.step === id)
+    if ((events.get('pending') ?? 0) > 0 && runStatus === 'pending' && mine.length > 0) {
       const open = mine.filter(r => r.answer === null).length
       const detail =
-        mine.length === 0
-          ? 'pending'
-          : open === 0
+        open === 0
             ? `${mine.length} answered · collect to continue`
             : `${open} waiting on you${mine.length > open ? ` · ${mine.length - open} answered` : ''}`
 
@@ -547,9 +679,11 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Button, Text } = $.ui.resolve(e)
+    const { Box, Button, Input, Text } = $.ui.resolve(e)
     const s = await read($, snap)
     const now = await read($, active)
+    const allDrafts = await read($, drafts)
+    const nowDrafting = await read($, drafting)
     const latest = s.runs[0]
     const views = latest === undefined ? [] : stepViews(s, latest.status)
     const notes = latest === undefined ? [] : receiptNotes(s.receipt, views.map(v => v.id))
@@ -619,45 +753,82 @@ export const register: Register = (on, options) => {
             <Text color="magenta" bold>
               ◆ waiting for you · {s.pending} of {s.review.length} unanswered
             </Text>
-            {s.review.map(item => (
-              <Box flexDirection={isDocked ? 'column' : 'row'} gap={isDocked ? 0 : 1} marginTop={isDocked ? 1 : 0}>
-                {isDocked && (
-                  <Text>
-                    <Text bold={item.answer === null} dimColor={item.answer !== null}>{item.key}</Text>
-                    <Text dimColor>{'\n'}{item.answer ?? item.surface}</Text>
-                  </Text>
-                )}
-                {item.answer !== null ? (
-                  <Text color={item.answer.startsWith('approved') ? 'green' : item.answer.startsWith('rejected') ? 'red' : undefined}>
-                    {item.answer.startsWith('approved') ? '✓' : item.answer.startsWith('rejected') ? '✗' : '•'}
-                  </Text>
-                ) : (
-                  <Box gap={1}>
-                    {item.role === 'filter' && (
+            {s.review.map(item => {
+              const controls = controlsOf(item)
+              const choices = controls.filter(c => c.options.length > 0)
+              const texts = controls.filter(c => c.options.length === 0)
+              const id = `${item.step}/${item.key}`
+              const isWriting = item.answer === null && texts.length > 0
+              const isStacked = isDocked || isWriting || item.referent !== null
+              const mark = item.answer === null ? null : item.answer.startsWith('rejected') ? '✗' : '✓'
+              const head = (
+                <Text wrap={isStacked ? 'wrap' : 'truncate-end'}>
+                  {mark !== null && <Text color={mark === '✗' ? 'red' : 'green'}>{mark} </Text>}
+                  <Text bold={item.answer === null} dimColor={item.answer !== null}>{item.key}</Text>
+                  <Text dimColor>{isStacked ? '\n' : '  '}{item.answer ?? item.surface}</Text>
+                </Text>
+              )
+              const ask = <Button key={`ask:${id}`} label="Ask" onPress={() => void $.prompt.submit({ text: askText(item, latest) })} />
+
+              return (
+                <Box flexDirection={isStacked ? 'column' : 'row'} gap={isStacked ? 0 : 1} marginTop={isStacked ? 1 : 0}>
+                  {isStacked && head}
+                  {isStacked && item.answer === null && item.referent !== null && texts.length === 0 && (
+                    <Text italic>“{item.referent}”</Text>
+                  )}
+                  {item.answer === null && item.role === 'filter' && (
+                    <Box gap={1}>
                       <Button key={`approve:${item.key}`} label="Approve" variant="primary" onPress={() => void answer($, latest, item, true)} />
-                    )}
-                    {item.role === 'filter' && (
                       <Button key={`reject:${item.key}`} label="Reject" onPress={() => void answer($, latest, item, false)} />
-                    )}
-                    <Button
-                      key={`ask:${item.key}`}
-                      label="Ask"
-                      onPress={() =>
-                        void $.prompt.submit({
-                          text: `In the gtme console, record ${item.key} is waiting at step "${item.step}" (${item.role}) of run ${latest.id} (pipeline ${latest.pipeline}). What it shows: ${item.surface}. Read what the ledger knows about it (gtme show ${item.key} --provenance, in the same environment as the last gtme command) and recommend approve or reject, in two sentences. Don't answer it yourself.`,
-                        })
-                      }
+                      {ask}
+                    </Box>
+                  )}
+                  {item.answer === null && choices.map(c => (
+                    <Box gap={1}>
+                      {c.options.map((option, i) => (
+                        <Button
+                          key={`choose:${id}:${c.field}:${option}`}
+                          label={option}
+                          variant={i === 0 ? 'primary' : undefined}
+                          onPress={() => void answerWith($, latest, item, { [c.field]: option })}
+                        />
+                      ))}
+                      {texts.length === 0 && ask}
+                    </Box>
+                  ))}
+                  {isWriting && texts.map(c => (
+                    <Input
+                      key={`write:${id}:${c.field}`}
+                      label={texts.length > 1 ? c.field.split('.').at(-1) : undefined}
+                      placeholder="Write it, or press Draft with Claude"
+                      value={draftOf(allDrafts, item, c.field)}
+                      rows={3}
+                      submitLabel="save"
+                      onInput={value => void update($, drafts, d => ({ ...d, [id]: { ...(d[id] ?? {}), [c.field]: value } }))}
+                      onSubmit={value => void saveText($, latest, item, { field: c.field, value })}
                     />
-                  </Box>
-                )}
-                {!isDocked && (
-                  <Text wrap="truncate-end">
-                    <Text bold={item.answer === null} dimColor={item.answer !== null}>{item.key}</Text>
-                    <Text dimColor>  {item.answer ?? item.surface}</Text>
-                  </Text>
-                )}
-              </Box>
-            ))}
+                  ))}
+                  {isWriting && (
+                    <Box gap={1}>
+                      <Button key={`save:${id}`} label="Save" variant="primary" onPress={() => void saveText($, latest, item)} />
+                      <Button
+                        key={`draft:${id}`}
+                        label={nowDrafting === id ? 'Drafting…' : 'Draft with Claude'}
+                        onPress={() => {
+                          const first = texts[0]
+                          if (first !== undefined && nowDrafting === null) {
+                            void draftWithClaude($, item, first.field)
+                          }
+                        }}
+                      />
+                      {ask}
+                      {allDrafts[id]?.__ai !== undefined && <Text dimColor>drafted by Claude</Text>}
+                    </Box>
+                  )}
+                  {!isStacked && head}
+                </Box>
+              )
+            })}
             {isAllAnswered && (
               <Box marginTop={1} gap={1}>
                 <Text color="green">Every record is answered. </Text>

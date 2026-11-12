@@ -30,11 +30,20 @@ agent starts is otherwise a "Running…" and a folded receipt.
 - It shows the latest run's steps, each waiting, running, done, or
   waiting on you, with the receipt's counts, spend and total, and recent
   runs. A line above the prompt names the step in flight.
-- A record a `human/filter` step is waiting on has **Approve** and
-  **Reject**, which run `gtme answer` as `console`. **Ask** hands the
-  record to the agent for a recommendation, and **Collect** asks it to
-  run the pipeline again once everything is answered. The console never
-  runs `gtme run` itself.
+- Each record a `human/*` step is waiting on gets the controls its step
+  answers with, and every answer is a `gtme answer` as `console`:
+  - a `human/filter` record has **Approve** and **Reject**;
+  - a `human/review` record shows the value under review (`of:`) and one
+    button per label its `provides:` declares (`ship`, `rewrite`, `drop`);
+  - a `human/compose` record has a text box per field it provides,
+    already holding the draft when the step revises one (`of:`), with
+    **Save** and **Draft with Claude**, which fills the box with a
+    suggestion from the fields the step shows (`uses:`). Saving a Claude
+    draft adds a note saying so, and whether you edited it.
+
+  **Ask** hands any record to the agent for a recommendation, and
+  **Collect** asks it to run the pipeline again once everything is
+  answered. The console never runs `gtme run` itself.
 - It reads only through the binary (`gtme query`, `gtme runs`, `gtme show
   --pending`), with the `GTME_LEDGER`, `GTME_HOME` and `HOME` the agent's
   last gtme command set and from the folder it ran in, so it shows
