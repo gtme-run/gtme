@@ -77,87 +77,89 @@ links:
 
 ## Build a practice history
 
-Run `hello.yaml` from [See it run](/start/show-me) twice, add two people to its CSV, and run it a third time:
+1. Run `hello.yaml` from [See it run](/start/show-me) twice, add two people to its CSV, and run it a third time:
 
-```sh
-mkdir -p report && cd report
-export GTME_LEDGER=./ledger.db
-curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/hello.yaml
-curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/contacts.csv
-gtme run hello.yaml
-gtme run hello.yaml
-cat >> contacts.csv <<'EOF'
-Dana Park,dana@contoso.com,Head of Growth,contoso.com
-Eli Brooks,eli@northwind.io,VP Sales,northwind.io
-EOF
-gtme run hello.yaml
-```
+    ```sh
+    mkdir -p report && cd report
+    export GTME_LEDGER=./ledger.db
+    curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/hello.yaml
+    curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/contacts.csv
+    gtme run hello.yaml
+    gtme run hello.yaml
+    cat >> contacts.csv <<'EOF'
+    Dana Park,dana@contoso.com,Head of Growth,contoso.com
+    Eli Brooks,eli@northwind.io,VP Sales,northwind.io
+    EOF
+    gtme run hello.yaml
+    ```
 
-The three runs end with these total lines:
+    The three runs end with these total lines:
 
-```
-total: $0.0300 (estimated) spent
-...
-total: $0 spent, $0.0300 avoided via cache (3 records skipped)
-...
-total: $0.0200 (estimated) spent, $0.0300 avoided via cache (3 records skipped)
-```
+    ```
+    total: $0.0300 (estimated) spent
+    ...
+    total: $0 spent, $0.0300 avoided via cache (3 records skipped)
+    ...
+    total: $0.0200 (estimated) spent, $0.0300 avoided via cache (3 records skipped)
+    ```
 
-The second run found every score still fresh in the ledger and paid for none. `3 records skipped` is the three cached scores. Jane's delivery, already made, prints as `out: 1 already delivered` and isn't counted as a cache skip. The third run paid for the two new people only.
+    The second run found every score still fresh in the ledger and paid for none. `3 records skipped` is the three cached scores. Jane's delivery, already made, prints as `out: 1 already delivered` and isn't counted as a cache skip. The third run paid for the two new people only.
 
-To put a real bill in the ledger too, save a second [pipeline](/concepts/pipeline) as `openers.yaml`. A copywriter writes an opener by hand for anyone scoring 90 or more, and bills $0.50 each:
+1. Save a second [pipeline](/concepts/pipeline) as `openers.yaml`, to put a real bill in the ledger too. A copywriter writes an opener by hand for anyone scoring 90 or more, and bills $0.50 each:
 
-```yaml
-name: openers
-version: 1
+    ```yaml
+    name: openers
+    version: 1
 
-source:
-  use: csv/source
-  with:
-    path: contacts.csv
-    columns: { full_name: Full Name, email: Email, title: Title, company_domain: Company Website }
+    source:
+      use: csv/source
+      with:
+        path: contacts.csv
+        columns: { full_name: Full Name, email: Email, title: Title, company_domain: Company Website }
 
-steps:
-  - id: score
-    use: demo/enrich
-    with:
-      cost_per_record_usd: 0.01
+    steps:
+      - id: score
+        use: demo/enrich
+        with:
+          cost_per_record_usd: 0.01
 
-  - id: top
-    use: sql/filter
-    with:
-      query: >
-        SELECT identity_id FROM current_values
-        WHERE field = 'demo.score' AND CAST(value AS INTEGER) >= 90
+      - id: top
+        use: sql/filter
+        with:
+          query: >
+            SELECT identity_id FROM current_values
+            WHERE field = 'demo.score' AND CAST(value AS INTEGER) >= 90
 
-  - id: opener
-    use: human/compose
-    uses: [full_name, title]
-    provides: [opener]
-    with:
-      prompt: never
-```
+      - id: opener
+        use: human/compose
+        uses: [full_name, title]
+        provides: [opener]
+        with:
+          prompt: never
+    ```
 
-`prompt: never` means gtme waits for an answer instead of asking in the terminal. Run it, record the copywriter's answer and bill with `gtme answer` ([Participants](/concepts/participants)), and run it again:
+    `prompt: never` means gtme waits for an answer instead of asking in the terminal.
 
-```sh
-gtme run openers.yaml
-gtme answer openers opener jane.doe@acme.com \
-    --set opener="Congrats on the Q3 launch." \
-    --as copywriter --cost 0.50 --measured
-gtme run openers.yaml
-```
+1. Run it, record the copywriter's answer and bill with `gtme answer` ([Participants](/concepts/participants)), and run it again:
 
-The first run stops at `opener` with Jane waiting, since she's the only one `top` keeps. The second run collects her answer and finishes the same run, so `openers` counts as one run:
+    ```sh
+    gtme run openers.yaml
+    gtme answer openers opener jane.doe@acme.com \
+        --set opener="Congrats on the Q3 launch." \
+        --as copywriter --cost 0.50 --measured
+    gtme run openers.yaml
+    ```
 
-```
-resuming run 01M3QAG9K5PNTN183GS6Y5E65N (openers)
-...
-opener  human/compose  1   1    -      0       -         -       $0.5000  -
-total: $0.5000 spent
-```
+    The first run stops at `opener` with Jane waiting, since she's the only one `top` keeps. The second run collects her answer and finishes the same run, so `openers` counts as one run:
 
-`--measured` marks the $0.50 as a real bill, so the total prints with no `(estimated)` (the decision record on cost basis, [ADR-046](/decisions#adr-046)).
+    ```
+    resuming run 01M3QAG9K5PNTN183GS6Y5E65N (openers)
+    ...
+    opener  human/compose  1   1    -      0       -         -       $0.5000  -
+    total: $0.5000 spent
+    ```
+
+    `--measured` marks the $0.50 as a real bill, so the total prints with no `(estimated)` (the decision record on cost basis, [ADR-046](/decisions#adr-046)).
 
 ## Steps
 
