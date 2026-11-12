@@ -3325,9 +3325,13 @@ contents (this section does not duplicate it, to avoid the two drifting).
 
 Scheduler/daemon (answered instead by a scheduled `gtme run` over a file
 a receiver writes, §8; the spool-draining adapter is deferred, ADR-055),
-dashboards or any UI (a one-shot static render such as
+dashboards or any UI in the binary (a one-shot static render such as
 `gtme plan --viz` is not one: no process, no interaction, no retained
-state — see ADR-051), DAG/branching beyond
+state — see ADR-051; the Claude Code plugin's console, ADR-067, is a
+client of the CLI outside the binary, reading through `gtme query`,
+`gtme runs` and `gtme show --pending` and writing only through `gtme
+answer`, and owes nothing that a second implementation must match),
+DAG/branching beyond
 `when:`, `waterfall:` execution (parse-and-reject only), email waterfall
 providers, relations that end (`works_at` cannot say someone left — see
 ROADMAP.md; fan-out itself is `traverse`, ADR-054, no longer a non-goal),
@@ -3462,6 +3466,12 @@ one session reads the same both ways (ADR-064).
 Format: [Keep a Changelog](https://keepachangelog.com/). This project does
 not yet have numbered releases; entries are keyed by the reconciliation
 pass that produced them.
+
+### v0.65 — 2026-11-11 (ADR-067 reconciliation: the plugin's console)
+**Changed:** §13's "dashboards or any UI" non-goal is scoped to the
+binary and names the Claude Code plugin's console (ADR-067) as a client
+of the CLI outside it. No verb, flag, output, schema, ledger, wire or
+exit-code change; nothing for a second implementation to match.
 
 ### v0.64 — 2026-09-30 (M38 build: Instantly's lead fields, built)
 **Changed:** §11 M38 marked built; no normative text changed.
