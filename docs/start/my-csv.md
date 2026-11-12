@@ -199,17 +199,23 @@ steps:
 
 ## Run your file
 
-**We recommend 10 rows first.** Trim your CSV, then point `path:` at the sample:
+**We recommend 10 rows first.**
 
-```sh
-head -n 11 CSV_FILE > sample.csv
-```
+1. Trim your CSV to its header and 10 rows:
 
-Replace `CSV_FILE` with your file's name.
+    ```sh
+    head -n 11 CSV_FILE > sample.csv
+    ```
 
-Edit `columns:` for your headers, rewrite both prompts, then simulate, plan, and run. A header like "Full Name" maps itself to `full_name`. The three fields in `uses:` must be mapped or plan stops, naming the field and listing the headers it found. A blank cell still goes to the model, and the [receipt](/concepts/runs-and-receipts) counts it, such as `1 missing title`. Any other header is kept as `csv.<header>`.
+    Replace `CSV_FILE` with your file's name.
 
-When the sample reads right, set `path:` to the full file. The full run skips the 10 rows it already judged, and `out.csv` gets none of them twice.
+1. In `my-csv.yaml`, point `path:` at `sample.csv`.
+
+1. Edit `columns:` for your headers, and rewrite both prompts. A header like "Full Name" maps itself to `full_name`. The three fields in `uses:` must be mapped or plan stops, naming the field and listing the headers it found. A blank cell still goes to the model, and the [receipt](/concepts/runs-and-receipts) counts it, such as `1 missing title`. Any other header is kept as `csv.<header>`.
+
+1. Simulate, plan, and run, as in [Run the sample](#run-the-sample).
+
+1. When the sample reads right, set `path:` to the full file and run again. The full run skips the 10 rows it already judged, and `out.csv` gets none of them twice.
 
 ## Questions after the first run
 
