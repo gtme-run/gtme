@@ -77,86 +77,88 @@ links:
 
 ## Build a practice history
 
-**The practice file keeps the VPs and heads of a function in a lead list and writes each one an opening line.** Make a folder with its own ledger:
+**The practice file keeps the VPs and heads of a function in a lead list and writes each one an opening line.**
 
-```sh
-mkdir -p iterate && cd iterate
-export GTME_LEDGER=./ledger.db
-```
+1. Make a folder with its own ledger:
 
-Save the list as `leads.csv`:
+    ```sh
+    mkdir -p iterate && cd iterate
+    export GTME_LEDGER=./ledger.db
+    ```
 
-```sh
-cat > leads.csv <<'EOF'
-Full Name,Email,Title,Company Website
-Jane Doe,jane.doe@acme.com,VP Marketing,acme.com
-Bob Stone,bob@globex.io,Head of Growth,globex.io
-Carol Reyes,carol@initech.dev,Marketing Operations Manager,initech.dev
-Dana Park,dana@contoso.com,Head of Growth,contoso.com
-Eli Moss,eli@umbrella.co,VP Sales,umbrella.co
-Fay Chen,fay@wayne.io,VP Demand Gen,wayne.io
-Gus Lee,gus@hooli.com,Director of Demand Gen,hooli.com
-Hana Sato,hana@stark.io,Head of Marketing,stark.io
-Ivan Cruz,ivan@soylent.co,VP Revenue,soylent.co
-Jo Kim,jo@tyrell.ai,Head of Sales,tyrell.ai
-Kai Wren,kai@cyberdyne.io,Account Executive,cyberdyne.io
-Lu Ortiz,lu@oscorp.dev,VP Marketing,oscorp.dev
-EOF
-```
+1. Save the list as `leads.csv`:
 
-Save this as `leads.yaml`:
+    ```sh
+    cat > leads.csv <<'EOF'
+    Full Name,Email,Title,Company Website
+    Jane Doe,jane.doe@acme.com,VP Marketing,acme.com
+    Bob Stone,bob@globex.io,Head of Growth,globex.io
+    Carol Reyes,carol@initech.dev,Marketing Operations Manager,initech.dev
+    Dana Park,dana@contoso.com,Head of Growth,contoso.com
+    Eli Moss,eli@umbrella.co,VP Sales,umbrella.co
+    Fay Chen,fay@wayne.io,VP Demand Gen,wayne.io
+    Gus Lee,gus@hooli.com,Director of Demand Gen,hooli.com
+    Hana Sato,hana@stark.io,Head of Marketing,stark.io
+    Ivan Cruz,ivan@soylent.co,VP Revenue,soylent.co
+    Jo Kim,jo@tyrell.ai,Head of Sales,tyrell.ai
+    Kai Wren,kai@cyberdyne.io,Account Executive,cyberdyne.io
+    Lu Ortiz,lu@oscorp.dev,VP Marketing,oscorp.dev
+    EOF
+    ```
 
-```yaml
-name: leads
-version: 1
+1. Save this as `leads.yaml`:
 
-source:
-  use: csv/source
-  with:
-    path: leads.csv
-    columns: { full_name: Full Name, email: Email, title: Title, company_domain: Company Website }
+    ```yaml
+    name: leads
+    version: 1
 
-steps:
-  - id: keep
-    use: sql/filter
-    with:
-      query: >
-        SELECT identity_id FROM current_values
-        WHERE field = 'title' AND (value LIKE 'VP%' OR value LIKE 'Head of%')
+    source:
+      use: csv/source
+      with:
+        path: leads.csv
+        columns: { full_name: Full Name, email: Email, title: Title, company_domain: Company Website }
 
-  - id: opener
-    use: text/compose
-    uses: [full_name, company_domain]
-    provides: [opener]
-    with:
-      template: "{{ record.full_name }}, a quick question about growth at {{ record.company_domain }}"
+    steps:
+      - id: keep
+        use: sql/filter
+        with:
+          query: >
+            SELECT identity_id FROM current_values
+            WHERE field = 'title' AND (value LIKE 'VP%' OR value LIKE 'Head of%')
 
-  - id: out
-    use: csv/deliver
-    with:
-      path: out.csv
-    variables:
-      full_name: full_name
-      opener: leads.opener
-    idempotency: email
-```
+      - id: opener
+        use: text/compose
+        uses: [full_name, company_domain]
+        provides: [opener]
+        with:
+          template: "{{ record.full_name }}, a quick question about growth at {{ record.company_domain }}"
 
-Launch it [armed](/concepts/gate-ladder). This spends $0 and writes 9 rows to `out.csv`:
+      - id: out
+        use: csv/deliver
+        with:
+          path: out.csv
+        variables:
+          full_name: full_name
+          opener: leads.opener
+        idempotency: email
+    ```
 
-```sh
-gtme run leads.yaml
-```
+1. Launch it [armed](/concepts/gate-ladder). This spends $0 and writes 9 rows to `out.csv`:
 
-The run ends with this [receipt](/concepts/runs-and-receipts):
+    ```sh
+    gtme run leads.yaml
+    ```
 
-```
-step    adapter       in  out  empty  cached  filtered  failed  cost  avoided
-source  csv/source    0   12   -      0       -         -       $0    -
-keep    sql/filter    12  9    -      0       3         -       $0    -
-opener  text/compose  9   9    -      0       -         -       $0    -
-out     csv/deliver   9   9    -      0       -         -       $0    -
-total: $0 spent
-```
+    The run ends with this [receipt](/concepts/runs-and-receipts):
+
+    ```
+    step    adapter       in  out  empty  cached  filtered  failed  cost  avoided
+    source  csv/source    0   12   -      0       -         -       $0    -
+    keep    sql/filter    12  9    -      0       3         -       $0    -
+    opener  text/compose  9   9    -      0       -         -       $0    -
+    out     csv/deliver   9   9    -      0       -         -       $0    -
+    total: $0 spent
+    ```
 
 Nine people are in `out.csv`, each with a line about growth. The `keep` query reads `current_values`, which holds each person's latest value for every field, and returns the people to keep.
 
