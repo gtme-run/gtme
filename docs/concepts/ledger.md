@@ -17,7 +17,7 @@ defines:
   - term: "current value"
     definition: "The row that wins for a field, the highest confidence and then the newest, computed by a view whenever something asks."
   - term: "payload"
-    definition: "A raw vendor response kept as a purgeable cache beside the facts, which no step reads and gtme vacuum evicts."
+    definition: "A raw vendor response kept as a purgeable cache beside the facts, which no step reads and `gtme vacuum` evicts."
 links:
   - to: /concepts/identity-keys
     type: relates-to
