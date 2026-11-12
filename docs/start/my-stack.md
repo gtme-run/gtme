@@ -183,35 +183,35 @@ Apollo and Harvest answered from fixtures (recorded responses), the model from c
 
 ## Plan it
 
-Plan spends nothing and sends nothing:
+1. Plan the file. Plan spends nothing and sends nothing:
 
-```sh
-gtme plan apollo-to-instantly.yaml
-```
+    ```sh
+    gtme plan apollo-to-instantly.yaml
+    ```
 
-Without keys, the output is the following:
+    Without keys, the output is the following:
 
-```
-gtme: 5 plan problems:
-  - step "source": missing credential APOLLO_API_KEY (set it in the environment or run `gtme secret set APOLLO_API_KEY`)
-  - step "reveal": missing credential APOLLO_API_KEY (set it in the environment or run `gtme secret set APOLLO_API_KEY`)
-  - step "linkedin": missing credential HARVEST_API_KEY (set it in the environment or run `gtme secret set HARVEST_API_KEY`)
-  - step "posts": missing credential HARVEST_API_KEY (set it in the environment or run `gtme secret set HARVEST_API_KEY`)
-  - step "send": missing credential INSTANTLY_API_KEY (set it in the environment or run `gtme secret set INSTANTLY_API_KEY`)
-```
+    ```
+    gtme: 5 plan problems:
+      - step "source": missing credential APOLLO_API_KEY (set it in the environment or run `gtme secret set APOLLO_API_KEY`)
+      - step "reveal": missing credential APOLLO_API_KEY (set it in the environment or run `gtme secret set APOLLO_API_KEY`)
+      - step "linkedin": missing credential HARVEST_API_KEY (set it in the environment or run `gtme secret set HARVEST_API_KEY`)
+      - step "posts": missing credential HARVEST_API_KEY (set it in the environment or run `gtme secret set HARVEST_API_KEY`)
+      - step "send": missing credential INSTANTLY_API_KEY (set it in the environment or run `gtme secret set INSTANTLY_API_KEY`)
+    ```
 
-Plan exits with code `3`, which means every problem is a missing credential, and each line names its fix. Plan only warns about the Anthropic key; without it, every record fails at `icp-filter` and the receipt names the key.
+    Plan exits with code `3`, which means every problem is a missing credential, and each line names its fix. Plan only warns about the Anthropic key; without it, every record fails at `icp-filter` and the receipt names the key.
 
-Each command prompts for a key and saves it to `~/.gtme/secrets`, a home-directory file only you can read:
+1. Store each key. Each command prompts for a key and saves it to `~/.gtme/secrets`, a home-directory file only you can read:
 
-```sh
-gtme secret set APOLLO_API_KEY
-gtme secret set HARVEST_API_KEY
-gtme secret set ANTHROPIC_API_KEY
-gtme secret set INSTANTLY_API_KEY
-```
+    ```sh
+    gtme secret set APOLLO_API_KEY
+    gtme secret set HARVEST_API_KEY
+    gtme secret set ANTHROPIC_API_KEY
+    gtme secret set INSTANTLY_API_KEY
+    ```
 
-Run plan again to see each step's estimated cost.
+1. Run `gtme plan apollo-to-instantly.yaml` again to see each step's estimated cost.
 
 ## Dry-run it
 

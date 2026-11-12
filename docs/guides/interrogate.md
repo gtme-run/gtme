@@ -86,84 +86,86 @@ links:
 
 ## Build a practice record
 
-Make a folder with its own ledger, so the practice stays out of your real one, and fetch a three-person CSV:
+1. Make a folder with its own ledger, so the practice stays out of your real one, and fetch a three-person CSV:
 
-```sh
-mkdir -p interrogate && cd interrogate
-export GTME_LEDGER=./ledger.db
-curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/contacts.csv
-```
+    ```sh
+    mkdir -p interrogate && cd interrogate
+    export GTME_LEDGER=./ledger.db
+    curl -fsSLO https://raw.githubusercontent.com/gtme-run/gtme/main/examples/contacts.csv
+    ```
 
-Save this [pipeline](/concepts/pipeline) in the folder as `outreach.yaml`. The `opener` step writes each person a line from a template, and `grade` asks a person to grade each title:
+1. Save this [pipeline](/concepts/pipeline) in the folder as `outreach.yaml`. The `opener` step writes each person a line from a template, and `grade` asks a person to grade each title:
 
-```yaml
-name: outreach
-version: 1
+    ```yaml
+    name: outreach
+    version: 1
 
-source:
-  use: csv/source
-  with:
-    path: contacts.csv
-    columns: { full_name: Full Name, email: Email, title: Title, company_domain: Company Website }
+    source:
+      use: csv/source
+      with:
+        path: contacts.csv
+        columns: { full_name: Full Name, email: Email, title: Title, company_domain: Company Website }
 
-steps:
-  - id: opener
-    use: text/compose
-    uses: [full_name, title]
-    provides: [opener]
-    with:
-      template: "Hi {{record.full_name}}, congrats on the {{record.title}} role."
+    steps:
+      - id: opener
+        use: text/compose
+        uses: [full_name, title]
+        provides: [opener]
+        with:
+          template: "Hi {{record.full_name}}, congrats on the {{record.title}} role."
 
-  - id: grade
-    use: human/review
-    of: title
-    uses: [full_name]
-    provides:
-      grade: { type: string, enum: [A, B, C] }
-    with:
-      prompt: never
-```
+      - id: grade
+        use: human/review
+        of: title
+        uses: [full_name]
+        provides:
+          grade: { type: string, enum: [A, B, C] }
+        with:
+          prompt: never
+    ```
 
-Run it, grade Jane with [`gtme answer`](/reference/cli/answer), and run it again to collect the grade ([Participants](/concepts/participants) covers the waiting and collecting):
+1. Run it, grade Jane with [`gtme answer`](/reference/cli/answer), and run it again to collect the grade ([Participants](/concepts/participants) covers the waiting and collecting):
 
-```sh
-gtme run outreach.yaml
-gtme answer outreach grade jane.doe@acme.com --set outreach.grade=A \
-    --as grader --note "owns the budget"
-gtme run outreach.yaml
-```
+    ```sh
+    gtme run outreach.yaml
+    gtme answer outreach grade jane.doe@acme.com --set outreach.grade=A \
+        --as grader --note "owns the budget"
+    gtme run outreach.yaml
+    ```
 
-The last run reports Jane graded and the other two still waiting:
+    The last run reports Jane graded and the other two still waiting:
 
-```
-grade: 3 in, 1 out — 2 awaiting human/review; `gtme answer outreach` records, the next `gtme run outreach` collects (or `gtme show --run 01M3K5QSF03CZ4DTX6XYGPFDF8 --pending grade` to read them)
-```
+    ```
+    grade: 3 in, 1 out — 2 awaiting human/review; `gtme answer outreach` records, the next `gtme run outreach` collects (or `gtme show --run 01M3K5QSF03CZ4DTX6XYGPFDF8 --pending grade` to read them)
+    ```
 
-Now a CRM export arrives with a different title for Jane. Save it, and a second pipeline that reads it as `crm.yaml`, then run that:
+1. Save a CRM export that gives Jane a different title, and a second pipeline that reads it as `crm.yaml`:
 
-```sh
-cat > crm-export.csv <<'EOF'
-Full Name,Email,Title,Company Website
-Jane Doe,jane.doe@acme.com,Marketing Manager,acme.com
-EOF
-```
+    ```sh
+    cat > crm-export.csv <<'EOF'
+    Full Name,Email,Title,Company Website
+    Jane Doe,jane.doe@acme.com,Marketing Manager,acme.com
+    EOF
+    ```
 
-```yaml
-name: crm
-version: 1
+    ```yaml
+    name: crm
+    version: 1
 
-source:
-  use: csv/source
-  with:
-    path: crm-export.csv
-    columns: { full_name: Full Name, email: Email, title: Title, company_domain: Company Website }
+    source:
+      use: csv/source
+      with:
+        path: crm-export.csv
+        columns: { full_name: Full Name, email: Email, title: Title, company_domain: Company Website }
 
-steps: []
-```
+    steps: []
+    ```
 
-```sh
-gtme run crm.yaml
-```
+1. Run the second pipeline:
+
+    ```sh
+    gtme run crm.yaml
+    ```
 
 Jane's record now holds values from three [adapters](/concepts/adapter-tiers), and her title disagrees with the opener the pipeline wrote for her.
 

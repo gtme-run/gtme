@@ -167,9 +167,9 @@ Search Apollo, keep the people an AI judge says own outbound tooling, and pay fo
     total: $0 spent, $0.0300 avoided via cache (3 records skipped)
     ```
 
-**Read the `score` row: `cached 3`, `avoided $0.0300`.** Each person already had a score in the [ledger](/concepts/ledger), inside its 30-day window, so the scorer didn't run. Then read the line under the table, `out: 1 already delivered`. Jane went to `out.csv` last time under the same email, so she wasn't delivered again; that's `idempotency: email`. It holds per delivery target, so the same person can still be added to a different campaign on purpose.
+    **Read the `score` row: `cached 3`, `avoided $0.0300`.** Each person already had a score in the [ledger](/concepts/ledger), inside its 30-day window, so the scorer didn't run. Then read the line under the table, `out: 1 already delivered`. Jane went to `out.csv` last time under the same email, so she wasn't delivered again; that's `idempotency: email`. It holds per delivery target, so the same person can still be added to a different campaign on purpose.
 
-The counter is real and the dollars are pretend. With your own rows and a real price behind a step, the `avoided` column is money you didn't spend.
+    The counter is real and the dollars are pretend. With your own rows and a real price behind a step, the `avoided` column is money you didn't spend.
 
 1. See what the ledger kept about Jane:
 
